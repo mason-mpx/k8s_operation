@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8soperation/internal/app/models"
 	"k8soperation/internal/app/requests"
+	"k8soperation/pkg/eventutil"
 	"k8soperation/pkg/utils"
 )
 
@@ -31,7 +32,7 @@ func listEventsCoreV1(ctx context.Context, Kube kubernetes.Interface, namespace 
 		items = append(items, BuildEventItemFromCoreV1(&ev))
 	}
 	// 应用时间过滤和排序，并返回处理后的items、继续令牌和nil错误
-	items = utils.ApplySinceAndSort(items, q.SinceSeconds)
+	items = eventutil.ApplySinceAndSort(items, q.SinceSeconds)
 
 	// 返回查询结果，包含三个元素：
 	// 1. items: 查询到的数据项列表

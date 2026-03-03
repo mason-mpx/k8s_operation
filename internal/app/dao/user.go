@@ -2,15 +2,23 @@ package dao
 
 import (
 	"k8soperation/internal/app/models"
+	"k8soperation/pkg/utils"
 	"time"
 )
 
+// UserCreate 创建用户（密码使用 bcrypt 加密存储）
 func (d *Dao) UserCreate(name, password string) error {
+	// 对密码进行 bcrypt 加密
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
 	// 获取当前时间戳并转换为uint32类型
-	nowTime := uint32(time.Now().Unix()) // 将当前时间的Unix时间戳转换为uint32类型并赋值给nowTime变量
+	nowTime := uint32(time.Now().Unix())
 	user := models.User{
 		Username: name,
-		Password: password,
+		Password: hashedPassword,
 		Base: &models.Base{
 			CreatedAt:  nowTime,
 			ModifiedAt: nowTime,
@@ -28,6 +36,7 @@ func (d *Dao) UserDelete(id uint32) error {
 	return user.Delete(d.db)
 }
 
+// UserUpdate 更新用户（密码使用 bcrypt 加密存储）
 func (d *Dao) UserUpdate(id uint32, name, password string) error {
 	nowTime := uint32(time.Now().Unix())
 	user := models.User{
@@ -38,9 +47,18 @@ func (d *Dao) UserUpdate(id uint32, name, password string) error {
 
 	values := map[string]interface{}{
 		"username":    name,
-		"password":    password,
 		"modified_at": nowTime,
 	}
+
+	// 如果提供了新密码，则加密存储
+	if password != "" {
+		hashedPassword, err := utils.HashPassword(password)
+		if err != nil {
+			return err
+		}
+		values["password"] = hashedPassword
+	}
+
 	return user.Update(d.db, values)
 }
 

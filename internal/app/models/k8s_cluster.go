@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8soperation/global"
+	"k8soperation/pkg/utils"
 )
 
 // ClusterStatus 集群状态定义
@@ -23,7 +24,7 @@ type K8sCluster struct {
 	ClusterName    string `gorm:"column:cluster_name" json:"cluster_name"`
 	ClusterVersion string `gorm:"column:cluster_version" json:"cluster_version"`
 
-	// DB 中存 base64，严禁直接对外返回
+	// DB 中存加密数据（ENC:前缀），严禁直接对外返回
 	KubeConfig string `gorm:"column:kube_config" json:"-"`
 
 	// 状态：0=OK，1=BAD，2=UNKNOWN（新建/未检查）
@@ -43,6 +44,69 @@ type K8sCluster struct {
 }
 
 func (k *K8sCluster) TableName() string { return "kube_cluster" }
+
+// ========== KubeConfig 加解密方法 ==========
+
+// SetKubeConfig 加密并设置 KubeConfig
+func (k *K8sCluster) SetKubeConfig(plaintext string) error {
+	if plaintext == "" {
+		k.KubeConfig = ""
+		return nil
+	}
+
+	encrypted, err := utils.GlobalEncryptKubeConfig(plaintext)
+	if err != nil {
+		global.Logger.Error("加密 KubeConfig 失败",
+			zap.Uint32("cluster_id", k.ID),
+			zap.Error(err),
+		)
+		return err
+	}
+	k.KubeConfig = encrypted
+	return nil
+}
+
+// GetKubeConfig 解密并获取 KubeConfig
+func (k *K8sCluster) GetKubeConfig() (string, error) {
+	if k.KubeConfig == "" {
+		return "", nil
+	}
+
+	decrypted, err := utils.GlobalDecryptKubeConfig(k.KubeConfig)
+	if err != nil {
+		global.Logger.Error("解密 KubeConfig 失败",
+			zap.Uint32("cluster_id", k.ID),
+			zap.Error(err),
+		)
+		return "", err
+	}
+	return decrypted, nil
+}
+
+// IsKubeConfigEncrypted 检查 KubeConfig 是否已加密
+func (k *K8sCluster) IsKubeConfigEncrypted() bool {
+	return utils.IsEncrypted(k.KubeConfig)
+}
+
+// EncryptKubeConfigIfNeeded 如果未加密则加密（用于迁移旧数据）
+func (k *K8sCluster) EncryptKubeConfigIfNeeded(db *gorm.DB) error {
+	if k.KubeConfig == "" || k.IsKubeConfigEncrypted() {
+		return nil // 已加密或为空，无需处理
+	}
+
+	// 当前数据是明文，需要加密
+	plaintext := k.KubeConfig
+	if err := k.SetKubeConfig(plaintext); err != nil {
+		return err
+	}
+
+	// 更新数据库
+	now := uint64(time.Now().Unix())
+	return db.Model(&K8sCluster{}).Where("id = ?", k.ID).Updates(map[string]interface{}{
+		"kube_config": k.KubeConfig,
+		"modified_at": now,
+	}).Error
+}
 
 // Create 新增
 func (k *K8sCluster) Create(db *gorm.DB) error {

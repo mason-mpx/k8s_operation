@@ -1,161 +1,197 @@
- <template>
-  <div class="resource-view">
+<template>
+  <div class="rbac-view">
     <!-- 页面头部 -->
-    <div class="view-header">
-      <h1>🔐 ServiceAccount 管理</h1>
-      <p>管理 Kubernetes 服务账户，用于 Pod 身份认证和权限控制</p>
-    </div>
-
-    <!-- 操作栏 -->
-    <div class="action-bar">
-      <div class="search-box">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="搜索 ServiceAccount 名称..."
-          @input="onSearchInput"
+    <div class="rbac-header">
+      <div class="rbac-header-left">
+        <div class="rbac-icon">🔐</div>
+        <div class="rbac-title-group">
+          <h1>ServiceAccount 管理</h1>
+          <p>管理 Kubernetes 服务账户，用于 Pod 身份认证和权限控制</p>
+        </div>
+      </div>
+      <div class="rbac-header-right">
+        <ClusterSelector
+          v-model="selectedClusterId"
+          :clusters="clusters"
+          :show-all-option="false"
+          label="集群"
+          @change="onClusterChange"
         />
       </div>
+    </div>
 
-      <div class="filter-dropdown">
-        <select v-model="namespaceFilter" @change="loadServiceAccounts">
-          <option value="">所有命名空间</option>
-          <option v-for="ns in namespaces" :key="ns" :value="ns">{{ ns }}</option>
-        </select>
+    <!-- 统计卡片 -->
+    <div class="rbac-stats">
+      <div class="stat-card primary">
+        <div class="stat-header">
+          <div class="stat-icon">👤</div>
+        </div>
+        <div class="stat-value">{{ serviceAccounts.length }}</div>
+        <div class="stat-label">ServiceAccount 总数</div>
       </div>
+      <div class="stat-card success">
+        <div class="stat-header">
+          <div class="stat-icon">🔑</div>
+        </div>
+        <div class="stat-value">{{ totalSecretsCount }}</div>
+        <div class="stat-label">关联 Secrets</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-header">
+          <div class="stat-icon">📁</div>
+        </div>
+        <div class="stat-value">{{ uniqueNamespaces }}</div>
+        <div class="stat-label">涉及命名空间</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-header">
+          <div class="stat-icon">🔄</div>
+        </div>
+        <div class="stat-value">{{ autoMountCount }}</div>
+        <div class="stat-label">自动挂载 Token</div>
+      </div>
+    </div>
 
-      <div class="action-buttons">
+    <!-- 工具栏 -->
+    <div class="rbac-toolbar">
+      <div class="toolbar-left">
+        <div class="rbac-search">
+          <span class="search-icon">🔍</span>
+          <input v-model="searchQuery" placeholder="搜索 ServiceAccount 名称..." @input="onSearchInput" />
+        </div>
+        <div class="rbac-filter">
+          <select v-model="namespaceFilter" @change="loadServiceAccounts">
+            <option value="">所有命名空间</option>
+            <option v-for="ns in namespaces" :key="ns" :value="ns">{{ ns }}</option>
+          </select>
+        </div>
         <label class="auto-refresh-toggle">
           <input type="checkbox" v-model="autoRefresh" />
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-
-        <button class="btn btn-primary" @click="showCreateModal = true">+ 创建 ServiceAccount</button>
-        <button class="btn btn-secondary" @click="loadServiceAccounts" :disabled="loading">
-          {{ loading ? '加载中...' : '🔄 刷新' }}
+      </div>
+      <div class="toolbar-right">
+        <button class="rbac-btn rbac-btn-secondary" @click="loadServiceAccounts" :disabled="loading">
+          {{ loading ? '⏳' : '🔄' }} 刷新
+        </button>
+        <button class="rbac-btn rbac-btn-primary" @click="showCreateModal = true">
+          + 创建 ServiceAccount
         </button>
       </div>
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading && serviceAccounts.length === 0" class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>加载中...</p>
+    <div v-if="loading && serviceAccounts.length === 0" class="rbac-loading">
+      <div class="rbac-spinner"></div>
+      <div class="rbac-loading-text">加载中...</div>
     </div>
 
-    <!-- 表格视图 -->
-    <div v-else class="table-container">
-      <table class="resource-table">
+    <!-- 表格 -->
+    <div v-else class="rbac-table-container">
+      <table class="rbac-table">
         <thead>
           <tr>
-            <th style="width: 200px;">名称</th>
-            <th style="width: 150px;">命名空间</th>
-            <th style="width: 100px;">Secrets</th>
-            <th style="width: 150px;">创建时间</th>
-            <th style="width: 260px;">操作</th>
+            <th>名称</th>
+            <th>命名空间</th>
+            <th>Secrets</th>
+            <th>自动挂载</th>
+            <th>创建时间</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="sa in filteredServiceAccounts" :key="`${sa.namespace}-${sa.name}`">
             <td>
               <div class="resource-name">
-                <span class="icon">👤</span>
-                <span>{{ sa.name }}</span>
+                <div class="icon">👤</div>
+                <div>
+                  <div class="name">{{ sa.name }}</div>
+                  <div class="meta">{{ sa.secrets?.length || 0 }} Secrets</div>
+                </div>
               </div>
             </td>
             <td>
               <span class="namespace-tag">{{ sa.namespace }}</span>
             </td>
-            <td>{{ sa.secrets?.length || 0 }}</td>
+            <td>
+              <span class="rbac-tag rbac-tag-info">{{ sa.secrets?.length || 0 }}</span>
+            </td>
+            <td>
+              <span class="rbac-tag" :class="sa.automount_token ? 'rbac-tag-success' : 'rbac-tag-default'">
+                {{ sa.automount_token ? '是' : '否' }}
+              </span>
+            </td>
             <td>{{ formatDate(sa.created_at) }}</td>
-            <td class="actions">
-              <button class="btn btn-sm btn-info" @click="viewDetails(sa)" title="查看详情">
-                👁️ 详情
-              </button>
-              <button class="btn btn-sm btn-success" @click="viewBindings(sa)" title="查看绑定">
-                🔗 绑定
-              </button>
-              <button class="btn btn-sm btn-warning" @click="editServiceAccount(sa)" title="编辑">
-                ✏️ 编辑
-              </button>
-              <button class="btn btn-sm btn-danger" @click="deleteServiceAccount(sa)" title="删除">
-                🗑️ 删除
-              </button>
+            <td>
+              <div class="rbac-actions">
+                <button class="rbac-action-btn view" @click="viewDetails(sa)" title="查看详情">👁️</button>
+                <button class="rbac-action-btn" @click="viewBindings(sa)" title="查看绑定">🔗</button>
+                <button class="rbac-action-btn edit" @click="editServiceAccount(sa)" title="编辑">✏️</button>
+                <button class="rbac-action-btn delete" @click="deleteServiceAccount(sa)" title="删除">🗑️</button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div v-if="filteredServiceAccounts.length === 0" class="empty-state">
-        <div class="empty-icon">📦</div>
-        <div class="empty-text">
-          {{ searchQuery ? '没有匹配的 ServiceAccount' : '暂无 ServiceAccount，请先创建' }}
-        </div>
+      <!-- 空状态 -->
+      <div v-if="filteredServiceAccounts.length === 0" class="rbac-empty">
+        <div class="rbac-empty-icon">👤</div>
+        <div class="rbac-empty-title">暂无 ServiceAccount</div>
+        <div class="rbac-empty-desc">{{ searchQuery ? '没有匹配的结果' : '点击上方按钮创建' }}</div>
+        <button v-if="!searchQuery" class="rbac-btn rbac-btn-primary" @click="showCreateModal = true">
+          + 创建 ServiceAccount
+        </button>
       </div>
     </div>
 
     <!-- 创建 ServiceAccount 模态框 -->
-    <div v-if="showCreateModal" class="modal" @click.self="closeCreateModal">
-      <div class="modal-content modal-large">
-        <div class="modal-header">
+    <div v-if="showCreateModal" class="rbac-modal" @click.self="closeCreateModal">
+      <div class="rbac-modal-content">
+        <div class="rbac-modal-header">
           <h2>创建 ServiceAccount</h2>
-          <button class="close-btn" @click="closeCreateModal">&times;</button>
+          <button class="rbac-modal-close" @click="closeCreateModal">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="rbac-modal-body">
           <form @submit.prevent="createServiceAccount">
-            <div class="form-group">
+            <div class="rbac-form-group">
               <label>名称 *</label>
-              <input v-model="saForm.name" type="text" placeholder="例如：my-service-account" required />
+              <input v-model="saForm.name" placeholder="例如：my-service-account" required />
             </div>
-
-            <div class="form-group">
+            <div class="rbac-form-group">
               <label>命名空间 *</label>
               <select v-model="saForm.namespace" required>
                 <option value="">请选择命名空间</option>
                 <option v-for="ns in namespaces" :key="ns" :value="ns">{{ ns }}</option>
               </select>
             </div>
-
-            <div class="form-group">
-              <label>标签（可选）</label>
-              <div class="label-input-group">
-                <div v-for="(label, index) in saForm.labels" :key="index" class="label-row">
-                  <input v-model="label.key" type="text" placeholder="键" />
-                  <input v-model="label.value" type="text" placeholder="值" />
-                  <button type="button" class="btn btn-sm btn-danger" @click="removeLabel(index)">-</button>
-                </div>
-                <button type="button" class="btn btn-sm btn-secondary" @click="addLabel">+ 添加标签</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>
+            <div class="rbac-form-group">
+              <label class="checkbox-label">
                 <input type="checkbox" v-model="saForm.autoMountToken" />
-                自动挂载 ServiceAccount Token
+                <span>自动挂载 ServiceAccount Token</span>
               </label>
-              <p class="help-text">选中后，使用此 ServiceAccount 的 Pod 会自动挂载 Token</p>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" :disabled="loading">
-                {{ loading ? '创建中...' : '创建' }}
-              </button>
-              <button type="button" class="btn btn-secondary" @click="closeCreateModal">取消</button>
+              <span class="help-text">选中后，使用此 ServiceAccount 的 Pod 会自动挂载 Token</span>
             </div>
           </form>
+        </div>
+        <div class="rbac-modal-footer">
+          <button class="rbac-btn rbac-btn-secondary" @click="closeCreateModal">取消</button>
+          <button class="rbac-btn rbac-btn-primary" @click="createServiceAccount" :disabled="loading">
+            {{ loading ? '创建中...' : '创建' }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 详情模态框 -->
-    <div v-if="showDetailsModal" class="modal" @click.self="closeDetailsModal">
-      <div class="modal-content modal-large">
-        <div class="modal-header">
+    <div v-if="showDetailsModal" class="rbac-modal" @click.self="closeDetailsModal">
+      <div class="rbac-modal-content large">
+        <div class="rbac-modal-header">
           <h2>ServiceAccount 详情</h2>
-          <button class="close-btn" @click="closeDetailsModal">&times;</button>
+          <button class="rbac-modal-close" @click="closeDetailsModal">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="rbac-modal-body">
           <div class="detail-section">
             <h3>基本信息</h3>
             <div class="detail-grid">
@@ -165,7 +201,7 @@
               </div>
               <div class="detail-item">
                 <label>命名空间</label>
-                <span>{{ currentSA?.namespace }}</span>
+                <span class="namespace-tag">{{ currentSA?.namespace }}</span>
               </div>
               <div class="detail-item">
                 <label>创建时间</label>
@@ -173,43 +209,22 @@
               </div>
               <div class="detail-item">
                 <label>自动挂载 Token</label>
-                <span>{{ currentSA?.automount_token ? '是' : '否' }}</span>
+                <span class="rbac-tag" :class="currentSA?.automount_token ? 'rbac-tag-success' : 'rbac-tag-default'">
+                  {{ currentSA?.automount_token ? '是' : '否' }}
+                </span>
               </div>
             </div>
           </div>
 
           <div class="detail-section">
             <h3>关联的 Secrets ({{ currentSA?.secrets?.length || 0 }})</h3>
-            <table class="detail-table">
-              <thead>
-                <tr>
-                  <th>Secret 名称</th>
-                  <th>类型</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="secret in currentSA?.secrets" :key="secret.name">
-                  <td>{{ secret.name }}</td>
-                  <td>{{ secret.type }}</td>
-                  <td>
-                    <button class="btn btn-sm btn-info" @click="viewSecret(secret)">查看</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="detail-section">
-            <h3>标签</h3>
-            <div class="labels-display">
-              <span v-for="(value, key) in currentSA?.labels" :key="key" class="label-tag">
-                {{ key }}={{ value }}
-              </span>
-              <span v-if="!currentSA?.labels || Object.keys(currentSA.labels).length === 0" class="empty-hint">
-                无标签
-              </span>
+            <div v-if="currentSA?.secrets?.length" class="secrets-list">
+              <div v-for="secret in currentSA.secrets" :key="secret.name" class="secret-item">
+                <span class="secret-icon">🔑</span>
+                <span class="secret-name">{{ secret.name }}</span>
+              </div>
             </div>
+            <div v-else class="empty-secrets">暂无关联的 Secrets</div>
           </div>
         </div>
       </div>
@@ -218,20 +233,83 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
-
-// API 导入（待创建）
-// import serviceAccountApi from '@/api/cluster/rbac/serviceaccount'
-// import namespaceApi from '@/api/cluster/config/namespace'
+import ClusterSelector from '@/components/cluster/ClusterSelector.vue'
+import { listServiceAccounts, createServiceAccount as createSAApi, deleteServiceAccount as deleteSAApi } from '@/api/k8sRbac'
+import { getClusterList } from '@/api/cluster'
+import { getNamespaces } from '@/api/namespace'
 
 // 数据状态
 const loading = ref(false)
 const searchQuery = ref('')
 const namespaceFilter = ref('')
-const autoRefresh = ref(false)
 const serviceAccounts = ref([])
-const namespaces = ref(['default', 'kube-system', 'kube-public', 'kube-node-lease'])
+const namespaces = ref([])
+const autoRefresh = ref(false)
+let refreshTimer = null
+
+// 集群选择
+const clusters = ref([])
+const selectedClusterId = ref('')
+
+// 统计数据
+const totalSecretsCount = computed(() => serviceAccounts.value.reduce((sum, sa) => sum + (sa.secrets?.length || 0), 0))
+const uniqueNamespaces = computed(() => new Set(serviceAccounts.value.map(sa => sa.namespace)).size)
+const autoMountCount = computed(() => serviceAccounts.value.filter(sa => sa.automount_token).length)
+
+// 监听集群变化
+const onClusterChange = (clusterId) => {
+  if (clusterId) {
+    loadNamespaces()
+    loadServiceAccounts()
+  }
+}
+
+watch(selectedClusterId, (val) => {
+  if (val) {
+    loadNamespaces()
+    loadServiceAccounts()
+  }
+})
+
+// 自动刷新
+watch(autoRefresh, (val) => {
+  if (val) {
+    refreshTimer = setInterval(loadServiceAccounts, 30000)
+  } else if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+})
+
+// 加载集群列表
+const loadClusters = async () => {
+  try {
+    const res = await getClusterList({ page: 1, limit: 100 })
+    if (res.code === 0 && res.data?.list) {
+      clusters.value = res.data.list.map(c => ({ ...c, name: c.cluster_name || c.name }))
+      if (clusters.value.length > 0 && !selectedClusterId.value) {
+        selectedClusterId.value = clusters.value[0].id
+      }
+    }
+  } catch (error) {
+    console.error('加载集群列表失败:', error)
+  }
+}
+
+// 加载命名空间列表
+const loadNamespaces = async () => {
+  if (!selectedClusterId.value) return
+  try {
+    const res = await getNamespaces(selectedClusterId.value)
+    if (res.code === 0 && res.data?.list) {
+      namespaces.value = res.data.list.map(ns => ns.name || ns)
+    }
+  } catch (error) {
+    namespaces.value = ['default', 'kube-system', 'kube-public']
+  }
+}
 
 // 模态框状态
 const showCreateModal = ref(false)
@@ -239,61 +317,30 @@ const showDetailsModal = ref(false)
 const currentSA = ref(null)
 
 // 表单数据
-const saForm = ref({
-  name: '',
-  namespace: 'default',
-  labels: [],
-  autoMountToken: true
-})
+const saForm = ref({ name: '', namespace: '', autoMountToken: true })
 
-// 过滤后的数据
+// 过滤后的 ServiceAccount
 const filteredServiceAccounts = computed(() => {
   let result = serviceAccounts.value
-
-  // 命名空间过滤
-  if (namespaceFilter.value) {
-    result = result.filter(sa => sa.namespace === namespaceFilter.value)
-  }
-
-  // 搜索过滤
+  if (namespaceFilter.value) result = result.filter(sa => sa.namespace === namespaceFilter.value)
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(sa => sa.name.toLowerCase().includes(query))
   }
-
   return result
 })
 
-// 加载 ServiceAccounts
+// 加载 ServiceAccount
 const loadServiceAccounts = async () => {
+  if (!selectedClusterId.value) return
   loading.value = true
   try {
-    // TODO: 调用真实 API
-    // const res = await serviceAccountApi.list({ namespace: namespaceFilter.value })
-    // serviceAccounts.value = res.data?.list || []
-
-    // 模拟数据
-    serviceAccounts.value = [
-      {
-        name: 'default',
-        namespace: 'default',
-        secrets: [{ name: 'default-token-xxxxx', type: 'kubernetes.io/service-account-token' }],
-        automount_token: true,
-        created_at: '2024-01-15T10:30:00Z',
-        labels: { 'app': 'system' }
-      },
-      {
-        name: 'admin-sa',
-        namespace: 'kube-system',
-        secrets: [{ name: 'admin-token-yyyyy', type: 'kubernetes.io/service-account-token' }],
-        automount_token: true,
-        created_at: '2024-02-01T14:20:00Z',
-        labels: { 'role': 'admin' }
-      }
-    ]
+    const res = await listServiceAccounts(selectedClusterId.value, namespaceFilter.value)
+    serviceAccounts.value = res.code === 0 && res.data?.list ? res.data.list : []
   } catch (error) {
     console.error('加载 ServiceAccount 失败:', error)
-    Message.error({ content: '加载失败' })
+    Message.error({ content: '加载失败: ' + (error.msg || error.message || '网络错误') })
+    serviceAccounts.value = []
   } finally {
     loading.value = false
   }
@@ -301,16 +348,19 @@ const loadServiceAccounts = async () => {
 
 // 创建 ServiceAccount
 const createServiceAccount = async () => {
+  if (!selectedClusterId.value) return
   loading.value = true
   try {
-    // TODO: 调用真实 API
-    // await serviceAccountApi.create(saForm.value)
+    await createSAApi(selectedClusterId.value, {
+      name: saForm.value.name,
+      namespace: saForm.value.namespace,
+      automount_token: saForm.value.autoMountToken
+    })
     Message.success({ content: '创建成功' })
     closeCreateModal()
     await loadServiceAccounts()
   } catch (error) {
-    console.error('创建失败:', error)
-    Message.error({ content: '创建失败' })
+    Message.error({ content: '创建失败: ' + (error.msg || error.message) })
   } finally {
     loading.value = false
   }
@@ -319,101 +369,78 @@ const createServiceAccount = async () => {
 // 删除 ServiceAccount
 const deleteServiceAccount = async (sa) => {
   if (!confirm(`确认删除 ServiceAccount "${sa.name}"？`)) return
-
   loading.value = true
   try {
-    // TODO: 调用真实 API
-    // await serviceAccountApi.delete(sa.namespace, sa.name)
+    await deleteSAApi(selectedClusterId.value, sa.namespace, sa.name)
     Message.success({ content: '删除成功' })
     await loadServiceAccounts()
   } catch (error) {
-    console.error('删除失败:', error)
-    Message.error({ content: '删除失败' })
+    Message.error({ content: '删除失败: ' + (error.msg || error.message) })
   } finally {
     loading.value = false
   }
 }
 
 // 查看详情
-const viewDetails = (sa) => {
-  currentSA.value = sa
-  showDetailsModal.value = true
-}
+const viewDetails = (sa) => { currentSA.value = sa; showDetailsModal.value = true }
+const viewBindings = (sa) => { Message.info({ content: `查看 ${sa.name} 的绑定（功能开发中）` }) }
+const editServiceAccount = (sa) => { Message.info({ content: `编辑 ${sa.name}（功能开发中）` }) }
+const onSearchInput = () => {}
 
-// 查看绑定
-const viewBindings = (sa) => {
-  Message.info({ content: `查看 ${sa.name} 的角色绑定（功能开发中）` })
-}
-
-// 编辑
-const editServiceAccount = (sa) => {
-  Message.info({ content: `编辑 ${sa.name}（功能开发中）` })
-}
-
-// 标签管理
-const addLabel = () => {
-  saForm.value.labels.push({ key: '', value: '' })
-}
-
-const removeLabel = (index) => {
-  saForm.value.labels.splice(index, 1)
-}
-
-// 关闭模态框
 const closeCreateModal = () => {
   showCreateModal.value = false
-  saForm.value = {
-    name: '',
-    namespace: 'default',
-    labels: [],
-    autoMountToken: true
-  }
+  saForm.value = { name: '', namespace: '', autoMountToken: true }
 }
+const closeDetailsModal = () => { showDetailsModal.value = false; currentSA.value = null }
+const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleString('zh-CN') : '-'
 
-const closeDetailsModal = () => {
-  showDetailsModal.value = false
-  currentSA.value = null
-}
-
-// 搜索输入防抖
-let searchTimeout = null
-const onSearchInput = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    // 触发搜索
-  }, 300)
-}
-
-// 格式化日期
-const formatDate = (dateStr) => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN')
-}
-
-// 自动刷新
-let refreshInterval = null
-onMounted(() => {
-  loadServiceAccounts()
-})
-
-onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval)
-})
+onMounted(() => { loadClusters() })
+onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 </script>
 
 <style scoped>
-@import '@/styles/resource-common.css';
+@import '@/assets/styles/rbac-common.css';
 
+/* 自动刷新切换 */
+.auto-refresh-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #d1d5db;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.auto-refresh-toggle input {
+  accent-color: #6366f1;
+}
+
+.refresh-indicator {
+  color: #10b981;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* 详情区块 */
 .detail-section {
   margin-bottom: 24px;
 }
 
 .detail-section h3 {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
-  color: #333;
+  color: #e5e7eb;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .detail-grid {
@@ -425,82 +452,73 @@ onUnmounted(() => {
 .detail-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .detail-item label {
-  font-size: 12px;
-  color: #666;
+  font-size: 11px;
   font-weight: 500;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .detail-item span {
   font-size: 14px;
-  color: #333;
+  color: #f3f4f6;
 }
 
-.detail-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.detail-table th,
-.detail-table td {
-  padding: 8px 12px;
-  border: 1px solid #e0e0e0;
-  text-align: left;
-}
-
-.detail-table th {
-  background-color: #f5f5f5;
-  font-weight: 600;
-}
-
-.labels-display {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.label-tag {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.label-input-group {
+/* Secrets 列表 */
+.secrets-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.label-row {
+.secret-item {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
 }
 
-.label-row input {
-  flex: 1;
+.secret-icon {
+  font-size: 16px;
 }
 
-.namespace-tag {
-  background-color: #f0f0f0;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+.secret-name {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+  color: #a5b4fc;
+}
+
+.empty-secrets {
+  padding: 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* 复选框标签 */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #e5e7eb;
+  font-size: 14px;
+}
+
+.checkbox-label input {
+  accent-color: #6366f1;
 }
 
 .help-text {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-}
-
-.empty-hint {
-  color: #999;
-  font-style: italic;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 6px;
 }
 </style>

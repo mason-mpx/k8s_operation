@@ -154,9 +154,10 @@ const menuGroups = ref([
     icon: '🛡️',
     count: 2,
     collapsed: true,
-    match: ['/users', '/security'],
+    match: ['/users', '/security', '/rbac'],
     items: [
       { path: '/users', label: '用户列表' },
+      { path: '/rbac', label: '权限管理' },
       { path: '/security/audit', label: '审计日志' },
       { path: '/security/rbac/serviceaccounts', label: 'ServiceAccount 管理' },
       { path: '/security/rbac/roles', label: 'Role 管理' },
@@ -179,11 +180,13 @@ const menuGroups = ref([
   {
     name: '镜像与环境',
     icon: '📦',
-    count: 2,
+    count: 4,
     collapsed: true,
     match: ['/images', '/environments'],
     items: [
       { path: '/images/repositories', label: '镜像仓库管理' },
+      { path: '/images/browse', label: '镜像浏览' },
+      { path: '/images/cleanup', label: '清理策略' },
       { path: '/environments', label: 'K8s环境管理' },
     ],
   },

@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"k8soperation/internal/app/requests"
 	"k8soperation/internal/app/services"
 )
+
+var ErrNoClusterConfig = errors.New("生产环境禁止空启动：无法加载 K8s 集群配置，请检查数据库或 kubeconfig 文件")
 
 // SetupK8sBootstrap 初始化 K8s 集群连接
 // 优化逻辑：
@@ -45,7 +48,15 @@ func SetupK8sBootstrap() error {
 
 	kubeConfigContent, readErr := os.ReadFile(localKubeConfig)
 	if readErr != nil {
-		// 本地文件也不存在，允许空启动
+		// 本地文件也不存在
+		if !global.AppSetting.AllowEmptyStart {
+			// 生产环境不允许空启动，返回错误
+			global.Logger.Error("生产环境禁止空启动",
+				zap.String("path", localKubeConfig),
+				zap.Error(readErr))
+			return ErrNoClusterConfig
+		}
+		// 开发环境允许空启动
 		global.Logger.Warn("本地 kubeconfig 文件不存在，允许空启动（请通过界面添加集群）",
 			zap.String("path", localKubeConfig),
 			zap.Error(readErr))
@@ -55,6 +66,11 @@ func SetupK8sBootstrap() error {
 
 	kubeConfigStr := strings.TrimSpace(string(kubeConfigContent))
 	if kubeConfigStr == "" {
+		if !global.AppSetting.AllowEmptyStart {
+			global.Logger.Error("生产环境禁止空启动：kubeconfig 文件为空",
+				zap.String("path", localKubeConfig))
+			return ErrNoClusterConfig
+		}
 		global.Logger.Warn("本地 kubeconfig 文件为空，允许空启动（请通过界面添加集群）",
 			zap.String("path", localKubeConfig))
 		printEmptyStartWarning()
@@ -77,6 +93,11 @@ func SetupK8sBootstrap() error {
 		// 直接从本地配置构建 client
 		cli, buildErr := services.BuildClientsFromKubeconfig(kubeConfigStr)
 		if buildErr != nil {
+			if !global.AppSetting.AllowEmptyStart {
+				global.Logger.Error("生产环境禁止空启动：本地 kubeconfig 无法初始化",
+					zap.Error(buildErr))
+				return ErrNoClusterConfig
+			}
 			global.Logger.Warn("本地 kubeconfig 无法初始化，允许空启动",
 				zap.Error(buildErr))
 			printEmptyStartWarning()
@@ -94,6 +115,10 @@ func SetupK8sBootstrap() error {
 		ID: 1, // 新创建的记录 ID 通常为 1
 	})
 	if initErr != nil {
+		if !global.AppSetting.AllowEmptyStart {
+			global.Logger.Error("生产环境禁止空启动：入库后初始化失败", zap.Error(initErr))
+			return ErrNoClusterConfig
+		}
 		global.Logger.Warn("入库后初始化失败，允许空启动", zap.Error(initErr))
 		printEmptyStartWarning()
 		return nil

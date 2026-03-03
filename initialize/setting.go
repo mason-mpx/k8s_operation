@@ -6,6 +6,7 @@ import (
 	"k8soperation/global"
 	"k8soperation/internal/errorcode"
 	"k8soperation/pkg/setting"
+	"k8soperation/pkg/utils"
 )
 
 // SetupSetting 初始化全局配置
@@ -112,6 +113,27 @@ func SetupSetting() error {
 				log.Println("[Jenkins] 凭据不完整，请配置 Username 和 APIToken")
 			}
 		}
+	}
+
+	// 读取 Security 配置
+	// 对应 config.yaml 中的：
+	// Security:
+	if err = s.ReadSection("Security", &global.SecuritySetting); err != nil {
+		// 安全配置可选，使用默认值
+		log.Println("[Security] 配置块未找到，使用默认安全配置")
+		global.SecuritySetting = &setting.SecuritySettingS{
+			KubeConfigEncryptKey:  "k8s-operation-default-secret-key",
+			PasswordBcryptCost:    10,
+			AutoEncryptLegacyData: false,
+		}
+	}
+
+	// 初始化全局加密服务
+	if global.SecuritySetting != nil && global.SecuritySetting.KubeConfigEncryptKey != "" {
+		utils.InitGlobalCrypto(global.SecuritySetting.KubeConfigEncryptKey)
+		log.Println("[Security] 全局加密服务初始化成功")
+	} else {
+		log.Println("[Security] 警告: 加密密钥未配置，数据将不加密存储")
 	}
 
 	// 将 ErrorCode 配置注入 errorcode 包

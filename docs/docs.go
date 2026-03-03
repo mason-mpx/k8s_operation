@@ -268,6 +268,773 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/image/browse/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除指定镜像的标签",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像浏览"
+                ],
+                "summary": "删除镜像标签",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "registry_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "镜像名称",
+                        "name": "repository",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签",
+                        "name": "tag",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/browse/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定镜像标签的详细信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像浏览"
+                ],
+                "summary": "获取镜像详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "registry_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "镜像名称",
+                        "name": "repository",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签",
+                        "name": "tag",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/browse/repositories": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定镜像仓库中的所有镜像项目/命名空间",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像浏览"
+                ],
+                "summary": "列出仓库中的镜像项目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "registry_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/browse/tags": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定镜像的所有标签/版本",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像浏览"
+                ],
+                "summary": "列出镜像的所有标签",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "registry_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "镜像名称",
+                        "name": "repository",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/create": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建新的镜像清理策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "创建清理策略",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.CleanupPolicyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除镜像清理策略",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "删除清理策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/list": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "分页获取清理策略列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "获取清理策略列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID（可选）",
+                        "name": "registry_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/logs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取清理任务执行日志",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "获取清理日志",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID（可选）",
+                        "name": "policy_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "返回数量（默认20）",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/run": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "手动触发一次清理任务",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "手动执行清理策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/toggle": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "切换清理策略的启用状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "启用/禁用清理策略",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "策略ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否启用",
+                        "name": "enabled",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/cleanup/update": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新镜像清理策略",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像清理"
+                ],
+                "summary": "更新清理策略",
+                "parameters": [
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.CleanupPolicyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/all": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取所有镜像仓库（不分页，用于下拉选择）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "获取所有镜像仓库",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/check": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "检测镜像仓库连接状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "检测仓库连接",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/create": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建新的镜像仓库",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "创建镜像仓库",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.RegistryCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/default": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "设置默认镜像仓库",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "设置默认仓库",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除镜像仓库",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "删除镜像仓库",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "根据ID获取镜像仓库详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "获取镜像仓库详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "仓库ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/list": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "分页获取镜像仓库列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "获取镜像仓库列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "仓库类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/stats": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取镜像仓库统计信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "获取仓库统计",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/image/registry/update": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新镜像仓库信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "镜像管理"
+                ],
+                "summary": "更新镜像仓库",
+                "parameters": [
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.RegistryUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/appconfig/create": {
             "post": {
                 "consumes": [
@@ -8291,6 +9058,468 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/rbac/check": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "检查用户或 ServiceAccount 对指定资源的访问权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "检查主体权限",
+                "parameters": [
+                    {
+                        "description": "检查参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/check/batch": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "批量检查用户或 ServiceAccount 对多个资源的访问权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "批量检查主体权限",
+                "parameters": [
+                    {
+                        "description": "检查参数数组",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/role": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建 K8s Role 或 ClusterRole",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "创建 Role",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除 K8s Role 或 ClusterRole",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "删除 Role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型（Role/ClusterRole）",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "命名空间（Role 必填）",
+                        "name": "namespace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/rolebinding": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建 K8s RoleBinding 或 ClusterRoleBinding",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "创建 RoleBinding",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除 K8s RoleBinding 或 ClusterRoleBinding",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "删除 RoleBinding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型（RoleBinding/ClusterRoleBinding）",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "命名空间（RoleBinding 必填）",
+                        "name": "namespace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/rolebindings": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取 K8s RoleBinding 和 ClusterRoleBinding 列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "获取 RoleBinding 列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间（空表示所有）",
+                        "name": "namespace",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/roles": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取 K8s Role 和 ClusterRole 列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "获取 Role 列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间（空表示所有）",
+                        "name": "namespace",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/serviceaccount": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定 ServiceAccount 详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "获取 ServiceAccount 详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建 K8s ServiceAccount",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "创建 ServiceAccount",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除 K8s ServiceAccount",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "删除 ServiceAccount",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/serviceaccounts": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取 K8s ServiceAccount 列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "获取 ServiceAccount 列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间（空表示所有）",
+                        "name": "namespace",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/secret/apply-yaml": {
             "put": {
                 "consumes": [
@@ -10364,6 +11593,739 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/platform/health": {
+            "get": {
+                "description": "获取平台、集群、告警、任务队列和组件的完整健康状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Platform"
+                ],
+                "summary": "获取平台健康状态",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.FullPlatformHealth"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/health/component/{component}": {
+            "get": {
+                "description": "检查指定组件的健康状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Platform"
+                ],
+                "summary": "检查单个组件",
+                "parameters": [
+                    {
+                        "enum": [
+                            "database",
+                            "redis",
+                            "kubernetes"
+                        ],
+                        "type": "string",
+                        "description": "组件名称",
+                        "name": "component",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.ComponentStatus"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/health/ping": {
+            "get": {
+                "description": "简单的存活检查接口",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Platform"
+                ],
+                "summary": "存活检查",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/check": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "检查用户是否有指定集群的操作权限",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "检查权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "集群ID",
+                        "name": "cluster_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作类型(view/create/update/delete/exec)",
+                        "name": "action",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/cluster-permission/batch": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为用户批量分配多个集群的权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "批量分配集群权限",
+                "parameters": [
+                    {
+                        "description": "权限信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.BatchClusterPermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/cluster-permission/create": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为用户创建集群访问权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "创建集群权限",
+                "parameters": [
+                    {
+                        "description": "权限信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.ClusterPermissionCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/cluster-permission/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除用户的集群访问权限",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "删除集群权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "权限ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/cluster-permission/list": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取集群权限列表（支持按用户或集群筛选）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取集群权限列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "集群ID",
+                        "name": "cluster_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/cluster-permission/update": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新用户的集群访问权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "更新集群权限",
+                "parameters": [
+                    {
+                        "description": "权限信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.ClusterPermissionUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/permission/list": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取所有权限定义",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取权限列表",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/all": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取所有角色（不分页，用于下拉选择）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取所有角色",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/create": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建新角色",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "创建角色",
+                "parameters": [
+                    {
+                        "description": "角色信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.RoleCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/delete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除角色（系统内置角色不可删除）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "删除角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取角色详情（包含权限列表）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取角色详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/list": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取角色列表（分页）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取角色列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色名称",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "角色类型",
+                        "name": "role_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/update": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新角色信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "更新角色",
+                "parameters": [
+                    {
+                        "description": "角色信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.RoleUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/user-role/assign": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为用户分配角色（覆盖原有角色）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "分配用户角色",
+                "parameters": [
+                    {
+                        "description": "分配信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.UserRoleAssignRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/user-role/list": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取用户的角色列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取用户角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/user/clusters": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取当前用户可访问的集群列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取用户可访问的集群",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/user/info": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取用户完整的RBAC信息（角色+集群权限）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取用户RBAC信息",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/user/create": {
             "post": {
                 "description": "创建用户",
@@ -10658,6 +12620,38 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.BatchClusterPermissionRequest": {
+            "type": "object",
+            "properties": {
+                "can_create": {
+                    "type": "boolean"
+                },
+                "can_delete": {
+                    "type": "boolean"
+                },
+                "can_exec": {
+                    "type": "boolean"
+                },
+                "can_update": {
+                    "type": "boolean"
+                },
+                "can_view": {
+                    "type": "boolean"
+                },
+                "cluster_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "role_type": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "requests.CicdBuildCallbackRequest": {
             "type": "object",
             "properties": {
@@ -10740,6 +12734,81 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "integer"
+                }
+            }
+        },
+        "requests.ClusterPermissionCreateRequest": {
+            "type": "object",
+            "properties": {
+                "can_create": {
+                    "type": "boolean"
+                },
+                "can_delete": {
+                    "type": "boolean"
+                },
+                "can_exec": {
+                    "type": "boolean"
+                },
+                "can_update": {
+                    "type": "boolean"
+                },
+                "can_view": {
+                    "type": "boolean"
+                },
+                "cluster_id": {
+                    "type": "integer"
+                },
+                "expire_at": {
+                    "description": "过期时间，0=永不过期",
+                    "type": "integer"
+                },
+                "namespaces": {
+                    "description": "可访问的命名空间（空=全部）",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "role_type": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "requests.ClusterPermissionUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "can_create": {
+                    "type": "boolean"
+                },
+                "can_delete": {
+                    "type": "boolean"
+                },
+                "can_exec": {
+                    "type": "boolean"
+                },
+                "can_update": {
+                    "type": "boolean"
+                },
+                "can_view": {
+                    "type": "boolean"
+                },
+                "expire_at": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "namespaces": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "role_type": {
+                    "type": "string"
                 }
             }
         },
@@ -12535,6 +14604,52 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.RoleCreateRequest": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "requests.RoleUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "type": "integer"
+                }
+            }
+        },
         "requests.SSHAuthFields": {
             "type": "object",
             "properties": {
@@ -12690,6 +14805,20 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.UserRoleAssignRequest": {
+            "type": "object",
+            "properties": {
+                "role_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "requests.UserUpdateRequest": {
             "type": "object",
             "properties": {
@@ -12755,6 +14884,520 @@ const docTemplate = `{
         },
         "response.Response": {
             "type": "object"
+        },
+        "services.AlertSummary": {
+            "type": "object",
+            "properties": {
+                "acknowledged": {
+                    "description": "已确认",
+                    "type": "integer"
+                },
+                "critical": {
+                    "description": "严重告警",
+                    "type": "integer"
+                },
+                "info": {
+                    "description": "信息",
+                    "type": "integer"
+                },
+                "total_24h": {
+                    "description": "24小时告警数",
+                    "type": "integer"
+                },
+                "warning": {
+                    "description": "警告",
+                    "type": "integer"
+                }
+            }
+        },
+        "services.CleanupPolicyRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "registry_id"
+            ],
+            "properties": {
+                "cron_expression": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "keep_days": {
+                    "type": "integer"
+                },
+                "keep_last_count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "registry_id": {
+                    "type": "integer"
+                },
+                "repository_pattern": {
+                    "type": "string"
+                },
+                "tag_pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ClusterDetail": {
+            "type": "object",
+            "properties": {
+                "connectable": {
+                    "description": "是否可连接",
+                    "type": "boolean"
+                },
+                "events": {
+                    "$ref": "#/definitions/services.EventSummary"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "latency": {
+                    "description": "连接延迟",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "$ref": "#/definitions/services.NodeSummary"
+                },
+                "services": {
+                    "$ref": "#/definitions/services.ServiceSummary"
+                },
+                "status": {
+                    "description": "online / offline / error",
+                    "type": "string"
+                },
+                "status_code": {
+                    "description": "0=在线 2=异常",
+                    "type": "integer"
+                },
+                "workloads": {
+                    "$ref": "#/definitions/services.WorkloadSummary"
+                }
+            }
+        },
+        "services.ClusterHealthSummary": {
+            "type": "object",
+            "properties": {
+                "abnormal": {
+                    "description": "异常数",
+                    "type": "integer"
+                },
+                "offline": {
+                    "description": "离线数",
+                    "type": "integer"
+                },
+                "online": {
+                    "description": "在线数",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "总集群数",
+                    "type": "integer"
+                }
+            }
+        },
+        "services.ComponentStatus": {
+            "type": "object",
+            "properties": {
+                "checked_at": {
+                    "type": "string"
+                },
+                "cpu": {
+                    "type": "number"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "latency": {
+                    "type": "string"
+                },
+                "memory": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "ok / warning / error",
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.EventSummary": {
+            "type": "object",
+            "properties": {
+                "last_hour": {
+                    "description": "最近一小时",
+                    "type": "integer"
+                },
+                "normal": {
+                    "description": "正常事件",
+                    "type": "integer"
+                },
+                "today": {
+                    "description": "今日事件",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "总事件数",
+                    "type": "integer"
+                },
+                "warning": {
+                    "description": "警告事件",
+                    "type": "integer"
+                }
+            }
+        },
+        "services.FullPlatformHealth": {
+            "type": "object",
+            "properties": {
+                "alerts": {
+                    "$ref": "#/definitions/services.AlertSummary"
+                },
+                "cluster_details": {
+                    "description": "每个集群的详情",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.ClusterDetail"
+                    }
+                },
+                "clusters": {
+                    "$ref": "#/definitions/services.ClusterHealthSummary"
+                },
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.ComponentStatus"
+                    }
+                },
+                "events": {
+                    "description": "汇总",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.EventSummary"
+                        }
+                    ]
+                },
+                "nodes": {
+                    "description": "汇总",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.NodeSummary"
+                        }
+                    ]
+                },
+                "platform": {
+                    "$ref": "#/definitions/services.PlatformHealthStatus"
+                },
+                "refreshed_at": {
+                    "type": "string"
+                },
+                "services": {
+                    "description": "汇总",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.ServiceSummary"
+                        }
+                    ]
+                },
+                "task_queue": {
+                    "$ref": "#/definitions/services.TaskQueueStatus"
+                },
+                "workloads": {
+                    "description": "汇总",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/services.WorkloadSummary"
+                        }
+                    ]
+                }
+            }
+        },
+        "services.NodeSummary": {
+            "type": "object",
+            "properties": {
+                "cpu_usage": {
+                    "description": "CPU 使用率 %",
+                    "type": "number"
+                },
+                "master": {
+                    "description": "Master 节点",
+                    "type": "integer"
+                },
+                "memory_usage": {
+                    "description": "内存使用率 %",
+                    "type": "number"
+                },
+                "not_ready": {
+                    "description": "未就绪节点",
+                    "type": "integer"
+                },
+                "pod_usage": {
+                    "description": "Pod 使用率 %",
+                    "type": "number"
+                },
+                "ready": {
+                    "description": "就绪节点",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "总节点数",
+                    "type": "integer"
+                },
+                "worker": {
+                    "description": "Worker 节点",
+                    "type": "integer"
+                }
+            }
+        },
+        "services.PlatformHealthStatus": {
+            "type": "object",
+            "properties": {
+                "go_version": {
+                    "description": "Go版本",
+                    "type": "string"
+                },
+                "last_check": {
+                    "description": "最后检查时间",
+                    "type": "string"
+                },
+                "num_cpu": {
+                    "description": "CPU核数",
+                    "type": "integer"
+                },
+                "num_goroutine": {
+                    "description": "协程数",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "healthy / degraded / unhealthy",
+                    "type": "string"
+                },
+                "uptime": {
+                    "description": "运行时间",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "版本号",
+                    "type": "string"
+                }
+            }
+        },
+        "services.PodSummary": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "succeeded": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "unknown": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services.RegistryCreateRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "type",
+                "url"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "insecure": {
+                    "type": "boolean"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1
+                },
+                "password": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "docker",
+                        "harbor",
+                        "gcr",
+                        "ecr",
+                        "acr",
+                        "quay"
+                    ]
+                },
+                "url": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.RegistryUpdateRequest": {
+            "type": "object",
+            "required": [
+                "id",
+                "name",
+                "type",
+                "url"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "insecure": {
+                    "type": "boolean"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1
+                },
+                "password": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "docker",
+                        "harbor",
+                        "gcr",
+                        "ecr",
+                        "acr",
+                        "quay"
+                    ]
+                },
+                "url": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ResourceCount": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services.ServiceSummary": {
+            "type": "object",
+            "properties": {
+                "cluster_ip": {
+                    "type": "integer"
+                },
+                "ingresses": {
+                    "type": "integer"
+                },
+                "load_balancer": {
+                    "type": "integer"
+                },
+                "node_port": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services.TaskQueueStatus": {
+            "type": "object",
+            "properties": {
+                "avg_delay": {
+                    "description": "平均延迟",
+                    "type": "string"
+                },
+                "completed": {
+                    "description": "已完成",
+                    "type": "integer"
+                },
+                "failed": {
+                    "description": "失败",
+                    "type": "integer"
+                },
+                "pending": {
+                    "description": "待处理",
+                    "type": "integer"
+                },
+                "running": {
+                    "description": "运行中",
+                    "type": "integer"
+                }
+            }
+        },
+        "services.WorkloadSummary": {
+            "type": "object",
+            "properties": {
+                "cronjobs": {
+                    "$ref": "#/definitions/services.ResourceCount"
+                },
+                "daemonsets": {
+                    "$ref": "#/definitions/services.ResourceCount"
+                },
+                "deployments": {
+                    "$ref": "#/definitions/services.ResourceCount"
+                },
+                "jobs": {
+                    "$ref": "#/definitions/services.ResourceCount"
+                },
+                "pods": {
+                    "$ref": "#/definitions/services.PodSummary"
+                },
+                "statefulsets": {
+                    "$ref": "#/definitions/services.ResourceCount"
+                }
+            }
         }
     }
 }`

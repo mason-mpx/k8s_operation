@@ -76,6 +76,7 @@ const router = createRouter({
 
         // 平台功能（不需要 clusterId）
         {path: 'users', component: () => import('@/views/platform/Users.vue')},
+        {path: 'rbac', component: () => import('@/views/platform/RBACPermissions.vue')},
 
         // CICD 流水线
         {path: 'cicd/pipelines', component: () => import('@/views/cicd/Pipelines.vue')},
@@ -92,6 +93,9 @@ const router = createRouter({
           path: 'images/repositories',
           component: () => import('@/views/images/ImageRepositories.vue')
         },
+        {path: 'images/browse', component: () => import('@/views/images/Images.vue')},
+        {path: 'images/browse/:repoId', component: () => import('@/views/images/Images.vue')},
+        {path: 'images/cleanup', component: () => import('@/views/images/CleanupPolicies.vue')},
         {path: 'images/:repoId', component: () => import('@/views/images/Images.vue')},
 
         {path: 'environments', component: () => import('@/views/environments/K8sEnvironments.vue')},
