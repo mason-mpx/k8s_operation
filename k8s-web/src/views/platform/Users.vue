@@ -130,8 +130,8 @@
               </span>
             </td>
             <td>
-              <span class="status-indicator" :class="user.status">
-                {{ user.status === 'active' ? '激活' : '禁用' }}
+              <span class="status-indicator" :class="user.status === 1 ? 'active' : 'inactive'">
+                {{ user.status === 1 ? '激活' : '禁用' }}
               </span>
             </td>
             <td>{{ formatDate(user.created_at) }}</td>
@@ -183,7 +183,7 @@
           <button class="close-btn" @click="showCreateModal = false">&times;</button>
         </div>
         <div class="modal-body">
-          <form @submit.prevent="createUser">
+          <form @submit.prevent="handleCreateUser">
             <div class="form-group">
               <label for="create-username">用户名</label>
               <input
@@ -212,8 +212,8 @@
             <div class="form-group">
               <label for="create-status">状态</label>
               <select id="create-status" v-model="userForm.status" required>
-                <option value="active">激活</option>
-                <option value="inactive">禁用</option>
+                <option :value="1">激活</option>
+                <option :value="0">禁用</option>
               </select>
             </div>
             <div class="form-actions">
@@ -233,7 +233,7 @@
           <button class="close-btn" @click="showEditModal = false">&times;</button>
         </div>
         <div class="modal-body">
-          <form @submit.prevent="updateUser">
+          <form @submit.prevent="handleUpdateUser">
             <div class="form-group">
               <label for="edit-username">用户名</label>
               <input
@@ -261,8 +261,8 @@
             <div class="form-group">
               <label for="edit-status">状态</label>
               <select id="edit-status" v-model="userForm.status" required>
-                <option value="active">激活</option>
-                <option value="inactive">禁用</option>
+                <option :value="1">激活</option>
+                <option :value="0">禁用</option>
               </select>
             </div>
             <div class="form-actions">
@@ -277,36 +277,27 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
+import { getUserList, createUser as createUserApi, updateUser as updateUserApi, deleteUser as deleteUserApi } from '@/api/user'
 
-// 模拟用户数据
-const users = ref([
-  {
-    id: 1,
-    username: 'admin',
-    password: '123456',
-    role: 'admin',
-    status: 'active',
-    createdAt: '2023-01-01'
-  },
-  {
-    id: 2,
-    username: 'user1',
-    password: 'password1',
-    role: 'user',
-    status: 'active',
-    createdAt: '2023-01-02'
-  },
-  {
-    id: 3,
-    username: 'user2',
-    password: 'password2',
-    role: 'user',
-    status: 'inactive',
-    createdAt: '2023-01-03'
-  }
-])
+// 加载状态
+const loading = ref(false)
+const errorMsg = ref('')
+const autoRefresh = ref(false)
+const batchMode = ref(false)
+const selectedUsers = ref([])
+const roleFilter = ref('')
+const statusFilter = ref('')
+const totalItems = ref(0)
+const totalPages = ref(1)
+const jumpPage = ref(1)
+let refreshTimer = null
+let searchTimeout = null
+
+// 用户数据
+const users = ref([])
 
 // 搜索和分页
 const searchQuery = ref('')
@@ -323,80 +314,93 @@ const userForm = ref({
   username: '',
   password: '',
   role: 'user',
-  status: 'active'
+  status: 1
 })
 
-// 过滤后的用户
+// 监听分页变化
+watch([currentPage, itemsPerPage], () => {
+  refreshList()
+})
+
+// 过滤后的用户（现在由后端处理，这里直接返回）
 const filteredUsers = computed(() => {
-  return users.value.filter(user => {
-    return user.username.toLowerCase().includes(searchQuery.value.toLowerCase())
-  })
+  return users.value
 })
 
-// 分页后的用户
+// 分页后的用户（现在由后端分页，直接返回）
 const paginatedUsers = computed(() => {
-  const startIndex = (currentPage.value - 1) * itemsPerPage.value
-  const endIndex = startIndex + itemsPerPage.value
-  return filteredUsers.value.slice(startIndex, endIndex)
+  return users.value
 })
 
 // 处理编辑
 const handleEdit = (user) => {
-  userForm.value = { ...user }
+  userForm.value = { 
+    id: user.id,
+    username: user.username,
+    password: '', // 不回显密码
+    role: user.role || 'user',
+    status: user.status
+  }
   showEditModal.value = true
 }
 
 const handleDelete = async (user) => {
+  if (!confirm(`确定要删除用户 ${user.username} 吗？`)) return
+  
   try {
-    await ElMessageBox.confirm(
-      `确定要删除用户 ${user.username} 吗？`,
-      '删除确认',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    )
-
-    // TODO: 连接后端 API
-    const index = users.value.findIndex(u => u.id === user.id)
-    if (index !== -1) {
-      users.value.splice(index, 1)
-    }
-
-    ElMessage.success('删除成功')
+    loading.value = true
+    await deleteUserApi(user.id)
+    Message.success('删除成功')
+    await refreshList()
   } catch (err) {
-    if (err !== 'cancel') {
-      ElMessage.error('删除失败')
-    }
+    Message.error('删除失败: ' + (err.msg || err.message))
+  } finally {
+    loading.value = false
   }
 }
 
-const createUser = () => {
-  // TODO: 连接后端 API
-  const newUser = {
-    ...userForm.value,
-    id: Date.now(),
-    created_at: new Date().toISOString()
+const handleCreateUser = async () => {
+  try {
+    loading.value = true
+    await createUserApi({
+      username: userForm.value.username,
+      password: userForm.value.password,
+      role: userForm.value.role,
+      status: userForm.value.status
+    })
+    showCreateModal.value = false
+    resetForm()
+    Message.success('用户创建成功')
+    await refreshList()
+  } catch (err) {
+    Message.error('创建失败: ' + (err.msg || err.message))
+  } finally {
+    loading.value = false
   }
-  users.value.push(newUser)
-  showCreateModal.value = false
-  resetForm()
-  ElMessage.success('用户创建成功')
 }
 
-const updateUser = () => {
-  // TODO: 连接后端 API
-  const index = users.value.findIndex(u => u.id === userForm.value.id)
-  if (index !== -1) {
-    const updatedUser = { ...users.value[index], ...userForm.value }
-    if (!userForm.value.password) {
-      updatedUser.password = users.value[index].password
+const handleUpdateUser = async () => {
+  try {
+    loading.value = true
+    const updateData = {
+      id: userForm.value.id,
+      username: userForm.value.username,
+      role: userForm.value.role,
+      status: userForm.value.status
     }
-    users.value[index] = updatedUser
+    // 只有填写了密码才更新
+    if (userForm.value.password) {
+      updateData.password = userForm.value.password
+    }
+    await updateUserApi(updateData)
     showEditModal.value = false
     resetForm()
-    ElMessage.success('用户更新成功')
+    Message.success('用户更新成功')
+    await refreshList()
+  } catch (err) {
+    Message.error('更新失败: ' + (err.msg || err.message))
+  } finally {
+    loading.value = false
   }
 }
 
@@ -406,53 +410,42 @@ const resetForm = () => {
     username: '',
     password: '',
     role: 'user',
-    status: 'active'
+    status: 1
   }
 }
 
-// 刷新列表
+// 刷新列表 - 调用真实后端接口
 const refreshList = async () => {
   loading.value = true
   errorMsg.value = ''
 
   try {
-    // TODO: 连接后端 API
-    // const response = await userApi.list({ page: currentPage.value, limit: itemsPerPage.value })
-    // users.value = response.data.list
-
-    // 模拟数据
-    await new Promise(resolve => setTimeout(resolve, 500))
-    if (users.value.length === 0) {
-      users.value = [
-        {
-          id: 1,
-          username: 'admin',
-          password: '123456',
-          role: 'admin',
-          status: 'active',
-          created_at: '2023-01-01 10:00:00'
-        },
-        {
-          id: 2,
-          username: 'user1',
-          password: 'password1',
-          role: 'user',
-          status: 'active',
-          created_at: '2023-01-02 11:30:00'
-        },
-        {
-          id: 3,
-          username: 'user2',
-          password: 'password2',
-          role: 'user',
-          status: 'inactive',
-          created_at: '2023-01-03 14:20:00'
-        }
-      ]
+    const res = await getUserList({
+      page: currentPage.value,
+      limit: itemsPerPage.value,
+      username: searchQuery.value
+    })
+    
+    // http拦截器返回格式: { code: 0, msg: "OK", data: { list: [...], total: n } }
+    if (res.code === 0 && res.data) {
+      if (res.data.list) {
+        users.value = res.data.list
+        totalItems.value = res.data.total || res.data.list.length
+      } else if (Array.isArray(res.data)) {
+        users.value = res.data
+        totalItems.value = res.data.length
+      } else {
+        users.value = []
+        totalItems.value = 0
+      }
+      totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value) || 1
+    } else {
+      throw new Error(res.msg || '获取数据失败')
     }
   } catch (err) {
-    errorMsg.value = '获取用户列表失败: ' + (err.message || '未知错误')
-    ElMessage.error(errorMsg.value)
+    errorMsg.value = '获取用户列表失败: ' + (err.msg || err.message || '未知错误')
+    Message.error(errorMsg.value)
+    users.value = []
   } finally {
     loading.value = false
   }
@@ -461,7 +454,107 @@ const refreshList = async () => {
 // 日期格式化
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
-  return dateStr.replace('T', ' ').split('.')[0]
+  // 处理各种日期格式
+  if (typeof dateStr === 'string') {
+    return dateStr.replace('T', ' ').split('.')[0]
+  }
+  if (dateStr instanceof Date) {
+    return dateStr.toLocaleString('zh-CN')
+  }
+  // 其他类型尝试转换
+  try {
+    return new Date(dateStr).toLocaleString('zh-CN')
+  } catch {
+    return '-'
+  }
+}
+
+// ==================== 批量操作 ====================
+const enterBatchMode = () => {
+  batchMode.value = true
+  selectedUsers.value = []
+}
+
+const exitBatchMode = () => {
+  batchMode.value = false
+  selectedUsers.value = []
+}
+
+const clearSelection = () => {
+  selectedUsers.value = []
+}
+
+const isUserSelected = (user) => {
+  return selectedUsers.value.some(u => u.id === user.id)
+}
+
+const toggleUserSelection = (user) => {
+  const index = selectedUsers.value.findIndex(u => u.id === user.id)
+  if (index === -1) {
+    selectedUsers.value.push(user)
+  } else {
+    selectedUsers.value.splice(index, 1)
+  }
+}
+
+const isAllSelected = computed(() => {
+  return paginatedUsers.value.length > 0 && 
+         paginatedUsers.value.every(u => isUserSelected(u))
+})
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedUsers.value = []
+  } else {
+    selectedUsers.value = [...paginatedUsers.value]
+  }
+}
+
+const batchDelete = async () => {
+  if (!confirm(`确定要删除选中的 ${selectedUsers.value.length} 个用户吗？`)) return
+  
+  try {
+    loading.value = true
+    // 调用真实API批量删除
+    for (const user of selectedUsers.value) {
+      await deleteUserApi(user.id)
+    }
+    Message.success(`成功删除 ${selectedUsers.value.length} 个用户`)
+    selectedUsers.value = []
+    batchMode.value = false
+    await refreshList()
+  } catch (err) {
+    Message.error('批量删除失败: ' + (err.msg || err.message))
+  } finally {
+    loading.value = false
+  }
+}
+
+// ==================== 分页操作 ====================
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+
+const onPageSizeChange = () => {
+  currentPage.value = 1
+}
+
+const jumpToPage = () => {
+  if (jumpPage.value >= 1 && jumpPage.value <= totalPages.value) {
+    currentPage.value = jumpPage.value
+  }
+}
+
+const onSearchInput = () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  searchTimeout = setTimeout(() => {
+    currentPage.value = 1
+    refreshList()
+  }, 300)
 }
 
 // ==================== 生命周期 ====================

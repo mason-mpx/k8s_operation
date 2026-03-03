@@ -127,6 +127,12 @@ func tuneRESTConfig(cfg *rest.Config) {
 	cfg.QPS = 50
 	cfg.Burst = 100
 	cfg.Timeout = 30 * time.Second
+
+	// 强制跳过 TLS 验证，支持自签名证书集群
+	// 生产环境建议配置正确的 CA 证书
+	cfg.TLSClientConfig.Insecure = true
+	cfg.TLSClientConfig.CAData = nil
+	cfg.TLSClientConfig.CAFile = ""
 }
 
 // BuildClientsFromKubeconfig 从 kubeconfig 字符串直接构建客户端（不经过数据库）

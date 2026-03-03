@@ -66,6 +66,27 @@ definitions:
       username:
         type: string
     type: object
+  requests.BatchClusterPermissionRequest:
+    properties:
+      can_create:
+        type: boolean
+      can_delete:
+        type: boolean
+      can_exec:
+        type: boolean
+      can_update:
+        type: boolean
+      can_view:
+        type: boolean
+      cluster_ids:
+        items:
+          type: integer
+        type: array
+      role_type:
+        type: string
+      user_id:
+        type: integer
+    type: object
   requests.CicdBuildCallbackRequest:
     properties:
       build_id:
@@ -123,6 +144,56 @@ definitions:
     properties:
       id:
         type: integer
+    type: object
+  requests.ClusterPermissionCreateRequest:
+    properties:
+      can_create:
+        type: boolean
+      can_delete:
+        type: boolean
+      can_exec:
+        type: boolean
+      can_update:
+        type: boolean
+      can_view:
+        type: boolean
+      cluster_id:
+        type: integer
+      expire_at:
+        description: 过期时间，0=永不过期
+        type: integer
+      namespaces:
+        description: 可访问的命名空间（空=全部）
+        items:
+          type: string
+        type: array
+      role_type:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  requests.ClusterPermissionUpdateRequest:
+    properties:
+      can_create:
+        type: boolean
+      can_delete:
+        type: boolean
+      can_exec:
+        type: boolean
+      can_update:
+        type: boolean
+      can_view:
+        type: boolean
+      expire_at:
+        type: integer
+      id:
+        type: integer
+      namespaces:
+        items:
+          type: string
+        type: array
+      role_type:
+        type: string
     type: object
   requests.CommonIdRequest:
     properties:
@@ -1352,6 +1423,36 @@ definitions:
       namespace:
         type: string
     type: object
+  requests.RoleCreateRequest:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+      role_type:
+        type: string
+    type: object
+  requests.RoleUpdateRequest:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      sort_order:
+        type: integer
+    type: object
   requests.SSHAuthFields:
     properties:
       known_hosts:
@@ -1462,6 +1563,15 @@ definitions:
       username:
         type: string
     type: object
+  requests.UserRoleAssignRequest:
+    properties:
+      role_ids:
+        items:
+          type: integer
+        type: array
+      user_id:
+        type: integer
+    type: object
   requests.UserUpdateRequest:
     properties:
       id:
@@ -1506,6 +1616,358 @@ definitions:
     - yaml
     type: object
   response.Response:
+    type: object
+  services.AlertSummary:
+    properties:
+      acknowledged:
+        description: 已确认
+        type: integer
+      critical:
+        description: 严重告警
+        type: integer
+      info:
+        description: 信息
+        type: integer
+      total_24h:
+        description: 24小时告警数
+        type: integer
+      warning:
+        description: 警告
+        type: integer
+    type: object
+  services.CleanupPolicyRequest:
+    properties:
+      cron_expression:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: integer
+      keep_days:
+        type: integer
+      keep_last_count:
+        type: integer
+      name:
+        type: string
+      registry_id:
+        type: integer
+      repository_pattern:
+        type: string
+      tag_pattern:
+        type: string
+    required:
+    - name
+    - registry_id
+    type: object
+  services.ClusterDetail:
+    properties:
+      connectable:
+        description: 是否可连接
+        type: boolean
+      events:
+        $ref: '#/definitions/services.EventSummary'
+      id:
+        type: integer
+      latency:
+        description: 连接延迟
+        type: string
+      name:
+        type: string
+      nodes:
+        $ref: '#/definitions/services.NodeSummary'
+      services:
+        $ref: '#/definitions/services.ServiceSummary'
+      status:
+        description: online / offline / error
+        type: string
+      status_code:
+        description: 0=在线 2=异常
+        type: integer
+      workloads:
+        $ref: '#/definitions/services.WorkloadSummary'
+    type: object
+  services.ClusterHealthSummary:
+    properties:
+      abnormal:
+        description: 异常数
+        type: integer
+      offline:
+        description: 离线数
+        type: integer
+      online:
+        description: 在线数
+        type: integer
+      total:
+        description: 总集群数
+        type: integer
+    type: object
+  services.ComponentStatus:
+    properties:
+      checked_at:
+        type: string
+      cpu:
+        type: number
+      description:
+        type: string
+      latency:
+        type: string
+      memory:
+        type: string
+      name:
+        type: string
+      status:
+        description: ok / warning / error
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  services.EventSummary:
+    properties:
+      last_hour:
+        description: 最近一小时
+        type: integer
+      normal:
+        description: 正常事件
+        type: integer
+      today:
+        description: 今日事件
+        type: integer
+      total:
+        description: 总事件数
+        type: integer
+      warning:
+        description: 警告事件
+        type: integer
+    type: object
+  services.FullPlatformHealth:
+    properties:
+      alerts:
+        $ref: '#/definitions/services.AlertSummary'
+      cluster_details:
+        description: 每个集群的详情
+        items:
+          $ref: '#/definitions/services.ClusterDetail'
+        type: array
+      clusters:
+        $ref: '#/definitions/services.ClusterHealthSummary'
+      components:
+        items:
+          $ref: '#/definitions/services.ComponentStatus'
+        type: array
+      events:
+        allOf:
+        - $ref: '#/definitions/services.EventSummary'
+        description: 汇总
+      nodes:
+        allOf:
+        - $ref: '#/definitions/services.NodeSummary'
+        description: 汇总
+      platform:
+        $ref: '#/definitions/services.PlatformHealthStatus'
+      refreshed_at:
+        type: string
+      services:
+        allOf:
+        - $ref: '#/definitions/services.ServiceSummary'
+        description: 汇总
+      task_queue:
+        $ref: '#/definitions/services.TaskQueueStatus'
+      workloads:
+        allOf:
+        - $ref: '#/definitions/services.WorkloadSummary'
+        description: 汇总
+    type: object
+  services.NodeSummary:
+    properties:
+      cpu_usage:
+        description: CPU 使用率 %
+        type: number
+      master:
+        description: Master 节点
+        type: integer
+      memory_usage:
+        description: 内存使用率 %
+        type: number
+      not_ready:
+        description: 未就绪节点
+        type: integer
+      pod_usage:
+        description: Pod 使用率 %
+        type: number
+      ready:
+        description: 就绪节点
+        type: integer
+      total:
+        description: 总节点数
+        type: integer
+      worker:
+        description: Worker 节点
+        type: integer
+    type: object
+  services.PlatformHealthStatus:
+    properties:
+      go_version:
+        description: Go版本
+        type: string
+      last_check:
+        description: 最后检查时间
+        type: string
+      num_cpu:
+        description: CPU核数
+        type: integer
+      num_goroutine:
+        description: 协程数
+        type: integer
+      status:
+        description: healthy / degraded / unhealthy
+        type: string
+      uptime:
+        description: 运行时间
+        type: string
+      version:
+        description: 版本号
+        type: string
+    type: object
+  services.PodSummary:
+    properties:
+      failed:
+        type: integer
+      pending:
+        type: integer
+      running:
+        type: integer
+      succeeded:
+        type: integer
+      total:
+        type: integer
+      unknown:
+        type: integer
+    type: object
+  services.RegistryCreateRequest:
+    properties:
+      description:
+        type: string
+      insecure:
+        type: boolean
+      is_default:
+        type: boolean
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      password:
+        type: string
+      type:
+        enum:
+        - docker
+        - harbor
+        - gcr
+        - ecr
+        - acr
+        - quay
+        type: string
+      url:
+        type: string
+      username:
+        type: string
+    required:
+    - name
+    - type
+    - url
+    type: object
+  services.RegistryUpdateRequest:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      insecure:
+        type: boolean
+      is_default:
+        type: boolean
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      password:
+        type: string
+      type:
+        enum:
+        - docker
+        - harbor
+        - gcr
+        - ecr
+        - acr
+        - quay
+        type: string
+      url:
+        type: string
+      username:
+        type: string
+    required:
+    - id
+    - name
+    - type
+    - url
+    type: object
+  services.ResourceCount:
+    properties:
+      failed:
+        type: integer
+      running:
+        type: integer
+      total:
+        type: integer
+    type: object
+  services.ServiceSummary:
+    properties:
+      cluster_ip:
+        type: integer
+      ingresses:
+        type: integer
+      load_balancer:
+        type: integer
+      node_port:
+        type: integer
+      total:
+        type: integer
+    type: object
+  services.TaskQueueStatus:
+    properties:
+      avg_delay:
+        description: 平均延迟
+        type: string
+      completed:
+        description: 已完成
+        type: integer
+      failed:
+        description: 失败
+        type: integer
+      pending:
+        description: 待处理
+        type: integer
+      running:
+        description: 运行中
+        type: integer
+    type: object
+  services.WorkloadSummary:
+    properties:
+      cronjobs:
+        $ref: '#/definitions/services.ResourceCount'
+      daemonsets:
+        $ref: '#/definitions/services.ResourceCount'
+      deployments:
+        $ref: '#/definitions/services.ResourceCount'
+      jobs:
+        $ref: '#/definitions/services.ResourceCount'
+      pods:
+        $ref: '#/definitions/services.PodSummary'
+      statefulsets:
+        $ref: '#/definitions/services.ResourceCount'
     type: object
 info:
   contact: {}
@@ -1678,6 +2140,485 @@ paths:
       summary: 创建 CICD 发布单
       tags:
       - CICD Release
+  /api/v1/image/browse/delete:
+    post:
+      description: 删除指定镜像的标签
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: registry_id
+        required: true
+        type: integer
+      - description: 镜像名称
+        in: query
+        name: repository
+        required: true
+        type: string
+      - description: 标签
+        in: query
+        name: tag
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除镜像标签
+      tags:
+      - 镜像浏览
+  /api/v1/image/browse/detail:
+    get:
+      description: 获取指定镜像标签的详细信息
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: registry_id
+        required: true
+        type: integer
+      - description: 镜像名称
+        in: query
+        name: repository
+        required: true
+        type: string
+      - description: 标签
+        in: query
+        name: tag
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取镜像详情
+      tags:
+      - 镜像浏览
+  /api/v1/image/browse/repositories:
+    get:
+      description: 获取指定镜像仓库中的所有镜像项目/命名空间
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: registry_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 列出仓库中的镜像项目
+      tags:
+      - 镜像浏览
+  /api/v1/image/browse/tags:
+    get:
+      description: 获取指定镜像的所有标签/版本
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: registry_id
+        required: true
+        type: integer
+      - description: 镜像名称
+        in: query
+        name: repository
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 列出镜像的所有标签
+      tags:
+      - 镜像浏览
+  /api/v1/image/cleanup/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新的镜像清理策略
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services.CleanupPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建清理策略
+      tags:
+      - 镜像清理
+  /api/v1/image/cleanup/delete:
+    post:
+      description: 删除镜像清理策略
+      parameters:
+      - description: 策略ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除清理策略
+      tags:
+      - 镜像清理
+  /api/v1/image/cleanup/list:
+    get:
+      description: 分页获取清理策略列表
+      parameters:
+      - description: 仓库ID（可选）
+        in: query
+        name: registry_id
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取清理策略列表
+      tags:
+      - 镜像清理
+  /api/v1/image/cleanup/logs:
+    get:
+      description: 获取清理任务执行日志
+      parameters:
+      - description: 策略ID（可选）
+        in: query
+        name: policy_id
+        type: integer
+      - description: 返回数量（默认20）
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取清理日志
+      tags:
+      - 镜像清理
+  /api/v1/image/cleanup/run:
+    post:
+      description: 手动触发一次清理任务
+      parameters:
+      - description: 策略ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 手动执行清理策略
+      tags:
+      - 镜像清理
+  /api/v1/image/cleanup/toggle:
+    post:
+      description: 切换清理策略的启用状态
+      parameters:
+      - description: 策略ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      - description: 是否启用
+        in: query
+        name: enabled
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 启用/禁用清理策略
+      tags:
+      - 镜像清理
+  /api/v1/image/cleanup/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新镜像清理策略
+      parameters:
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services.CleanupPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新清理策略
+      tags:
+      - 镜像清理
+  /api/v1/image/registry/all:
+    get:
+      description: 获取所有镜像仓库（不分页，用于下拉选择）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取所有镜像仓库
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/check:
+    post:
+      description: 检测镜像仓库连接状态
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 检测仓库连接
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新的镜像仓库
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services.RegistryCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建镜像仓库
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/default:
+    post:
+      description: 设置默认镜像仓库
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 设置默认仓库
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/delete:
+    post:
+      description: 删除镜像仓库
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除镜像仓库
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/detail:
+    get:
+      description: 根据ID获取镜像仓库详情
+      parameters:
+      - description: 仓库ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取镜像仓库详情
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/list:
+    get:
+      description: 分页获取镜像仓库列表
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 仓库类型
+        in: query
+        name: type
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取镜像仓库列表
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/stats:
+    get:
+      description: 获取镜像仓库统计信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取仓库统计
+      tags:
+      - 镜像管理
+  /api/v1/image/registry/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新镜像仓库信息
+      parameters:
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services.RegistryUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新镜像仓库
+      tags:
+      - 镜像管理
   /api/v1/k8s/appconfig/create:
     post:
       consumes:
@@ -6951,6 +7892,294 @@ paths:
       summary: 扩容 PersistentVolumeClaim（仅支持增大 storage）
       tags:
       - K8s PVC 管理
+  /api/v1/k8s/rbac/check:
+    post:
+      consumes:
+      - application/json
+      description: 检查用户或 ServiceAccount 对指定资源的访问权限
+      parameters:
+      - description: 检查参数
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 检查主体权限
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/check/batch:
+    post:
+      consumes:
+      - application/json
+      description: 批量检查用户或 ServiceAccount 对多个资源的访问权限
+      parameters:
+      - description: 检查参数数组
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 批量检查主体权限
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/role:
+    delete:
+      description: 删除 K8s Role 或 ClusterRole
+      parameters:
+      - description: 类型（Role/ClusterRole）
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: 命名空间（Role 必填）
+        in: query
+        name: namespace
+        type: string
+      - description: 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除 Role
+      tags:
+      - K8s RBAC
+    post:
+      consumes:
+      - application/json
+      description: 创建 K8s Role 或 ClusterRole
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建 Role
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/rolebinding:
+    delete:
+      description: 删除 K8s RoleBinding 或 ClusterRoleBinding
+      parameters:
+      - description: 类型（RoleBinding/ClusterRoleBinding）
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: 命名空间（RoleBinding 必填）
+        in: query
+        name: namespace
+        type: string
+      - description: 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除 RoleBinding
+      tags:
+      - K8s RBAC
+    post:
+      consumes:
+      - application/json
+      description: 创建 K8s RoleBinding 或 ClusterRoleBinding
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建 RoleBinding
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/rolebindings:
+    get:
+      description: 获取 K8s RoleBinding 和 ClusterRoleBinding 列表
+      parameters:
+      - description: 命名空间（空表示所有）
+        in: query
+        name: namespace
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 RoleBinding 列表
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/roles:
+    get:
+      description: 获取 K8s Role 和 ClusterRole 列表
+      parameters:
+      - description: 命名空间（空表示所有）
+        in: query
+        name: namespace
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 Role 列表
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/serviceaccount:
+    delete:
+      description: 删除 K8s ServiceAccount
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除 ServiceAccount
+      tags:
+      - K8s RBAC
+    get:
+      description: 获取指定 ServiceAccount 详情
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 ServiceAccount 详情
+      tags:
+      - K8s RBAC
+    post:
+      consumes:
+      - application/json
+      description: 创建 K8s ServiceAccount
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建 ServiceAccount
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/serviceaccounts:
+    get:
+      description: 获取 K8s ServiceAccount 列表
+      parameters:
+      - description: 命名空间（空表示所有）
+        in: query
+        name: namespace
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 ServiceAccount 列表
+      tags:
+      - K8s RBAC
   /api/v1/k8s/secret/apply-yaml:
     put:
       consumes:
@@ -8319,6 +9548,459 @@ paths:
       summary: 获取 StorageClass YAML
       tags:
       - K8s StorageClass 管理
+  /api/v1/platform/health:
+    get:
+      consumes:
+      - application/json
+      description: 获取平台、集群、告警、任务队列和组件的完整健康状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.FullPlatformHealth'
+              type: object
+      summary: 获取平台健康状态
+      tags:
+      - Platform
+  /api/v1/platform/health/component/{component}:
+    get:
+      consumes:
+      - application/json
+      description: 检查指定组件的健康状态
+      parameters:
+      - description: 组件名称
+        enum:
+        - database
+        - redis
+        - kubernetes
+        in: path
+        name: component
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.ComponentStatus'
+              type: object
+      summary: 检查单个组件
+      tags:
+      - Platform
+  /api/v1/platform/health/ping:
+    get:
+      consumes:
+      - application/json
+      description: 简单的存活检查接口
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 存活检查
+      tags:
+      - Platform
+  /api/v1/rbac/check:
+    get:
+      description: 检查用户是否有指定集群的操作权限
+      parameters:
+      - description: 集群ID
+        in: query
+        name: cluster_id
+        required: true
+        type: integer
+      - description: 操作类型(view/create/update/delete/exec)
+        in: query
+        name: action
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 检查权限
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/cluster-permission/batch:
+    post:
+      consumes:
+      - application/json
+      description: 为用户批量分配多个集群的权限
+      parameters:
+      - description: 权限信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.BatchClusterPermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 批量分配集群权限
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/cluster-permission/create:
+    post:
+      consumes:
+      - application/json
+      description: 为用户创建集群访问权限
+      parameters:
+      - description: 权限信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.ClusterPermissionCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建集群权限
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/cluster-permission/delete:
+    post:
+      description: 删除用户的集群访问权限
+      parameters:
+      - description: 权限ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除集群权限
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/cluster-permission/list:
+    get:
+      description: 获取集群权限列表（支持按用户或集群筛选）
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: integer
+      - description: 集群ID
+        in: query
+        name: cluster_id
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        name: limit
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取集群权限列表
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/cluster-permission/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新用户的集群访问权限
+      parameters:
+      - description: 权限信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.ClusterPermissionUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新集群权限
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/permission/list:
+    get:
+      description: 获取所有权限定义
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取权限列表
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/all:
+    get:
+      description: 获取所有角色（不分页，用于下拉选择）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取所有角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新角色
+      parameters:
+      - description: 角色信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.RoleCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/delete:
+    post:
+      description: 删除角色（系统内置角色不可删除）
+      parameters:
+      - description: 角色ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 删除角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/detail:
+    get:
+      description: 获取角色详情（包含权限列表）
+      parameters:
+      - description: 角色ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取角色详情
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/list:
+    get:
+      description: 获取角色列表（分页）
+      parameters:
+      - description: 角色名称
+        in: query
+        name: name
+        type: string
+      - description: 角色类型
+        in: query
+        name: role_type
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        name: limit
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取角色列表
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新角色信息
+      parameters:
+      - description: 角色信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.RoleUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/user-role/assign:
+    post:
+      consumes:
+      - application/json
+      description: 为用户分配角色（覆盖原有角色）
+      parameters:
+      - description: 分配信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.UserRoleAssignRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 分配用户角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/user-role/list:
+    get:
+      description: 获取用户的角色列表
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取用户角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/user/clusters:
+    get:
+      description: 获取当前用户可访问的集群列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取用户可访问的集群
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/user/info:
+    get:
+      description: 获取用户完整的RBAC信息（角色+集群权限）
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取用户RBAC信息
+      tags:
+      - RBAC权限管理
   /api/v1/user/create:
     post:
       description: 创建用户

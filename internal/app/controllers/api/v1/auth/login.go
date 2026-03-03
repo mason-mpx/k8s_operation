@@ -62,8 +62,8 @@ func (u *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// 验证用户密码是否正确
-	if user.Password != param.Password {
+	// 验证用户密码是否正确（使用 bcrypt 验证）
+	if !utils.CheckPassword(user.Password, param.Password) {
 		// 记录密码错误的日志
 		global.Logger.Error("用户登录失败,密码错误")
 		// 返回登录失败的错误响应

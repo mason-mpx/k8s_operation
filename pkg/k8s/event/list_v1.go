@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8soperation/internal/app/models"
 	"k8soperation/internal/app/requests"
+	"k8soperation/pkg/eventutil"
 	"k8soperation/pkg/utils"
 )
 
@@ -33,7 +34,7 @@ func ListEventsV1(ctx context.Context, kube kubernetes.Interface, namespace stri
 	}
 
 	// 应用时间过滤和排序
-	items = utils.ApplySinceAndSort(items, q.SinceSeconds)
+	items = eventutil.ApplySinceAndSort(items, q.SinceSeconds)
 
 	// 返回三个值：
 	// 1. items - 查询到的项目列表

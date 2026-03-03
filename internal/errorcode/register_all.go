@@ -11,7 +11,8 @@ func Register() {
 	registerBiz()
 	registerToken()
 	registerUser()
-	registerCluster()  // k8s_error code
+	registerCluster()   // k8s_error code
+	registerK8sResource() // K8s 资源通用错误码
 	registerPod()      // kube_pod error code
 	register_k8s_Pod() // k8s_pod error code
 	register_k8s_Deployment()
@@ -25,5 +26,7 @@ func Register() {
 	// CICD
 	register_cicd()
 	register_pipeline()
+	// RBAC
+	registerRBAC()
 	// 后续可以继续扩展
 }

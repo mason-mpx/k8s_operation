@@ -72,6 +72,7 @@ type AppSettingS struct {
 	LogLimitBytes      int64
 	DefaultClusterID   uint32
 	AutoInitK8s        bool // 开机自启初始化k8s集群
+	AllowEmptyStart    bool // 是否允许无集群空启动（生产环境建议 false）
 }
 
 type ErrorCodeSettingS struct {
@@ -122,6 +123,16 @@ type NodeConfig struct {
 type ClusterClientConfig struct {
 	TTL       time.Duration `mapstructure:"TTL" yaml:"TTL"`
 	TTLJitter time.Duration `mapstructure:"TTLJitter" yaml:"TTLJitter"`
+}
+
+// SecuritySettingS 安全配置结构体
+type SecuritySettingS struct {
+	// KubeConfig 加密密钥，用于加密存储在数据库中的 kubeconfig
+	KubeConfigEncryptKey string `mapstructure:"KubeConfigEncryptKey"`
+	// 密码加密强度（bcrypt cost），范围 4-31，默认 10
+	PasswordBcryptCost int `mapstructure:"PasswordBcryptCost"`
+	// 是否自动加密旧数据（启动时检查并加密未加密的数据）
+	AutoEncryptLegacyData bool `mapstructure:"AutoEncryptLegacyData"`
 }
 
 // JenkinsSettingS Jenkins 配置结构体

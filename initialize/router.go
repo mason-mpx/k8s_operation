@@ -41,6 +41,18 @@ import (
 	// CICD 路由
 	"k8soperation/internal/app/routers/kube_cicd"
 
+	// RBAC 权限管理路由
+	"k8soperation/internal/app/routers/rbac"
+
+	// K8s RBAC 资源路由
+	"k8soperation/internal/app/routers/k8srbac"
+
+	// 镜像管理路由
+	"k8soperation/internal/app/routers/image"
+
+	// 平台路由
+	"k8soperation/internal/app/routers/platform"
+
 	// 你需要的 factory 类型
 	"k8soperation/internal/app/services"
 )
@@ -83,6 +95,35 @@ func (s *Engine) injectRouterGroup(root *gin.RouterGroup, factory *services.Clus
 		userrouter.NewUserRouter(),
 	} {
 		r.Inject(protected)
+	}
+
+	// ======================================================
+	// RBAC 权限管理分组（需要 JWT）
+	// /api/v1/rbac/...
+	// ======================================================
+	rbacGroup := protected.Group("/rbac")
+	for _, r := range []injector{
+		rbac.NewRBACRouter(),
+	} {
+		r.Inject(rbacGroup)
+	}
+
+	// ======================================================
+	// 平台健康检查分组（需要 JWT）
+	// /api/v1/platform/health/...
+	// 注入 factory 以支持多集群汇总
+	// ======================================================
+	platform.NewPlatformHealthRouterWithFactory(factory).Inject(protected)
+
+	// ======================================================
+	// 镜像管理分组（需要 JWT）
+	// /api/v1/image/registry/...
+	// ======================================================
+	imageGroup := protected.Group("/image")
+	for _, r := range []injector{
+		image.NewImageRouter(),
+	} {
+		r.Inject(imageGroup)
 	}
 
 	// ======================================================
@@ -261,5 +302,12 @@ func (s *Engine) injectRouterGroup(root *gin.RouterGroup, factory *services.Clus
 		kube_crd.NewKubeAppConfigRouter(),
 	} {
 		r.Inject(appconfig)
+	}
+
+	// K8s RBAC (ServiceAccount, Role, RoleBinding)
+	for _, r := range []injector{
+		k8srbac.NewK8sRBACRouter(),
+	} {
+		r.Inject(k8sTarget)
 	}
 }

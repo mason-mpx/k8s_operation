@@ -12,9 +12,10 @@ import (
 	"k8soperation/pkg/utils"
 )
 
-// K8sClusterCreate：入参 kubeConfigPlain 是明文，落库转 base64
+// K8sClusterCreate：入参 kubeConfigPlain 是明文，落库转 AES 加密
 func (d *Dao) KubeClusterCreate(ctx context.Context, clusterName, clusterVersion, kubeConfigPlain string) error {
-	kubeB64, err := utils.EncodeKubeconfigBase64(kubeConfigPlain)
+	// 使用 AES 加密存储
+	encrypted, err := utils.EncodeKubeconfigSecure(kubeConfigPlain)
 	if err != nil {
 		return err
 	}
@@ -23,7 +24,7 @@ func (d *Dao) KubeClusterCreate(ctx context.Context, clusterName, clusterVersion
 	kc := models.K8sCluster{
 		ClusterName:    clusterName,
 		ClusterVersion: clusterVersion,
-		KubeConfig:     kubeB64,
+		KubeConfig:     encrypted,
 
 		// 新建默认 Pending
 		Status:      models.ClusterStatusPending,
@@ -70,11 +71,12 @@ func (d *Dao) KubeClusterUpdate(
 	}
 
 	if hasKC {
-		kubeB64, err := utils.EncodeKubeconfigBase64(kubeConfigPlain)
+		// 使用 AES 加密存储
+		encrypted, err := utils.EncodeKubeconfigSecure(kubeConfigPlain)
 		if err != nil {
 			return err
 		}
-		values["kube_config"] = kubeB64
+		values["kube_config"] = encrypted
 
 		// 只要 kubeconfig 变了，就回到 Pending（等待 init 探测）
 		values["status"] = models.ClusterStatusPending
@@ -101,7 +103,8 @@ func (d *Dao) UpdateClusterHealth(ctx context.Context, clusterID uint32, status 
 	return kc.UpdateHealth(d.db.WithContext(ctx), status, lastErr)
 }
 
-// KubeClusterGetByID：返回明文 kubeconfig（DAO 负责解码）
+// KubeClusterGetByID：返回明文 kubeconfig（DAO 负责解密）
+// 支持向后兼容：旧的 base64 数据和新的 AES 加密数据
 func (d *Dao) KubeClusterGetByID(ctx context.Context, id uint32) (*K8sClusterWithPlain, error) {
 	var m models.K8sCluster
 	cluster, err := m.GetByID(d.db.WithContext(ctx), id)
@@ -112,7 +115,8 @@ func (d *Dao) KubeClusterGetByID(ctx context.Context, id uint32) (*K8sClusterWit
 		return nil, err
 	}
 
-	plain, err := utils.DecodeKubeconfigBase64(cluster.KubeConfig)
+	// 使用智能解码（支持新/旧格式）
+	plain, err := utils.DecodeKubeconfigSmart(cluster.KubeConfig)
 	if err != nil {
 		return nil, err
 	}

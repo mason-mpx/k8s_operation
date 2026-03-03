@@ -1,4 +1,4 @@
-package utils
+package eventutil
 
 import (
 	"k8soperation/global"

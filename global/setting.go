@@ -16,5 +16,6 @@ var (
 	AppSetting      *setting.AppSettingS
 	CacheSetting    *setting.CacheSettingS
 	ClusterTTL      *setting.ClusterClientConfig
-	JenkinsSetting  *setting.JenkinsSettingS // Jenkins CI/CD 配置
+	JenkinsSetting  *setting.JenkinsSettingS  // Jenkins CI/CD 配置
+	SecuritySetting *setting.SecuritySettingS // 安全配置（加密密钥等）
 )
