@@ -1,4 +1,4 @@
-package appconfig
+﻿package appconfig
 
 import (
 	"github.com/gin-gonic/gin"
@@ -24,8 +24,8 @@ func NewKubeAppConfigController() *KubeAppConfigController {
 // @Produce json
 // @Param body body requests.KubeAppConfigCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/appconfig/create [post]
 func (c *KubeAppConfigController) Create(ctx *gin.Context) {
 	param := requests.NewKubeAppConfigCreateRequest()
@@ -54,8 +54,8 @@ func (c *KubeAppConfigController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeAppConfigUpdateRequest true "更新参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/appconfig/update [put]
 func (c *KubeAppConfigController) Update(ctx *gin.Context) {
 	param := requests.NewKubeAppConfigUpdateRequest()
@@ -86,8 +86,8 @@ func (c *KubeAppConfigController) Update(ctx *gin.Context) {
 // @Param app_name query string true "App 名称"
 // @Param cluster_id query int false "集群 ID"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/appconfig/detail [get]
 func (c *KubeAppConfigController) Detail(ctx *gin.Context) {
 	param := requests.NewKubeAppConfigDetailRequest()
@@ -117,8 +117,8 @@ func (c *KubeAppConfigController) Detail(ctx *gin.Context) {
 // @Param namespace query string false "命名空间"
 // @Param cluster_id query int false "集群 ID"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/appconfig/list [get]
 func (c *KubeAppConfigController) List(ctx *gin.Context) {
 	param := requests.NewKubeAppConfigListRequest()
@@ -149,8 +149,8 @@ func (c *KubeAppConfigController) List(ctx *gin.Context) {
 // @Param app_name query string true "App 名称"
 // @Param cluster_id query int false "集群 ID"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/appconfig/delete [delete]
 func (c *KubeAppConfigController) Delete(ctx *gin.Context) {
 	param := requests.NewKubeAppConfigDeleteRequest()

@@ -1,4 +1,4 @@
-package k8s_cluster
+﻿package k8s_cluster
 
 import (
 	"bytes"
@@ -24,8 +24,8 @@ func NewK8sClusterController() *K8sClusterController { return &K8sClusterControl
 // @Security ApiKeyAuth
 // @Param body body requests.K8sClusterCreateRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cluster/create [post]
 func (c *K8sClusterController) Create(ctx *gin.Context) {
 	param := requests.NewK8sClusterCreateRequest()
@@ -54,8 +54,8 @@ func (c *K8sClusterController) Create(ctx *gin.Context) {
 // @Param page query int true "页码"
 // @Param limit query int true "每页数量"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cluster/list [get]
 func (c *K8sClusterController) List(ctx *gin.Context) {
 	param := requests.NewK8sClusterListRequest()
@@ -82,8 +82,8 @@ func (c *K8sClusterController) List(ctx *gin.Context) {
 // @Security ApiKeyAuth
 // @Param body body requests.K8sClusterUpdateRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cluster/update [post]
 func (c *K8sClusterController) Update(ctx *gin.Context) {
 	param := requests.NewK8sClusterUpdateRequest()
@@ -109,8 +109,8 @@ func (c *K8sClusterController) Update(ctx *gin.Context) {
 // @Security ApiKeyAuth
 // @Param body body requests.K8sClusterDeleteRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cluster/delete [post]
 func (c *K8sClusterController) Delete(ctx *gin.Context) {
 	param := requests.NewK8sClusterDeleteRequest()
@@ -146,8 +146,8 @@ func (c *K8sClusterController) Delete(ctx *gin.Context) {
 // @Security ApiKeyAuth
 // @Param body body requests.K8sClusterInitRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cluster/init [post]
 func (c *K8sClusterController) Init(ctx *gin.Context) {
 	rsp := response.NewResponse(ctx)

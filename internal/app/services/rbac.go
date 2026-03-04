@@ -231,10 +231,27 @@ func (s *Services) GetUserWithRBACInfo(userID int64) (*UserWithRBACInfo, error) 
 	// 检查是否超级管理员
 	isSuperAdmin := s.dao.IsSuperAdmin(userID)
 
+	// 获取用户名
+	username := ""
+	if user, err := s.dao.UserGetByID(userID); err == nil && user != nil {
+		username = user.Username
+	}
+
 	return &UserWithRBACInfo{
 		UserID:             userID,
+		Username:           username,
 		IsSuperAdmin:       isSuperAdmin,
 		Roles:              roles,
 		ClusterPermissions: clusterPerms,
 	}, nil
+}
+
+// GetUserAccessibleNamespaces 获取用户在指定集群可访问的命名空间
+func (s *Services) GetUserAccessibleNamespaces(userID, clusterID int64) ([]string, error) {
+	// 超级管理员可访问所有命名空间
+	if s.dao.IsSuperAdmin(userID) {
+		return []string{}, nil // 空数组表示所有
+	}
+
+	return s.dao.GetUserAccessibleNamespaces(userID, clusterID)
 }

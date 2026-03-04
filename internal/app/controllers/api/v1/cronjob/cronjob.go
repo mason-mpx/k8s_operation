@@ -1,4 +1,4 @@
-package cronjob
+﻿package cronjob
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ func NewKubeCronJobController() *KubeCronJobController {
 // @Produce json
 // @Param body body requests.KubeCronJobCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/cronjob/create [post]
 func (c *KubeCronJobController) Create(ctx *gin.Context) {
 	req := requests.NewKubeCronJobCreateRequest()
@@ -65,8 +65,8 @@ func (c *KubeCronJobController) Create(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cronjob/list [get]
 func (c *KubeCronJobController) List(ctx *gin.Context) {
 	param := requests.NewKubeCronJobListRequest()
@@ -98,8 +98,8 @@ func (c *KubeCronJobController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "CronJob 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cronjob/detail [get]
 func (c *KubeCronJobController) Detail(ctx *gin.Context) {
 	param := requests.NewKubeCronJobDetailRequest()
@@ -169,8 +169,8 @@ func (c *KubeCronJobController) Detail(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeCronJobDeleteRequest true "删除参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/cronjob/delete [delete]
 func (c *KubeCronJobController) Delete(ctx *gin.Context) {
 	req := requests.NewKubeCronJobDeleteRequest()
@@ -201,8 +201,8 @@ func (c *KubeCronJobController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeCronJobSuspendRequest true "CronJob 暂停/恢复请求体"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cronjob/suspend [patch]
 func (c *KubeCronJobController) Suspend(ctx *gin.Context) {
 	req := requests.NewKubeCronJobSuspendRequest()
@@ -244,8 +244,8 @@ func (c *KubeCronJobController) Suspend(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/cronjob/create-from-yaml [post]
 func (c *KubeCronJobController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -282,8 +282,8 @@ func (c *KubeCronJobController) CreateFromYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 更新参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/cronjob/update-from-yaml [put]
 func (c *KubeCronJobController) UpdateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -321,8 +321,8 @@ func (c *KubeCronJobController) UpdateFromYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeCronJobTriggerRequest true "触发参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cronjob/trigger [post]
 func (c *KubeCronJobController) Trigger(ctx *gin.Context) {
 	req := requests.NewKubeCronJobTriggerRequest()

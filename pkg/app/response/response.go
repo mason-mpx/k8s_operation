@@ -22,6 +22,14 @@ type envelope struct {
 	// RequestID string `json:"request_id,omitempty"` // 可选：如果你有 request_id
 }
 
+// SuccessResponse Swagger 文档用的通用成功响应结构
+// @Description 通用成功响应
+type SuccessResponse struct {
+	Code int         `json:"code" example:"0"`
+	Msg  string      `json:"msg" example:"OK"`
+	Data interface{} `json:"data,omitempty"`
+}
+
 func (r *Response) Success(data interface{}) {
 	if data == nil {
 		data = gin.H{}

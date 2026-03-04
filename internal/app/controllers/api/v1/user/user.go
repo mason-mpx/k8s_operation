@@ -1,4 +1,4 @@
-package user
+﻿package user
 
 import (
 	"github.com/gin-gonic/gin"
@@ -25,8 +25,8 @@ func NewUserController() *UserController {
 // @Produce json
 // @Param body body requests.UserCreateRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/user/create [post]
 func (c *UserController) Create(ctx *gin.Context) {
 	// 创建一个新的用户创建请求参数对象
@@ -57,8 +57,8 @@ func (c *UserController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.CommonIdRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/user/delete [post]
 func (c *UserController) Delete(ctx *gin.Context) {
 	param := requests.NewCommonIdRequest()
@@ -86,8 +86,8 @@ func (c *UserController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.UserUpdateRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/user/update [post]
 func (u *UserController) Update(ctx *gin.Context) {
 	param := requests.NewUserUpdateRequest()
@@ -119,8 +119,8 @@ func (u *UserController) Update(ctx *gin.Context) {
 // @Param page query int true "页码"
 // @Param limit query int true "每页数量"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/user/list [get]
 func (c *UserController) List(ctx *gin.Context) {
 	param := requests.NewUserListRequest()

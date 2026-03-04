@@ -1,4 +1,4 @@
-package job
+﻿package job
 
 import (
 	"fmt"
@@ -28,8 +28,8 @@ func NewKubeJobController() *KubeJobController {
 // @Produce json
 // @Param body body requests.KubeJobCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/job/create [post]
 func (c *KubeJobController) Create(ctx *gin.Context) {
 	req := requests.NewKubeJobCreateRequest()
@@ -62,8 +62,8 @@ func (c *KubeJobController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/job/create-from-yaml [post]
 func (c *KubeJobController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -103,8 +103,8 @@ func (c *KubeJobController) CreateFromYaml(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/list [get]
 func (c *KubeJobController) List(ctx *gin.Context) {
 	param := requests.NewKubeJobListRequest()
@@ -136,8 +136,8 @@ func (c *KubeJobController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Job 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/detail [get]
 func (c *KubeJobController) Detail(ctx *gin.Context) {
 	// 构造请求参数对象
@@ -174,8 +174,8 @@ func (c *KubeJobController) Detail(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Job 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/delete [delete]
 func (c *KubeJobController) Delete(ctx *gin.Context) {
 	// 参数解析
@@ -213,8 +213,8 @@ func (c *KubeJobController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeJobSuspendRequest true "Job 暂停/恢复请求体"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/suspend [patch]
 func (c *KubeJobController) Suspend(ctx *gin.Context) {
 	req := requests.NewKubeJobSuspendRequest()
@@ -257,8 +257,8 @@ func (c *KubeJobController) Suspend(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeJobRestartRequest true "Job 重启请求体"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/restart [post]
 func (c *KubeJobController) Restart(ctx *gin.Context) {
 	req := requests.NewKubeJobRestartRequest()
@@ -298,8 +298,8 @@ func (c *KubeJobController) Restart(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeJobUpdateImageRequest true "更新镜像参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/update-image [put]
 func (c *KubeJobController) UpdateImage(ctx *gin.Context) {
 	req := requests.NewKubeJobUpdateImageRequest()
@@ -337,8 +337,8 @@ func (c *KubeJobController) UpdateImage(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Job 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/yaml [get]
 func (c *KubeJobController) GetYaml(ctx *gin.Context) {
 	param := requests.NewKubeJobDetailRequest()
@@ -370,8 +370,8 @@ func (c *KubeJobController) GetYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlApplyRequest true "YAML 应用参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/job/apply-yaml [put]
 func (c *KubeJobController) ApplyYaml(ctx *gin.Context) {
 	req := requests.NewYamlApplyRequest()

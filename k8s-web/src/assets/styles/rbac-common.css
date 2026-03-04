@@ -8,7 +8,7 @@
    ============================================ */
 .rbac-view {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+  background: #f5f7fa;
   padding: 24px;
 }
 
@@ -21,7 +21,7 @@
   justify-content: space-between;
   margin-bottom: 24px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .rbac-header-left {
@@ -36,24 +36,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   border-radius: 12px;
   font-size: 24px;
+  color: #fff;
 }
 
 .rbac-title-group h1 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #f3f4f6;
+  color: #1f2937;
   letter-spacing: -0.5px;
 }
 
 .rbac-title-group p {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 .rbac-header-right {
@@ -73,38 +73,39 @@
 }
 
 .stat-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.4));
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 20px;
   transition: all 0.3s ease;
   cursor: default;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
 }
 
 .stat-card.primary {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
-  border-color: rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, #f0f0ff, #ffffff);
+  border-color: #c7d2fe;
 }
 
 .stat-card.success {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
-  border-color: rgba(16, 185, 129, 0.2);
+  background: linear-gradient(135deg, #ecfdf5, #ffffff);
+  border-color: #a7f3d0;
 }
 
 .stat-card.warning {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
-  border-color: rgba(245, 158, 11, 0.2);
+  background: linear-gradient(135deg, #fffbeb, #ffffff);
+  border-color: #fde68a;
 }
 
 .stat-card.info {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
-  border-color: rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, #eff6ff, #ffffff);
+  border-color: #bfdbfe;
 }
 
 .stat-header {
@@ -151,14 +152,14 @@
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #f3f4f6;
+  color: #1f2937;
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 13px;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 /* ============================================
@@ -172,9 +173,10 @@
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .toolbar-left {
@@ -199,18 +201,18 @@
 .rbac-search input {
   width: 100%;
   padding: 10px 12px 10px 38px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  color: #f3f4f6;
+  color: #1f2937;
   font-size: 13px;
   outline: none;
   transition: all 0.2s;
 }
 
 .rbac-search input:focus {
-  border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(0, 0, 0, 0.3);
+  border-color: #6366f1;
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -235,10 +237,10 @@
 .rbac-filter select {
   appearance: none;
   padding: 10px 36px 10px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  color: #f3f4f6;
+  color: #1f2937;
   font-size: 13px;
   cursor: pointer;
   outline: none;
@@ -247,11 +249,11 @@
 }
 
 .rbac-filter select:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: #d1d5db;
 }
 
 .rbac-filter select:focus {
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: #6366f1;
 }
 
 .rbac-filter::after {
@@ -292,14 +294,14 @@
 }
 
 .rbac-btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: #d1d5db;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
 }
 
 .rbac-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .rbac-btn-success {
@@ -327,10 +329,11 @@
    5. 表格容器
    ============================================ */
 .rbac-table-container {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .rbac-table {
@@ -339,7 +342,7 @@
 }
 
 .rbac-table thead {
-  background: rgba(0, 0, 0, 0.2);
+  background: #f9fafb;
 }
 
 .rbac-table th {
@@ -347,17 +350,17 @@
   text-align: left;
   font-size: 11px;
   font-weight: 600;
-  color: #9ca3af;
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .rbac-table td {
   padding: 14px 16px;
   font-size: 13px;
-  color: #e5e7eb;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
   vertical-align: middle;
 }
 
@@ -366,7 +369,7 @@
 }
 
 .rbac-table tbody tr:hover {
-  background: rgba(99, 102, 241, 0.05);
+  background: #f9fafb;
 }
 
 .rbac-table tbody tr:last-child td {
@@ -386,14 +389,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
+  background: #eff6ff;
   border-radius: 6px;
   font-size: 16px;
 }
 
 .resource-name .name {
   font-weight: 500;
-  color: #f3f4f6;
+  color: #1f2937;
 }
 
 .resource-name .meta {
@@ -503,18 +506,18 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  color: #9ca3af;
+  color: #6b7280;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .rbac-action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f3f4f6;
+  background: #f3f4f6;
+  color: #1f2937;
 }
 
 .rbac-action-btn.view:hover { border-color: rgba(59, 130, 246, 0.5); color: #60a5fa; }
@@ -536,7 +539,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
+  background: #eff6ff;
   border-radius: 50%;
   font-size: 36px;
   color: #6366f1;
@@ -545,7 +548,7 @@
 .rbac-empty-title {
   font-size: 16px;
   font-weight: 500;
-  color: #e5e7eb;
+  color: #374151;
   margin-bottom: 8px;
 }
 
@@ -574,10 +577,10 @@
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
-  background: linear-gradient(135deg, #1e293b, #1a1f2e);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -596,14 +599,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .rbac-modal-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #f3f4f6;
+  color: #1f2937;
 }
 
 .rbac-modal-close {
@@ -612,18 +615,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: #f3f4f6;
   border: none;
   border-radius: 8px;
-  color: #9ca3af;
+  color: #6b7280;
   font-size: 20px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .rbac-modal-close:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .rbac-modal-body {
@@ -638,7 +641,7 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid #e5e7eb;
 }
 
 /* ============================================
@@ -651,10 +654,10 @@
 .rbac-form-section h3 {
   font-size: 14px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #374151;
   margin: 0 0 16px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .rbac-form-row {
@@ -682,10 +685,10 @@
 .rbac-form-group select,
 .rbac-form-group textarea {
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  color: #f3f4f6;
+  color: #1f2937;
   font-size: 13px;
   outline: none;
   transition: all 0.2s;
@@ -694,7 +697,8 @@
 .rbac-form-group input:focus,
 .rbac-form-group select:focus,
 .rbac-form-group textarea:focus {
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: #6366f1;
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -731,7 +735,7 @@
 .rbac-loading-text {
   margin-top: 16px;
   font-size: 14px;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 /* ============================================

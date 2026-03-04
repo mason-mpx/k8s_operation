@@ -540,3 +540,88 @@ func (c *RBACController) CheckPermission(ctx *gin.Context) {
 		"action":         action,
 	})
 }
+
+// UserPermissions godoc
+// @Summary 获取当前用户完整权限
+// @Description 获取当前用户的完整权限信息（权限隔离用）
+// @Tags RBAC权限管理
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} string "成功"
+// @Router /api/v1/rbac/user/permissions [get]
+func (c *RBACController) UserPermissions(ctx *gin.Context) {
+	resp := response.NewResponse(ctx)
+
+	// 从jwt获取当前用户ID
+	userID := int64(0)
+	if uid, exists := ctx.Get("user_id"); exists {
+		userID = uid.(int64)
+	}
+	if userID <= 0 {
+		resp.ToErrorResponse(errorcode.ErrorRBACAccessDenied)
+		return
+	}
+
+	svc := services.NewServices()
+	
+	// 获取用户完整RBAC信息
+	userInfo, err := svc.GetUserWithRBACInfo(userID)
+	if err != nil {
+		global.Logger.Error("获取用户权限信息失败", zap.Error(err))
+		resp.ToErrorResponse(errorcode.ErrorUserRoleListFail)
+		return
+	}
+
+	// 返回扁平结构（前端期望格式）
+	resp.Success(gin.H{
+		"user_id":             userInfo.UserID,
+		"username":            userInfo.Username,
+		"is_super_admin":      userInfo.IsSuperAdmin,
+		"roles":               userInfo.Roles,
+		"cluster_permissions": userInfo.ClusterPermissions,
+	})
+}
+
+// UserAccessibleNamespaces godoc
+// @Summary 获取用户可访问的命名空间
+// @Description 获取当前用户在指定集群可访问的命名空间列表
+// @Tags RBAC权限管理
+// @Produce json
+// @Security ApiKeyAuth
+// @Param cluster_id query int true "集群ID"
+// @Success 200 {object} string "成功"
+// @Router /api/v1/rbac/user/namespaces [get]
+func (c *RBACController) UserAccessibleNamespaces(ctx *gin.Context) {
+	resp := response.NewResponse(ctx)
+
+	// 从jwt获取当前用户ID
+	userID := int64(0)
+	if uid, exists := ctx.Get("user_id"); exists {
+		userID = uid.(int64)
+	}
+	if userID <= 0 {
+		resp.ToErrorResponse(errorcode.ErrorRBACAccessDenied)
+		return
+	}
+
+	// 获取集群ID
+	clusterIDStr := ctx.Query("cluster_id")
+	clusterID, err := strconv.ParseInt(clusterIDStr, 10, 64)
+	if err != nil || clusterID <= 0 {
+		resp.ToErrorResponse(errorcode.InvalidParams)
+		return
+	}
+
+	svc := services.NewServices()
+	namespaces, err := svc.GetUserAccessibleNamespaces(userID, clusterID)
+	if err != nil {
+		global.Logger.Error("获取用户可访问命名空间失败", zap.Error(err))
+		resp.ToErrorResponse(errorcode.ErrorClusterPermissionListFail)
+		return
+	}
+
+	resp.Success(gin.H{
+		"namespaces": namespaces,
+		"cluster_id": clusterID,
+	})
+}

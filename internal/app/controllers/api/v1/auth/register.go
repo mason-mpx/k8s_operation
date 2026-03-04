@@ -1,4 +1,4 @@
-package auth
+﻿package auth
 
 import (
 	"github.com/gin-gonic/gin"
@@ -19,9 +19,9 @@ import (
 // @Produce json
 // @Param body body requests.AuthRegisterRequest true "注册参数"
 // @Success 200 {object} response.Response "注册成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 409 {object} errorcode.Error "用户已存在/冲突"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 409 {object} map[string]interface{} "用户已存在/冲突"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/auth/register [post]
 func (a *AuthController) Register(ctx *gin.Context) {
 	param := requests.NewAuthRegisterRequest()

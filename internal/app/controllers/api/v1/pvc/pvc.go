@@ -1,4 +1,4 @@
-package pvc
+﻿package pvc
 
 import (
 	"fmt"
@@ -29,8 +29,8 @@ func NewKubePVCController() *KubePVCController { return &KubePVCController{} }
 // @Produce     json
 // @Param       body  body  requests.KubePVCCreateRequest  true  "PVC 创建参数"
 // @Success     200   {object} response.Response
-// @Failure     400   {object} errorcode.Error
-// @Failure     500   {object} errorcode.Error
+// @Failure     400   {object} map[string]interface{}
+// @Failure     500   {object} map[string]interface{}
 // @Router      /api/v1/k8s/pvc/create [post]
 func (ctl *KubePVCController) Create(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -73,8 +73,8 @@ func (ctl *KubePVCController) Create(ctx *gin.Context) {
 // @Param page      query int    true  "页码(从1开始)"
 // @Param limit     query int    true  "每页数量(默认20)"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error   "请求参数错误"
-// @Failure 500 {object} errorcode.Error   "内部错误"
+// @Failure 400 {object} map[string]interface{}   "请求参数错误"
+// @Failure 500 {object} map[string]interface{}   "内部错误"
 // @Router /api/v1/k8s/pvc/list [get]
 func (ctl *KubePVCController) List(ctx *gin.Context) {
 	param := requests.NewKubePVCListRequest()
@@ -127,9 +127,9 @@ func (ctl *KubePVCController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "PersistentVolumeClaim 名称"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 404 {object} errorcode.Error "资源不存在"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pvc/detail [get]
 func (c *KubePVCController) Detail(ctx *gin.Context) {
 	// 1) 构造参数结构体
@@ -184,8 +184,8 @@ func (c *KubePVCController) Detail(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name      query string true "PVC 名称"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pvc/delete [delete]
 func (ctl *KubePVCController) Delete(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -215,10 +215,10 @@ func (ctl *KubePVCController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubePVCResizeRequest true "扩容参数：namespace/name/storage(如 10Gi)"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 403 {object} errorcode.Error "StorageClass 不允许扩容"
-// @Failure 404 {object} errorcode.Error "资源不存在"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 403 {object} map[string]interface{} "StorageClass 不允许扩容"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pvc/resize [patch]
 func (ctl *KubePVCController) Resize(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -260,8 +260,8 @@ func (ctl *KubePVCController) Resize(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/pvc/create-from-yaml [post]
 func (ctl *KubePVCController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -292,8 +292,8 @@ func (ctl *KubePVCController) CreateFromYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeApplyYamlRequest true "YAML内容"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pvc/apply-yaml [put]
 func (ctl *KubePVCController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeApplyYamlRequest()

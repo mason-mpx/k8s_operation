@@ -1,4 +1,4 @@
-package pod
+﻿package pod
 
 import (
 	"errors"
@@ -31,10 +31,10 @@ func NewPodController() *PodController {
 // @Produce json
 // @Param data body requests.KubePodEvictRequest true "Pod 驱逐参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 404 {object} errorcode.Error "Pod 不存在"
-// @Failure 429 {object} errorcode.Error "被 PDB 限制"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "Pod 不存在"
+// @Failure 429 {object} map[string]interface{} "被 PDB 限制"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/evict [post]
 func (c *PodController) Evict(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -71,8 +71,8 @@ func (c *PodController) Evict(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubePodCreateRequest true "创建 Pod 请求参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "创建 Pod 失败"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "创建 Pod 失败"
 // @Router /api/v1/k8s/pod [post]
 func (c *PodController) Create(ctx *gin.Context) {
 	param := requests.NewKubePodCreateRequest()
@@ -102,8 +102,8 @@ func (c *PodController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/pod/create-from-yaml [post]
 func (c *PodController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -143,8 +143,8 @@ func (c *PodController) CreateFromYaml(ctx *gin.Context) {
 // @Param page query int true "页码"
 // @Param limit query int true "每页数量"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/list [get]
 func (c *PodController) List(ctx *gin.Context) {
 	param := requests.NewKubePodListRequest()
@@ -182,8 +182,8 @@ func (c *PodController) List(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubePodUpdateRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/update [post]
 func (c *PodController) Update(ctx *gin.Context) {
 	param := requests.NewKubePodUpdateRequest()
@@ -213,8 +213,8 @@ func (c *PodController) Update(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.PatchPodImageRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/patch_image [put]
 func (c *PodController) PatchImage(ctx *gin.Context) {
 	param := requests.NewPatchPodImageRequest()
@@ -251,8 +251,8 @@ func (c *PodController) PatchImage(ctx *gin.Context) {
 // @Produce json
 // @Param data body requests.KubePodLabelPatchRequest true "标签修改参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/labels [patch]
 func (c *PodController) PatchLabels(ctx *gin.Context) {
 	param := requests.NewKubePodLabelPatchRequest()
@@ -287,8 +287,8 @@ func (c *PodController) PatchLabels(ctx *gin.Context) {
 // @Param grace_seconds query int false "优雅终止秒数（默认30）"
 // @Param force     query bool  false "是否强制删除（默认false）"
 // @Success 200 {object} map[string]interface{} "删除请求已提交"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/grace_delete_pod [delete]
 func (c *PodController) DeletePod(ctx *gin.Context) {
 	resp := response.NewResponse(ctx)
@@ -323,8 +323,8 @@ func (c *PodController) DeletePod(ctx *gin.Context) {
 // @Param name query string false "Pod名" maxlength(100)
 // @Param namespace query string false "命名空间" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/detail [get]
 func (c *PodController) Detail(ctx *gin.Context) {
 	param := requests.NewKubePodDetailRequest()
@@ -356,8 +356,8 @@ func (c *PodController) Detail(ctx *gin.Context) {
 // @Param name query string false "Pod名" maxlength(100)
 // @Param namespace query string false "命名空间" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/container_name [get]
 func (c *PodController) GetContainerName(ctx *gin.Context) {
 	param := requests.NewKubePodDetailRequest()
@@ -389,8 +389,8 @@ func (c *PodController) GetContainerName(ctx *gin.Context) {
 // @Param name query string false "Pod名" maxlength(100)
 // @Param namespace query string false "命名空间" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/init_container_name [get]
 func (c *PodController) GetInitContainerName(ctx *gin.Context) {
 	param := requests.NewKubeCommonRequest()
@@ -423,8 +423,8 @@ func (c *PodController) GetInitContainerName(ctx *gin.Context) {
 // @Param name query string false "Pod名" maxlength(100)
 // @Param namespace query string false "命名空间" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/container_image [get]
 func (c *PodController) GetContainerImages(ctx *gin.Context) {
 	param := requests.NewKubePodDetailRequest()
@@ -458,8 +458,8 @@ func (c *PodController) GetContainerImages(ctx *gin.Context) {
 // @Param name query string false "Pod名" maxlength(100)
 // @Param namespace query string false "命名空间" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/init_container_image [get]
 func (c *PodController) GetInitContainerImages(ctx *gin.Context) {
 	param := requests.NewKubeCommonRequest()
@@ -497,8 +497,8 @@ func (c *PodController) GetInitContainerImages(ctx *gin.Context) {
 // @Param tail query int false "仅返回最后N行(默认见配置)"
 // @Success 200 {object} map[string]interface{} "成功(EnableStreaming=false)"
 // @Success 200 {string} string "流式文本(EnableStreaming=true)"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/container_log [get]
 func (c *PodController) GetContainerLogs(ctx *gin.Context) {
 	resp := response.NewResponse(ctx)
@@ -612,8 +612,8 @@ func (c *PodController) GetContainerLogs(ctx *gin.Context) {
 // @Param namespace query string false "命名空间" maxlength(100)
 // @Param container query string false "容器" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/container_logs [get]
 func (k *PodController) GetContainerLog(ctx *gin.Context) {
 	param := requests.NewKubePodLogRequest()
@@ -659,9 +659,9 @@ func (k *PodController) GetContainerLog(ctx *gin.Context) {
 // @Param namespace query string true "命名空间" maxlength(100)
 // @Param name query string true "Pod名称" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 503 {object} errorcode.Error "metrics-server 不可用"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 503 {object} map[string]interface{} "metrics-server 不可用"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/metrics [get]
 func (c *PodController) Metrics(ctx *gin.Context) {
 	param := requests.NewKubePodDetailRequest()
@@ -702,9 +702,9 @@ func (c *PodController) Metrics(ctx *gin.Context) {
 // @Produce json
 // @Param namespace query string true "命名空间" maxlength(100)
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 503 {object} errorcode.Error "metrics-server 不可用"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 503 {object} map[string]interface{} "metrics-server 不可用"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/metrics/list [get]
 func (c *PodController) MetricsList(ctx *gin.Context) {
 	// 使用 namespace query 参数
@@ -747,8 +747,8 @@ func (c *PodController) MetricsList(ctx *gin.Context) {
 // @Param namespace query string true "命名空间" maxlength(100)
 // @Param name query string true "Pod名称" maxlength(100)
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/yaml [get]
 func (c *PodController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubePodDetailRequest()
@@ -786,8 +786,8 @@ func (c *PodController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubePodApplyYamlRequest true "YAML内容"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/pod/apply_yaml [put]
 func (c *PodController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubePodApplyYamlRequest()

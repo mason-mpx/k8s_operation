@@ -87,9 +87,19 @@ export function getUserRBACInfo(userId) {
   return http.get(`${API_BASE}/rbac/user/info`, { params: { user_id: userId } })
 }
 
+// 获取当前登录用户的完整权限信息（用于权限隔离）
+export function getUserPermissions() {
+  return http.get(`${API_BASE}/rbac/user/permissions`)
+}
+
 // 获取当前用户可访问的集群
 export function getAccessibleClusters() {
   return http.get(`${API_BASE}/rbac/user/clusters`)
+}
+
+// 获取当前用户在指定集群可访问的命名空间
+export function getAccessibleNamespaces(clusterId) {
+  return http.get(`${API_BASE}/rbac/user/namespaces`, { params: { cluster_id: clusterId } })
 }
 
 // 检查权限

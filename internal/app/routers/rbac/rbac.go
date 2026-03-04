@@ -51,8 +51,10 @@ func (r *RBACRouter) Inject(router *gin.RouterGroup) {
 	// 用户RBAC信息
 	user := router.Group("/user")
 	{
-		user.GET("/info", c.UserRBACInfo)            // 获取用户RBAC信息
-		user.GET("/clusters", c.UserAccessibleClusters) // 获取用户可访问集群
+		user.GET("/info", c.UserRBACInfo)                   // 获取指定用户RBAC信息
+		user.GET("/permissions", c.UserPermissions)         // 获取当前用户完整权限（权限隔离用）
+		user.GET("/clusters", c.UserAccessibleClusters)     // 获取用户可访问集群
+		user.GET("/namespaces", c.UserAccessibleNamespaces) // 获取用户可访问的命名空间
 	}
 
 	// 权限检查

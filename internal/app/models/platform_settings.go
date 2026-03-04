@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+
 	"gorm.io/gorm"
 )
 
@@ -49,17 +50,27 @@ func (p *PlatformSettings) GetAll(db *gorm.DB) ([]*PlatformSettings, error) {
 	return settings, err
 }
 
-// Upsert 更新或插入设置
+// Upsert 更新或插入设置（基于 category + key 唯一约束）
 func (p *PlatformSettings) Upsert(db *gorm.DB) error {
-	return db.Where("category = ? AND `key` = ?", p.Category, p.Key).
-		Assign(map[string]interface{}{
-			"value":       p.Value,
-			"value_type":  p.ValueType,
-			"label":       p.Label,
-			"desc":        p.Desc,
-			"modified_at": p.ModifiedAt,
-		}).
-		FirstOrCreate(p).Error
+	// 先查询是否存在
+	var existing PlatformSettings
+	err := db.Where("category = ? AND `key` = ?", p.Category, p.Key).First(&existing).Error
+	
+	if err == gorm.ErrRecordNotFound {
+		// 不存在，执行插入
+		return db.Create(p).Error
+	} else if err != nil {
+		return err
+	}
+	
+	// 存在，执行更新
+	return db.Model(&existing).Updates(map[string]interface{}{
+		"value":       p.Value,
+		"value_type":  p.ValueType,
+		"label":       p.Label,
+		"desc":        p.Desc,
+		"modified_at": p.ModifiedAt,
+	}).Error
 }
 
 // BatchUpsert 批量更新或插入

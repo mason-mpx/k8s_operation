@@ -977,10 +977,11 @@
 <script setup>
 import {computed, onMounted, onUnmounted, ref, watch, watchEffect} from 'vue';
 import podsApi from '@/api/cluster/workloads/pods';
-import namespaceApi from '@/api/cluster/config/namespace';
 import {useClusterStore} from '@/stores/cluster';
 import Pagination from '@/components/Pagination.vue';
 import { Message } from '@arco-design/web-vue'
+import { useFilteredNamespaces } from '@/composables/useFilteredNamespaces'
+import permissionStore from '@/stores/permission'
 
 // 获取认证 headers（与 http.js 拦截器逻辑一致）
 const getAuthHeaders = () => {
@@ -1086,6 +1087,14 @@ const searchQuery = ref('');
 const statusFilter = ref('all');  // all, Running, Pending, Failed
 let searchDebounceTimer = null;
 const namespaceFilter = ref('');
+
+// 同步 namespaceFilter 与权限过滤的 namespaceFilterRef
+watch(namespaceFilterRef, (val) => {
+  namespaceFilter.value = val
+})
+watch(namespaceFilter, (val) => {
+  namespaceFilterRef.value = val
+})
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
@@ -1121,7 +1130,15 @@ watch(autoRefresh, (val) => {
   }
 });
 
-const namespaces = ref([]); // 动态获取
+// 使用命名空间权限过滤 Hook
+const {
+  filteredNamespaces: namespaces,
+  selectedNamespace: namespaceFilterRef,
+  loadNamespaces: fetchNamespaces,
+  permissionHint: nsPermissionHint,
+  hasFullAccess: nsHasFullAccess,
+  loading: nsLoading
+} = useFilteredNamespaces({ autoLoad: false })
 const pods = ref([]);
 
 // 视图模式：table（表格） 或 card（卡片）
@@ -1330,21 +1347,9 @@ const executeBatchDelete = async () => {
   refresh()
 }
 
-// ========== 获取名称空间列表 ==========
-const fetchNamespaces = async () => {
-  try {
-    const res = await namespaceApi.list({ page: 1, limit: 200 });
-    const list = res?.data?.list || res?.data || [];
-    namespaces.value = (Array.isArray(list) ? list : []).map(ns => {
-      // 后端可能返回字符串或对象
-      return typeof ns === 'string' ? ns : (ns?.metadata?.name || ns?.name || ns);
-    }).filter(Boolean);
-  } catch (e) {
-    console.error('获取名称空间列表失败:', e);
-    // 失败时用默认值兆底
-    namespaces.value = ['default', 'kube-system'];
-  }
-};
+// ========== 获取名称空间列表（已迁移到 useFilteredNamespaces Hook）==========
+// fetchNamespaces 现在由 useFilteredNamespaces 提供
+
 
 const showCreateModal = ref(false);
 const showDeleteModal = ref(false);

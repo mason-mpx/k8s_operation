@@ -102,7 +102,7 @@
           </div>
           <div class="user-details">
             <span class="user-name">{{ username }}</span>
-            <span class="user-role">管理员</span>
+            <span class="user-role">{{ userRoleDisplay }}</span>
           </div>
           <button class="logout-icon" @click="handleLogout" title="退出登录">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -151,9 +151,10 @@
 </template>
 
 <script setup>
-import {computed, ref, watch} from 'vue'
+import {computed, ref, reactive, watch, onMounted} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {logout} from '@/api/auth'
+import permissionStore from '@/stores/permission'
 
 const router = useRouter()
 const route = useRoute()
@@ -161,6 +162,7 @@ const route = useRoute()
 const sidebarCollapsed = ref(false)
 const showHelp = ref(false)
 
+// 用户名
 const username = computed(() => {
   const userStr = localStorage.getItem('user') || sessionStorage.getItem('user')
   if (userStr) {
@@ -174,6 +176,15 @@ const username = computed(() => {
   return 'Admin'
 })
 
+// 用户角色显示
+const userRoleDisplay = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return '超级管理员'
+  if (permissionStore.isAdmin.value) return '平台管理员'
+  if (permissionStore.isClusterAdmin.value) return '集群管理员'
+  if (permissionStore.isDeveloper.value) return '开发者'
+  return '普通用户'
+})
+
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
@@ -184,6 +195,7 @@ const clearLocalAuth = () => {
   sessionStorage.removeItem('token')
   localStorage.removeItem('user')
   sessionStorage.removeItem('user')
+  permissionStore.clearPermissions() // 清除权限缓存
 }
 
 const handleLogout = async () => {
@@ -198,9 +210,59 @@ const handleLogout = async () => {
 }
 
 /**
- * ✅ 侧边栏菜单（底部设置已移动到 sidebar-footer）
+ * 菜单权限配置
+ * roles: 允许访问的角色列表，'*' 表示所有角色
  */
-const menuGroups = ref([
+const menuPermissions = {
+  // 平台管理
+  '/platform/health': ['super_admin', 'platform_admin'],
+  '/platform/settings': ['super_admin', 'platform_admin'],
+  
+  // 安全管理
+  '/users': ['super_admin', 'platform_admin'],
+    '/user-permissions': ['super_admin', 'platform_admin'],
+  '/rbac': ['super_admin', 'platform_admin'],
+  '/security/audit': ['super_admin', 'platform_admin'],
+  '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin'],
+  
+  // CI/CD
+  '/cicd/templates': ['super_admin', 'platform_admin'],
+  
+  // 镜像管理
+  '/images/repositories': ['super_admin', 'platform_admin'],
+  '/images/cleanup': ['super_admin', 'platform_admin']
+}
+
+/**
+ * 检查菜单项是否可见
+ */
+const isMenuVisible = (path) => {
+  // 超级管理员可以看到所有菜单
+  if (permissionStore.state.isSuperAdmin) return true
+  
+  // 获取菜单权限配置
+  const roles = menuPermissions[path]
+  if (!roles) return true // 未配置则默认可见
+  
+  // 检查用户角色
+  const userRoles = permissionStore.roleTypes.value
+  return roles.some(role => userRoles.includes(role))
+}
+
+/**
+ * 过滤菜单项，只显示有权限的
+ */
+const filterMenuItems = (items) => {
+  if (!items) return []
+  return items.filter(item => isMenuVisible(item.path))
+}
+
+/**
+ * 侧边栏菜单配置（响应式）
+ */
+const menuGroupsConfig = reactive([
   // 首页
   {
     name: '首页',
@@ -228,10 +290,11 @@ const menuGroups = ref([
     icon: '🛡️',
     count: 2,
     collapsed: true,
-    match: ['/users', '/security', '/rbac'],
+    match: ['/users', '/security', '/rbac', '/user-permissions'],
     items: [
       { path: '/users', label: '用户列表' },
-      { path: '/rbac', label: '权限管理' },
+      { path: '/user-permissions', label: '用户授权管理' },
+      { path: '/rbac', label: '角色权限' },
       { path: '/security/audit', label: '审计日志' },
       { path: '/security/rbac/serviceaccounts', label: 'ServiceAccount 管理' },
       { path: '/security/rbac/roles', label: 'Role 管理' },
@@ -268,20 +331,50 @@ const menuGroups = ref([
   },
 ])
 
+// 动态计算可见菜单
+const menuGroups = computed(() => {
+  return menuGroupsConfig.map(group => {
+    const visibleItems = filterMenuItems(group.items)
+    return {
+      ...group,
+      items: visibleItems,
+      count: visibleItems.length,
+      // 如果所有子菜单都不可见，则隐藏整个分组
+      visible: !group.items || visibleItems.length > 0 || group.path
+    }
+  }).filter(group => group.visible)
+})
 
 const toggleGroupCollapse = (groupIndex) => {
-  menuGroups.value[groupIndex].collapsed = !menuGroups.value[groupIndex].collapsed
+  // 需要找到原始配置的索引
+  const visibleGroups = menuGroups.value
+  if (groupIndex < visibleGroups.length) {
+    const groupName = visibleGroups[groupIndex].name
+    const configIndex = menuGroupsConfig.findIndex(g => g.name === groupName)
+    if (configIndex >= 0) {
+      menuGroupsConfig[configIndex].collapsed = !menuGroupsConfig[configIndex].collapsed
+    }
+  }
 }
 
-// ✅ 自动展开：根据当前路由展开对应分组，其它分组折叠
+// 自动展开：根据当前路由展开对应分组
 const syncMenuWithRoute = () => {
   const currentPath = route.path
-  menuGroups.value.forEach((group) => {
+  menuGroupsConfig.forEach((group) => {
     if (!group.match || group.match.length === 0) return
     const hit = group.match.some((prefix) => currentPath.startsWith(prefix))
     group.collapsed = !hit
   })
 }
+
+// 加载用户权限
+onMounted(async () => {
+  try {
+    await permissionStore.loadPermissions()
+  } catch (e) {
+    console.error('加载权限失败', e)
+  }
+})
 
 syncMenuWithRoute()
 

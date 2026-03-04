@@ -1,4 +1,4 @@
-package svc
+﻿package svc
 
 import (
 	"fmt"
@@ -30,8 +30,8 @@ func NewKubeServiceController() *KubeServiceController {
 // @Produce     json
 // @Param       body  body  requests.KubeServiceCreateRequest  true  "Service 创建参数"
 // @Success     200   {object} response.Response "成功"
-// @Failure     400   {object} errorcode.Error   "请求参数错误"
-// @Failure     500   {object} errorcode.Error   "内部错误"
+// @Failure     400   {object} map[string]interface{}   "请求参数错误"
+// @Failure     500   {object} map[string]interface{}   "内部错误"
 // @Router      /api/v1/k8s/service/create [post]
 func (ctl *KubeServiceController) Create(ctx *gin.Context) {
 	// 统一响应器
@@ -83,8 +83,8 @@ func (ctl *KubeServiceController) Create(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/service/list [get]
 func (c *KubeServiceController) List(ctx *gin.Context) {
 	param := requests.NewKubeServiceListRequest()
@@ -181,8 +181,8 @@ func (c *KubeServiceController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Service 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/service/detail [get]
 func (c *KubeServiceController) Detail(ctx *gin.Context) {
 	// 构造请求参数
@@ -220,8 +220,8 @@ func (c *KubeServiceController) Detail(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Service 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/service/delete [delete]
 func (c *KubeServiceController) Delete(ctx *gin.Context) {
 	param := requests.NewKubeServiceDeleteRequest()
@@ -258,8 +258,8 @@ func (c *KubeServiceController) Delete(ctx *gin.Context) {
 // @Param name query string true "Service 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/service/patch [patch]
 func (c *KubeServiceController) Patch(ctx *gin.Context) {
 	param := requests.KubeServiceUpdateRequest{}
@@ -287,8 +287,8 @@ func (c *KubeServiceController) Patch(ctx *gin.Context) {
 // @Param name query string true "Service 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/service/patch-json [post]
 func (c *KubeServiceController) PatchJSON(ctx *gin.Context) {
 	param := requests.NewKubeServiceUpdateRequest()
@@ -343,8 +343,8 @@ func (c *KubeServiceController) GetEndpoints(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Service 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/service/yaml [get]
 func (c *KubeServiceController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeServiceDetailRequest()
@@ -376,8 +376,8 @@ func (c *KubeServiceController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body object true "YAML 内容 {yaml: string}"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/service/create-from-yaml [post]
 func (c *KubeServiceController) CreateFromYaml(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -413,8 +413,8 @@ func (c *KubeServiceController) CreateFromYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body object true "YAML 内容 {yaml: string}"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/service/apply-yaml [put]
 func (c *KubeServiceController) ApplyYaml(ctx *gin.Context) {
 	r := response.NewResponse(ctx)

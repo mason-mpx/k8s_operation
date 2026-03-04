@@ -1,4 +1,4 @@
-package deployment
+﻿package deployment
 
 import (
 	"fmt"
@@ -31,8 +31,8 @@ func NewKubeDeploymentController() *KubeDeploymentController {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/deployment/list [get]
 // controller/deployment.go
 func (c *KubeDeploymentController) List(ctx *gin.Context) {
@@ -65,8 +65,8 @@ func (c *KubeDeploymentController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/detail [get]
 func (c *KubeDeploymentController) Detail(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentDetailRequest()
@@ -95,8 +95,8 @@ func (c *KubeDeploymentController) Detail(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDeploymentCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/create [post]
 func (c *KubeDeploymentController) Create(ctx *gin.Context) {
 	req := requests.NewKubeDeploymentCreateRequest()
@@ -122,8 +122,8 @@ func (c *KubeDeploymentController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/create-from-yaml [post]
 func (c *KubeDeploymentController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -153,8 +153,8 @@ func (c *KubeDeploymentController) CreateFromYaml(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/delete [delete]
 func (c *KubeDeploymentController) Delete(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentDeleteRequest()
@@ -184,8 +184,8 @@ func (c *KubeDeploymentController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDeploymentScaleRequest true "扩缩容参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/scale [put]
 func (c *KubeDeploymentController) Scale(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentScaleRequest()
@@ -220,8 +220,8 @@ func (c *KubeDeploymentController) Scale(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDeploymentUpdateImageRequest true "更新镜像参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/update-image [put]
 func (c *KubeDeploymentController) UpdateImage(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentUpdateImageRequest()
@@ -251,8 +251,8 @@ func (c *KubeDeploymentController) UpdateImage(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDeploymentUpdateRequest true "Patch 内容"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/patch [put]
 func (c *KubeDeploymentController) PatchTemplate(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentUpdateRequest()
@@ -282,8 +282,8 @@ func (c *KubeDeploymentController) PatchTemplate(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDeploymentRollbackRequest true "回滚参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/rollback [post]
 func (c *KubeDeploymentController) Rollback(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentRollbackRequest()
@@ -312,8 +312,8 @@ func (c *KubeDeploymentController) Rollback(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDeploymentRestartRequest true "重启参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/restart [post]
 func (c *KubeDeploymentController) Restart(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentRestartRequest()
@@ -340,8 +340,8 @@ func (c *KubeDeploymentController) Restart(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/pods.js [get]
 func (c *KubeDeploymentController) DeploymentPodList(ctx *gin.Context) {
 	param := requests.NewKubeCommonRequest()
@@ -371,8 +371,8 @@ func (c *KubeDeploymentController) DeploymentPodList(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} response.Response "Service 删除成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "服务器内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/v1/k8s/deployment/delete_service [delete]
 func (c *KubeDeploymentController) DeleteService(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentDeleteRequest()
@@ -408,8 +408,8 @@ func (c *KubeDeploymentController) DeleteService(ctx *gin.Context) {
 // @Param continue      query string false "K8s 分页游标（下一页传回上次返回的 next）"
 // @Param since_seconds query int    false "最近N秒的事件（客户端二次过滤）"
 // @Success 200 {object} response.Response "事件列表加载完成"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "服务器内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/v1/k8s/deployment/events [post]
 func (c *KubeDeploymentController) EventList(ctx *gin.Context) {
 	param := requests.NewKubeEventListRequest()
@@ -439,8 +439,8 @@ func (c *KubeDeploymentController) EventList(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/deployment/history [get]
 func (c *KubeDeploymentController) History(ctx *gin.Context) {
 	param := requests.NewKubeCommonRequest()
@@ -470,8 +470,8 @@ func (c *KubeDeploymentController) History(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Deployment 名称"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/deployment/yaml [get]
 func (c *KubeDeploymentController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeDeploymentDetailRequest()
@@ -503,8 +503,8 @@ func (c *KubeDeploymentController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeApplyYamlRequest true "YAML内容"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/deployment/apply_yaml [put]
 func (c *KubeDeploymentController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeApplyYamlRequest()

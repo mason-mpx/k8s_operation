@@ -1,4 +1,4 @@
-package node
+﻿package node
 
 import (
 	"fmt"
@@ -31,8 +31,8 @@ func NewKubeNodeController() *KubeNodeController {
 // @Param page  query int    true  "页码(从1开始)"
 // @Param limit query int    true  "每页数量(默认20)"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error   "请求参数错误"
-// @Failure 500 {object} errorcode.Error   "内部错误"
+// @Failure 400 {object} map[string]interface{}   "请求参数错误"
+// @Failure 500 {object} map[string]interface{}   "内部错误"
 // @Router /api/v1/k8s/node/list [get]
 func (ctl *KubeNodeController) List(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -139,9 +139,9 @@ func (ctl *KubeNodeController) List(ctx *gin.Context) {
 // @Produce json
 // @Param name query string true "Node 名称"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 404 {object} errorcode.Error "资源不存在"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/detail [get]
 func (c *KubeNodeController) Detail(ctx *gin.Context) {
 	// 1) 构造参数
@@ -206,8 +206,8 @@ func (c *KubeNodeController) Detail(ctx *gin.Context) {
 // @Param page     query int    true  "页码(从1开始)"
 // @Param limit    query int    true  "每页数量(默认20)"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error   "请求参数错误"
-// @Failure 500 {object} errorcode.Error   "内部错误"
+// @Failure 400 {object} map[string]interface{}   "请求参数错误"
+// @Failure 500 {object} map[string]interface{}   "内部错误"
 // @Router /api/v1/k8s/node/pods.js [get]
 func (ctl *KubeNodeController) ListPods(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -242,8 +242,8 @@ func (ctl *KubeNodeController) ListPods(ctx *gin.Context) {
 // @Produce json
 // @Param name query string false "Node 名称（为空=全局）"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error   "请求参数错误"
-// @Failure 500 {object} errorcode.Error   "内部错误"
+// @Failure 400 {object} map[string]interface{}   "请求参数错误"
+// @Failure 500 {object} map[string]interface{}   "内部错误"
 // @Router /api/v1/k8s/node/metrics [get]
 func (ctl *KubeNodeController) Metrics(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -286,9 +286,9 @@ func (ctl *KubeNodeController) Metrics(ctx *gin.Context) {
 // @Produce json
 // @Param data body requests.KubeNodeCordonRequest true "Node 调度控制参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 404 {object} errorcode.Error "资源不存在"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/cordon [post]
 func (c *KubeNodeController) Cordon(ctx *gin.Context) {
 	// 1) 构造参数
@@ -327,9 +327,9 @@ func (c *KubeNodeController) Cordon(ctx *gin.Context) {
 // @Produce json
 // @Param data body requests.KubeNodeDrainRequest true "Node 驱逐参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 404 {object} errorcode.Error "资源不存在"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/drain [post]
 func (c *KubeNodeController) Drain(ctx *gin.Context) {
 	// 1) 构造参数
@@ -369,8 +369,8 @@ func (c *KubeNodeController) Drain(ctx *gin.Context) {
 // @Produce json
 // @Param data body requests.KubeNodeLabelPatchRequest true "标签修改参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/labels [patch]
 func (c *KubeNodeController) PatchLabels(ctx *gin.Context) {
 	param := requests.NewKubeNodeLabelPatchRequest()
@@ -404,8 +404,8 @@ func (c *KubeNodeController) PatchLabels(ctx *gin.Context) {
 // @Produce json
 // @Param data body requests.KubeNodeTaintPatchRequest true "污点修改参数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/taints [patch]
 func (c *KubeNodeController) PatchTaints(ctx *gin.Context) {
 	param := requests.NewKubeNodeTaintPatchRequest()
@@ -439,8 +439,8 @@ func (c *KubeNodeController) PatchTaints(ctx *gin.Context) {
 // @Param name query string true "Node 名称"
 // @Param limit query int false "最大返回条数"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/events [get]
 func (c *KubeNodeController) Events(ctx *gin.Context) {
 	param := requests.NewKubeNodeEventsRequest()
@@ -473,8 +473,8 @@ func (c *KubeNodeController) Events(ctx *gin.Context) {
 // @Produce json
 // @Param name query string true "Node 名称"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/yaml [get]
 func (c *KubeNodeController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeNodeDetailRequest()
@@ -505,8 +505,8 @@ func (c *KubeNodeController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeApplyYamlClusterRequest true "YAML内容"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/node/apply_yaml [put]
 func (c *KubeNodeController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeApplyYamlClusterRequest()

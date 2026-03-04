@@ -1,4 +1,4 @@
-package auth
+﻿package auth
 
 import (
 	"encoding/json"
@@ -25,8 +25,8 @@ import (
 // @Produce json
 // @Param body body requests.AuthLoginRequest true "body"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/auth/login [post]
 // AuthController 结构体的登录处理方法
 // 处理用户登录请求，验证用户信息并返回token

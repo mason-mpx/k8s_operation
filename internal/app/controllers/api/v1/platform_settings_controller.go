@@ -1,4 +1,4 @@
-package v1
+﻿package v1
 
 import (
 	"github.com/gin-gonic/gin"
@@ -24,7 +24,7 @@ func NewPlatformSettingsController() *PlatformSettingsController {
 // @Tags 平台管理
 // @Produce json
 // @Success 200 {object} models.PlatformSettingsResponse
-// @Failure 500 {object} errorcode.Error
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/platform/settings [get]
 func (c *PlatformSettingsController) Get(ctx *gin.Context) {
 	resp := response.NewResponse(ctx)
@@ -48,8 +48,8 @@ func (c *PlatformSettingsController) Get(ctx *gin.Context) {
 // @Produce json
 // @Param body body models.PlatformSettingsResponse true "设置内容"
 // @Success 200 {object} response.SuccessResponse
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/platform/settings [put]
 func (c *PlatformSettingsController) Update(ctx *gin.Context) {
 	resp := response.NewResponse(ctx)
@@ -77,7 +77,7 @@ func (c *PlatformSettingsController) Update(ctx *gin.Context) {
 // @Tags 平台管理
 // @Produce json
 // @Success 200 {object} models.PlatformSettingsResponse
-// @Failure 500 {object} errorcode.Error
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/platform/settings/reset [post]
 func (c *PlatformSettingsController) Reset(ctx *gin.Context) {
 	resp := response.NewResponse(ctx)
