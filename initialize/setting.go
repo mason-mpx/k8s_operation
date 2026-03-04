@@ -136,6 +136,49 @@ func SetupSetting() error {
 		log.Println("[Security] 警告: 加密密钥未配置，数据将不加密存储")
 	}
 
+	// 读取 PlatformSettings 配置（平台系统设置默认值）
+	// 对应 config.yaml 中的：
+	// PlatformSettings:
+	if err = s.ReadSection("PlatformSettings", &global.PlatformSetting); err != nil {
+		// PlatformSettings 可选，使用程序内默认值
+		log.Println("[PlatformSettings] 配置块未找到，使用内置默认值")
+		global.PlatformSetting = &setting.PlatformSettingsS{
+			Basic: setting.PlatformBasicSettings{
+				DefaultPage:    "/clusters",
+				DefaultCluster: "auto",
+				Language:       "zh-CN",
+				Timezone:       "Asia/Shanghai",
+			},
+			Security: setting.PlatformSecuritySettings{
+				SessionTimeout: 120,
+				Enable2FA:      false,
+				PasswordPolicy: "medium",
+				AuditRetention: 30,
+			},
+			Alert: setting.PlatformAlertSettings{
+				CPUThreshold:  80,
+				MemThreshold:  80,
+				DiskThreshold: 85,
+				AlertSilence:  15,
+			},
+			Notification: setting.PlatformNotificationSettings{
+				EnableEmail:    false,
+				EnableDingTalk: false,
+				EnableWebhook:  false,
+			},
+			About: setting.PlatformAboutSettings{
+				Version:    "2.0.0",
+				BuildDate:  "2026-03-04",
+				GoVersion:  "1.21",
+				VueVersion: "3.5.13",
+				DBType:     "MySQL 8.0",
+				K8sSupport: "v1.25+",
+			},
+		}
+	} else {
+		log.Println("[PlatformSettings] 配置加载成功（数据库设置优先级更高）")
+	}
+
 	// 将 ErrorCode 配置注入 errorcode 包
 	// - AllowOverride=true：开发环境，允许错误码覆盖
 	// - AllowOverride=false：生产环境，发现重复直接 panic

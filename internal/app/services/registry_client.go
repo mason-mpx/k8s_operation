@@ -87,6 +87,9 @@ func NewRegistryClient(registry *models.ImageRegistry) (RegistryClient, error) {
 	}
 
 	switch registry.Type {
+	case "acr":
+		// 阿里云容器镜像服务，使用 OpenAPI
+		return NewACRClient(registry)
 	case "harbor":
 		return &HarborClient{
 			baseURL:    strings.TrimSuffix(registry.URL, "/"),

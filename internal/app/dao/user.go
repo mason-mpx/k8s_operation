@@ -77,3 +77,23 @@ func (d *Dao) UserGetByName(username string) (*models.User, error) {
 	}
 	return user.GetByName(d.db)
 }
+
+// UserMigratePassword 将用户密码迁移到 bcrypt 格式
+func (d *Dao) UserMigratePassword(userID uint32, plainPassword string) error {
+	hashedPassword, err := utils.HashPassword(plainPassword)
+	if err != nil {
+		return err
+	}
+
+	nowTime := uint32(time.Now().Unix())
+	user := models.User{
+		Base: &models.Base{ID: userID},
+	}
+
+	values := map[string]interface{}{
+		"password":    hashedPassword,
+		"modified_at": nowTime,
+	}
+
+	return user.Update(d.db, values)
+}

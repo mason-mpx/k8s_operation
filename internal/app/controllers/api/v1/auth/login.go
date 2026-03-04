@@ -62,13 +62,29 @@ func (u *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// 验证用户密码是否正确（使用 bcrypt 验证）
-	if !utils.CheckPassword(user.Password, param.Password) {
+	// 验证用户密码是否正确（智能验证，兼容旧明文密码）
+	matched, needMigrate := utils.CheckPasswordSmart(user.Password, param.Password)
+	if !matched {
 		// 记录密码错误的日志
 		global.Logger.Error("用户登录失败,密码错误")
 		// 返回登录失败的错误响应
 		response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
 		return
+	}
+
+	// 如果是旧明文密码，自动迁移到 bcrypt
+	if needMigrate {
+		go func() {
+			if err := svc.MigrateUserPassword(user.ID, param.Password); err != nil {
+				global.Logger.Warn("密码迁移失败",
+					zap.Uint32("user_id", user.ID),
+					zap.Error(err))
+			} else {
+				global.Logger.Info("密码已自动迁移到 bcrypt",
+					zap.Uint32("user_id", user.ID),
+					zap.String("username", user.Username))
+			}
+		}()
 	}
 
 	// 生成 JWT token（必须接收两个返回值）

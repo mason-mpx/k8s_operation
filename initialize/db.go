@@ -6,6 +6,8 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm/logger"
 	"k8soperation/global"
+	"k8soperation/internal/app/dao"
+	"k8soperation/internal/app/models"
 	"k8soperation/pkg/database"
 	"time"
 )
@@ -49,6 +51,37 @@ func SetupDB() error {
 	defer cancel()
 	if err := global.SQLDB.PingContext(ctx); err != nil {
 		return fmt.Errorf("db ping failed: %w", err)
+	}
+
+	// 自动迁移表结构
+	if err := autoMigrateTables(); err != nil {
+		return fmt.Errorf("auto migrate tables failed: %w", err)
+	}
+
+	// 初始化默认数据
+	if err := initDefaultData(); err != nil {
+		return fmt.Errorf("init default data failed: %w", err)
+	}
+
+	return nil
+}
+
+// autoMigrateTables 自动迁移表结构
+func autoMigrateTables() error {
+	return global.DB.AutoMigrate(
+		&models.PlatformSettings{},
+		// 其他需要自动迁移的表可以加在这里
+	)
+}
+
+// initDefaultData 初始化默认数据
+func initDefaultData() error {
+	ctx := context.Background()
+	d := dao.NewDao(global.DB)
+
+	// 初始化平台设置默认值
+	if err := d.PlatformSettingsInitDefaults(ctx); err != nil {
+		return fmt.Errorf("init platform settings failed: %w", err)
 	}
 
 	return nil

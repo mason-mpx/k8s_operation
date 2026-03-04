@@ -23,3 +23,8 @@ func (s *Services) UserUpdate(param *requests.UserUpdateRequest) error {
 func (s *Services) UserList(param *requests.UserListRequest) ([]*models.User, error) {
 	return s.dao.UserList(param.Username, param.Page, param.Limit)
 }
+
+// MigrateUserPassword 将用户密码迁移到 bcrypt 格式
+func (s *Services) MigrateUserPassword(userID uint32, plainPassword string) error {
+	return s.dao.UserMigratePassword(userID, plainPassword)
+}
