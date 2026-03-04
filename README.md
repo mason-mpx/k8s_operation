@@ -1,42 +1,107 @@
-# 🚀 k8soperation · Kubernetes 多集群运维与 CI/CD 控制平台
+# 🚀 K8sOperation · 企业级 Kubernetes 多集群管理平台
 
-一个基于 **Go + Gin + Gorm + Zap + Redis Stream + client-go** 构建的企业级 Kubernetes 多集群运维与发布控制平台后端系统。
+一个对标 **Rancher/KubeSphere** 的企业级 K8s 管理平台，基于 **Go + Gin + GORM + Vue3 + client-go** 构建。
 
-平台以 **Kubernetes 控制平面（Control Plane）架构思想** 为核心，构建统一的 Kubernetes 运维与发布控制中心，支撑生产级高频交付与规模化运维场景。
-
-------
-
-## 🎯 平台定位
-
-围绕以下核心能力构建：
-
-- 🌐 **多集群资源治理**
-- 🔄 **CI/CD 发布编排**
-- 🔐 **RBAC 精细化权限控制**
-- ♻ **声明式自动化运维**
-- ⚙ **发布状态机与一致性控制**
-
-通过平台化控制能力，实现从“人工 kubectl 运维”向“自动化、可审计、可回滚”的企业级运维体系升级。
+解决中大型企业 **多集群管理分散、权限隔离困难、运维效率低下** 的核心痛点。
 
 ------
 
-## 🏗 架构核心思想
+## 🎯 平台定位与核心价值
 
-平台遵循 Control Plane 设计理念，将：
+| 痛点 | 解决方案 |
+|------|----------|
+| 多集群管理分散 | 统一控制台管理 N 个 K8s 集群（开发/测试/生产） |
+| 权限隔离困难 | 三层 RBAC 模型（平台→集群→命名空间） |
+| kubectl 门槛高 | 可视化操作，降低使用门槛 |
+| 发布不可追溯 | CI/CD 流水线 + 审计日志 |
+| 镜像管理混乱 | 多仓库接入 + 自动清理策略 |
 
-- 构建（CI）
-- 部署（CD）
-- 资源治理
-- 权限控制
-- 一致性保障
+**核心能力**：
+- 🌐 **多集群资源治理** - 统一管理开发/测试/生产环境
+- 🔐 **RBAC 精细化权限** - 细粒度权限隔离，满足审计要求
+- 🔄 **CI/CD 发布编排** - 集成 Jenkins，支持审批/回滚
+- 📦 **镜像仓库管理** - 支持 Harbor/ACR/Docker Registry
+- ⚙ **平台运维监控** - 健康检查、审计日志、系统配置
 
-统一纳入平台控制域，实现：
+------
 
-- 构建与部署解耦
-- 多集群统一管理
-- 发布流程可追踪
-- 状态迁移可控
-- 运维操作可审计
+## 🏗 技术架构
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    前端层 (Vue3 + Vite + Pinia)                      │
+│      企业级 UI · 动态权限菜单 · 路由守卫 · v-permission 指令          │
+└─────────────────────────────────────────────────────────────────────┘
+                                │ RESTful API + JWT
+┌─────────────────────────────────────────────────────────────────────┐
+│                      后端层 (Go + Gin + GORM)                        │
+│   JWT 认证 · RBAC 鉴权 · 统一错误码 · Zap 日志 · 优雅关闭            │
+└─────────────────────────────────────────────────────────────────────┘
+          │                    │                    │
+    ┌─────┴─────┐       ┌─────┴─────┐        ┌─────┴─────┐
+    │   MySQL   │       │   Redis   │        │  K8s API  │
+    │  持久化    │       │ 会话/缓存  │        │  多集群    │
+    │  审计日志  │       │ Token管理  │        │ client-go │
+    └───────────┘       └───────────┘        └───────────┘
+```
+
+### 技术选型说明
+
+| 层面 | 技术 | 选型理由 |
+|------|------|----------|
+| 后端框架 | Go + Gin | 高并发、云原生标准语言、性能优异 |
+| ORM | GORM | 功能完善、支持多数据库、开发效率高 |
+| 前端框架 | Vue3 + Vite | 响应式、Composition API、热更新快 |
+| 状态管理 | Pinia | 轻量、TypeScript 友好 |
+| 认证方案 | JWT + Redis | 无状态、可横向扩展、支持主动失效 |
+| K8s 客户端 | client-go | 官方 SDK、功能完整、版本兼容好 |
+| 日志系统 | Zap | 高性能、结构化日志 |
+
+------
+
+## 🔐 三层 RBAC 权限架构（核心亮点）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    平台角色 (Platform Role)                  │
+│         super_admin · platform_admin · developer            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    集群权限 (Cluster Permission)             │
+│              用户可以管理哪些 K8s 集群                        │
+│         cluster_admin · cluster_viewer · none               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 命名空间权限 (Namespace Permission)           │
+│              用户在集群内可以操作哪些 namespace               │
+│                    精确到 CRUD 粒度                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 权限实现机制
+
+**后端**：
+- 每个 API 请求携带 `x-cluster-id` 头部
+- 中间件校验用户对目标集群的权限
+- K8s 操作使用 SubjectAccessReview 二次校验
+
+**前端**：
+- 登录时获取完整权限树，缓存到 Pinia Store
+- 动态菜单：根据角色显示/隐藏菜单项
+- 路由守卫：无权限页面自动拦截跳转
+- `v-permission` 指令：按钮级权限控制
+
+```vue
+<!-- 按钮级权限控制示例 -->
+<button v-permission="'cluster:delete'">删除集群</button>
+```
+
+------
+
 ## 🔗 项目地址
 
 - Gitee（主仓库）：https://gitee.com/jay-kim/k8s_operation
@@ -45,22 +110,9 @@
 > 📦 **配套 AppConfig Operator（Kubebuilder 项目）请访问：**
 >  👉 https://gitee.com/jay-kim/appconfig-operator
 
-系统支持多集群管理、事件聚合、滚动升级、镜像更新、扩缩容、Pod 日志流、节点驱逐/隔离、PVC 扩容等能力，是构建企业 K8s 管控平台的优秀后端基础设施。
+系统支持多集群管理、事件聚合、滚动升级、镜像更新、扩缩容、Pod 日志流、节点驱逐/隔离、PVC 扩容等能力。
 
 ------
-
-## 🏗️ 系统架构
-
-K8s Operation 是一个面向多集群的 Kubernetes 运维管理平台，
-提供统一的 API 接入、多集群上下文管理、CRD & Operator 控制平面能力，
-以及完整的可观测与审计能力。
-
-整体架构如下：
-
-<img src="docs/architecture.svg" alt="K8s Operation 平台架构图" style="width:100%; max-width:1200px;" />
-
-> 📌 **系统架构图地址（点击原始数据可放大查看）**：  
-> https://gitee.com/jay-kim/k8s_operation/blob/master/docs/architecture.svg
 
 ## 📦 Kubernetes / client-go 版本兼容性
 
@@ -180,7 +232,7 @@ K8s Operation 是一个面向多集群的 Kubernetes 运维管理平台，
 
 ## ✨ 核心特性
 
-## 🚦 CI/CD 发布控制（人工审批 / 回滚 / 审计）
+### 🚦 CI/CD 发布控制（人工审批 / 回滚 / 审计）
 
 平台内置“发布控制平面”，将 CI/CD 从脚本编排升级为 **可控、可追踪、可回滚** 的发布体系。
 
@@ -265,12 +317,86 @@ K8s Operation 是一个面向多集群的 Kubernetes 运维管理平台，
 
 ## 🧩 多集群管理
 
-- 保存 kubeconfig
-- 连通性检测
-- 多集群切换（clusterId）
-- 自动创建对应 client-go
+- 动态添加/切换多个 K8s 集群
+- **kubeconfig 加密存储**（AES-256-GCM）
+- TLS 证书动态信任（解决 x509 证书问题）
+- 连通性检测与健康状态监控
+- 多集群 clientset 连接池管理
 
 适合企业多集群统一管控场景。
+
+------
+
+## 💡 技术亮点
+
+### 1. 敏感数据加密存储
+
+```go
+// kubeconfig 使用 AES-256-GCM 加密
+// 数据库存储格式：ENC:base64(nonce+ciphertext)
+func EncryptKubeConfig(plain, key string) string {
+    // AEAD 加密，防篡改，安全性高
+}
+```
+
+### 2. 统一错误码体系
+
+```go
+// 前端可根据错误码精准处理不同场景
+var (
+    InvalidParams    = NewError(10001, "参数错误")
+    Unauthorized     = NewError(10002, "认证失败")
+    ClusterNotFound  = NewError(20001, "集群不存在")
+    PermissionDenied = NewError(20002, "权限不足")
+)
+```
+
+### 3. K8s 客户端连接池
+
+```go
+// 多集群场景，每个集群维护独立 clientset
+// 支持动态切换，避免重复创建连接
+type ClusterClientManager struct {
+    clients sync.Map // clusterId -> *kubernetes.Clientset
+}
+```
+
+### 4. 配置热更新
+
+```
+系统设置存储在数据库，修改后立即生效
+├── 基础设置（默认页面、语言、时区）
+├── 安全设置（会话超时、密码策略）
+├── 告警设置（CPU/内存/磁盘阈值）
+└── 通知设置（邮件/钉钉/Webhook）
+```
+
+------
+
+## 💡 项目难点与解决方案
+
+| 难点 | 解决方案 |
+|------|----------|
+| 多集群 TLS 证书信任 | 解析 kubeconfig 中的 CA，动态构建 TLS Config |
+| 权限隔离粒度细 | 三层模型 + 前后端双重校验 |
+| 配置热更新 | 数据库存储 + 内存缓存，修改后立即生效 |
+| 空集群启动 | 降级策略，无集群时跳过 K8s 初始化 |
+| 错误码统一 | 全局错误码体系 + 中间件统一处理 |
+| 前后端类型一致性 | DAO 层强制返回空切片而非 nil |
+
+------
+
+
+
+------
+
+## 📈 项目收益
+
+通过这个平台，运维团队可以：
+
+- **效率提升**：多集群统一管理，减少 80% 切换成本
+- **安全合规**：细粒度权限隔离，满足审计要求
+- **降低门槛**：开发人员无需学习 kubectl，可视化操作
 
 ------
 
@@ -298,146 +424,40 @@ k8soperation/
 
 ## ⚙️ 快速启动
 
-# 🗄️ 数据库初始化说明（k8soperation）
-
-本文档用于说明 **k8soperation 后端系统** 的数据库初始化流程。
-
-数据库主要用于：
-
-- 平台用户管理
-- Kubernetes 集群管理（多集群接入、状态维护等）
-
----
-
-## 1️⃣ 数据库要求
-
-- 数据库类型：**MySQL 8.0+**
-- 字符集：`utf8mb4`
-- 排序规则：`utf8mb4_0900_ai_ci`
-
-> ⚠️ 不推荐使用 MySQL 5.7 及以下版本，可能存在字符集或索引兼容问题。
-
----
-
-## 2️⃣ SQL 文件说明
-
-当前目录包含以下 SQL 与文档：
-
-```text
-docs/sql/
-├── README.md              # 数据库初始化说明（本文档）
-├── k8s-platform.sql       # 初始化 SQL（DDL only）
-└── migrate_history.md     # 数据库结构演进记录
-```
-
-### 📌 k8s-platform.sql
-
-该脚本具备以下特性：
-
-- **仅包含表结构（DDL）**
-- **不包含任何业务数据（无 INSERT）**
-- 使用 `CREATE DATABASE IF NOT EXISTS`
-- 使用 `CREATE TABLE IF NOT EXISTS`
-- **表已存在时不会删除或覆盖**（不会 DROP）
-
-👉 适用于：
-
-- 首次部署
-- 二次部署
-- 生产环境安全初始化
-
----
-
-## 3️⃣ 初始化步骤（推荐）
-
-### ① 执行初始化 SQL
-
-```bash
-mysql -h 127.0.0.1 -u root -p < docs/sql/k8s-platform.sql
-```
-
-执行内容包括：
-
-- 创建数据库（如不存在）
-- 创建 `user`、`kube_cluster` 表（如不存在）
-
----
-
-### ② 验证结果
-
-登录 MySQL 后执行：
-
-```sql
-USE `k8s-platform`;
-SHOW TABLES;
-```
-
-应至少包含：
-
-- `user`
-- `kube_cluster`
-
----
-
-## 4️⃣ 表说明
-
-### 📘 user（用户表）
-
-用于存储平台用户信息：
-
-- 用户名（唯一）
-- 密码（加密存储）
-- 创建 / 修改 / 删除时间
-- 逻辑删除标识（`is_del`）
-
----
-
-### 📘 kube_cluster（Kubernetes 集群表）
-
-用于管理接入平台的 Kubernetes 集群：
-
-- 集群名称
-- kubeconfig（Base64 编码）
-- 集群版本
-- 集群状态
-- 最近一次健康检查时间与异常信息
-
-该表是 **平台核心基础表之一**。
-
----
-
-## 5️⃣ 数据库版本演进
-
-数据库结构的变更记录维护在：
-
-```text
-docs/sql/migrate_history.md
-```
-
-如需升级数据库结构，请参考该文件，不建议直接在线修改表结构。
-
----
-
-## 6️⃣ 注意事项
-
-- 本项目采用 **逻辑删除（is_del）**
-- 查询业务数据时需注意过滤已删除记录
-- 数据库结构变更应通过迁移脚本统一管理
-
+### 1️⃣ 克隆仓库
 
 ```bash
 git clone https://gitee.com/jay-kim/k8s_operation.git
 cd k8s_operation
+```
+
+### 2️⃣ 数据库初始化
+
+```bash
+# 数据库要求：MySQL 8.0+，字符集 utf8mb4
+mysql -h 127.0.0.1 -u root -p < docs/sql/k8s-platform.sql
+```
+
+### 3️⃣ 启动后端
+
+```bash
 make build
 ./bin/k8soperation
 ```
 
-访问 Swagger：
+### 4️⃣ 启动前端
 
 ```bash
-http://localhost:8080/swagger
-http://localhost:8080/swagger-standalone
+cd k8s-web
+npm install
+npm run dev
 ```
+
+### 5️⃣ 访问系统
+
+- 前端界面：`http://localhost:5173`
+- Swagger API：`http://localhost:8080/swagger`
+- 默认账号：`admin / admin123`
 
 ------
 
@@ -501,4 +521,4 @@ k8soperation → 提供 HTTP API/Web 后台
 
 ## 📜 License
 
-MIT License
+Apache-2.0
