@@ -60,7 +60,9 @@ func AuthJWT() gin.HandlerFunc {
 		}
 
 		// 4) 将 claims 和用户写入上下文，供后续 handler 使用
-		// 设置当前用户ID到上下文中
+		// 设置当前用户ID到上下文中（int64类型，用于RBAC权限检查）
+		ctx.Set("user_id", int64(u.ID))
+		// 设置当前用户ID字符串（兼容旧代码）
 		ctx.Set("current_user_id", u.GetStringID())
 		// 设置当前用户名到上下文中
 		ctx.Set("current_user_name", u.Username)

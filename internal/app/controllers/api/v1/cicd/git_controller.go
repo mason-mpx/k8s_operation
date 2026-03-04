@@ -1,4 +1,4 @@
-package cicd
+﻿package cicd
 
 import (
 	"github.com/gin-gonic/gin"
@@ -28,8 +28,8 @@ func NewGitController() *GitController {
 // @Produce json
 // @Param body body requests.GitBranchesRequest true "仓库信息"
 // @Success 200 {object} map[string]any "返回分支列表"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/git/branches [post]
 func (c *GitController) GetBranches(ctx *gin.Context) {
 	param := &requests.GitBranchesRequest{}
@@ -58,8 +58,8 @@ func (c *GitController) GetBranches(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.GitValidateRequest true "仓库信息"
 // @Success 200 {object} map[string]any "验证结果"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/git/validate [post]
 func (c *GitController) ValidateRepo(ctx *gin.Context) {
 	param := &requests.GitValidateRequest{}

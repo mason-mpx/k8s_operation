@@ -1,4 +1,4 @@
-package configmap
+﻿package configmap
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ func NewKubeConfigMapController() *KubeConfigMapController {
 // @Produce     json
 // @Param       body  body  requests.KubeConfigMapCreateRequest  true  "ConfigMap 创建参数"
 // @Success     200   {object} response.Response "成功"
-// @Failure     400   {object} errorcode.Error   "请求参数错误"
-// @Failure     500   {object} errorcode.Error   "内部错误"
+// @Failure     400   {object} map[string]interface{}   "请求参数错误"
+// @Failure     500   {object} map[string]interface{}   "内部错误"
 // @Router      /api/v1/k8s/configmap/create [post]
 func (ctl *KubeConfigMapController) Create(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -70,8 +70,8 @@ func (ctl *KubeConfigMapController) Create(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/configmap/list [get]
 func (c *KubeConfigMapController) List(ctx *gin.Context) {
 	// 构造请求参数结构体
@@ -110,8 +110,8 @@ func (c *KubeConfigMapController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "ConfigMap 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/configmap/detail [get]
 func (c *KubeConfigMapController) Detail(ctx *gin.Context) {
 	// 构造请求参数
@@ -150,8 +150,8 @@ func (c *KubeConfigMapController) Detail(ctx *gin.Context) {
 // @Param   namespace query string true "命名空间"
 // @Param   name      query string true "ConfigMap 名称"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error   "请求参数错误"
-// @Failure 500 {object} errorcode.Error   "内部错误"
+// @Failure 400 {object} map[string]interface{}   "请求参数错误"
+// @Failure 500 {object} map[string]interface{}   "内部错误"
 // @Router  /api/v1/k8s/configmap/delete [delete]
 func (c *KubeConfigMapController) Delete(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -188,8 +188,8 @@ func (c *KubeConfigMapController) Delete(ctx *gin.Context) {
 // @Param name query string true "ConfigMap 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/configmap/patch [patch]
 func (c *KubeConfigMapController) Patch(ctx *gin.Context) {
 	param := requests.NewKubeConfigMapUpdateRequest()
@@ -223,8 +223,8 @@ func (c *KubeConfigMapController) Patch(ctx *gin.Context) {
 // @Param name query string true "ConfigMap 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/configmap/patch-json [post]
 func (c *KubeConfigMapController) PatchJSON(ctx *gin.Context) {
 	param := requests.NewKubeConfigMapUpdateRequest()
@@ -257,8 +257,8 @@ func (c *KubeConfigMapController) PatchJSON(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "ConfigMap 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/configmap/yaml [get]
 func (c *KubeConfigMapController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeConfigMapDetailRequest()
@@ -290,8 +290,8 @@ func (c *KubeConfigMapController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeConfigMapUpdateDataRequest true "ConfigMap data 更新参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/configmap/update-data [put]
 func (c *KubeConfigMapController) UpdateData(ctx *gin.Context) {
 	param := requests.NewKubeConfigMapUpdateDataRequest()
@@ -325,8 +325,8 @@ func (c *KubeConfigMapController) UpdateData(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeConfigMapApplyYamlRequest true "YAML 内容"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/configmap/apply-yaml [post]
 func (c *KubeConfigMapController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeConfigMapApplyYamlRequest()
@@ -365,8 +365,8 @@ func (c *KubeConfigMapController) ApplyYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeMultiResourceApplyYamlRequest true "多资源 YAML 内容"
 // @Success 200 {object} requests.MultiResourceParsedResult "解析结果"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/multi-resource/parse-yaml [post]
 func (c *KubeConfigMapController) ParseMultiYaml(ctx *gin.Context) {
 	param := requests.NewKubeMultiResourceApplyYamlRequest()
@@ -399,8 +399,8 @@ func (c *KubeConfigMapController) ParseMultiYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeMultiResourceApplyYamlRequest true "多资源 YAML 内容"
 // @Success 200 {object} requests.MultiResourceCreateResult "创建结果"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/multi-resource/apply-yaml [post]
 func (c *KubeConfigMapController) ApplyMultiYaml(ctx *gin.Context) {
 	param := requests.NewKubeMultiResourceApplyYamlRequest()

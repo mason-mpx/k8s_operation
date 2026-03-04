@@ -1,4 +1,4 @@
-package cicd
+﻿package cicd
 
 import (
 	"strconv"
@@ -29,8 +29,8 @@ func NewPipelineController() *PipelineController {
 // @Produce json
 // @Param body body requests.PipelineCreateRequest true "创建参数"
 // @Success 200 {object} map[string]any "返回 pipeline_id"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/create [post]
 func (c *PipelineController) Create(ctx *gin.Context) {
 	param := requests.NewPipelineCreateRequest()
@@ -60,8 +60,8 @@ func (c *PipelineController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param id query int true "流水线ID"
 // @Success 200 {object} map[string]any "返回流水线详情"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/detail [get]
 func (c *PipelineController) Detail(ctx *gin.Context) {
 	rsp := response.NewResponse(ctx)
@@ -122,8 +122,8 @@ func (c *PipelineController) List(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.PipelineUpdateRequest true "更新参数"
 // @Success 200 {object} map[string]any "更新成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/update [post]
 func (c *PipelineController) Update(ctx *gin.Context) {
 	param := requests.NewPipelineUpdateRequest()
@@ -152,8 +152,8 @@ func (c *PipelineController) Update(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.PipelineIDRequest true "删除参数"
 // @Success 200 {object} map[string]any "删除成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/delete [post]
 func (c *PipelineController) Delete(ctx *gin.Context) {
 	param := &requests.PipelineIDRequest{}
@@ -182,8 +182,8 @@ func (c *PipelineController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.PipelineRunRequest true "运行参数"
 // @Success 200 {object} map[string]any "返回运行记录ID"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/run [post]
 func (c *PipelineController) Run(ctx *gin.Context) {
 	param := &requests.PipelineRunRequest{}
@@ -217,8 +217,8 @@ func (c *PipelineController) Run(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.PipelineStopRequest true "停止参数"
 // @Success 200 {object} map[string]any "停止成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/stop [post]
 func (c *PipelineController) Stop(ctx *gin.Context) {
 	param := &requests.PipelineStopRequest{}
@@ -248,8 +248,8 @@ func (c *PipelineController) Stop(ctx *gin.Context) {
 // @Param build_number query int false "构建号（不传则获取最新的）"
 // @Param start_line query int false "起始行号（用于增量获取）"
 // @Success 200 {object} map[string]any "返回日志内容"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/logs [get]
 func (c *PipelineController) Logs(ctx *gin.Context) {
 	param := &requests.PipelineLogsRequest{}
@@ -277,8 +277,8 @@ func (c *PipelineController) Logs(ctx *gin.Context) {
 // @Produce json
 // @Param id query int true "流水线ID"
 // @Success 200 {object} map[string]any "返回状态信息"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/status [get]
 func (c *PipelineController) Status(ctx *gin.Context) {
 	rsp := response.NewResponse(ctx)
@@ -321,8 +321,8 @@ func (c *PipelineController) Status(ctx *gin.Context) {
 // @Param page query int false "页码，默认1"
 // @Param page_size query int false "每页数量，默认10"
 // @Success 200 {object} map[string]any "返回历史记录列表"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/history [get]
 func (c *PipelineController) History(ctx *gin.Context) {
 	param := requests.NewPipelineHistoryRequest()
@@ -352,9 +352,9 @@ func (c *PipelineController) History(ctx *gin.Context) {
 // @Param X-Signature header string false "HMAC-SHA256 签名（用于验证请求真实性）"
 // @Param body body requests.PipelineCallbackRequest true "回调参数"
 // @Success 200 {object} map[string]any "回调处理成功"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 401 {object} errorcode.Error "签名验证失败"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 401 {object} map[string]interface{} "签名验证失败"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/callback [post]
 func (c *PipelineController) Callback(ctx *gin.Context) {
 	param := &requests.PipelineCallbackRequest{}
@@ -406,8 +406,8 @@ func (c *PipelineController) Callback(ctx *gin.Context) {
 // @Param id query int true "流水线ID"
 // @Param build_number query int false "构建号（不传则获取最新的）"
 // @Success 200 {object} map[string]any "返回阶段数据"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/cicd/pipeline/stages [get]
 func (c *PipelineController) Stages(ctx *gin.Context) {
 	rsp := response.NewResponse(ctx)

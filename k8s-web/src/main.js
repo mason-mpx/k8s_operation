@@ -11,6 +11,9 @@ import './styles/enhancement.css'
 
 import {pinia} from '@/stores'
 
+// 引入权限插件
+import { setupPermission } from '@/directives/permission'
+
 // chart.js 注册保持不变
 import {
   CategoryScale,
@@ -40,6 +43,9 @@ app.use(ArcoVue)
 
 // Message 你可以留着（可选）
 app.config.globalProperties.$message = Message
+
+// 3. 注册权限插件（v-permission 指令 + $hasPermission 方法）
+setupPermission(app)
 
 app.use(router)
 app.use(pinia)

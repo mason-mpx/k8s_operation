@@ -1,4 +1,4 @@
-package v1
+﻿package v1
 
 import (
 	"fmt"
@@ -28,8 +28,8 @@ func NewKubeIngressController() *KubeIngressController {
 // @Produce json
 // @Param body body requests.KubeIngressCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/create [post]
 func (c *KubeIngressController) Create(ctx *gin.Context) {
 	req := requests.NewKubeIngressCreateRequest()
@@ -70,8 +70,8 @@ func (c *KubeIngressController) Create(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/ingress/list [get]
 func (c *KubeIngressController) List(ctx *gin.Context) {
 	param := requests.NewKubeIngressListRequest()
@@ -192,8 +192,8 @@ func (c *KubeIngressController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Ingress 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/detail [get]
 func (c *KubeIngressController) Detail(ctx *gin.Context) {
 	// 1. 构造请求参数
@@ -231,8 +231,8 @@ func (c *KubeIngressController) Detail(ctx *gin.Context) {
 // @Param name query string true "Ingress 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/patch [patch]
 func (c *KubeIngressController) Patch(ctx *gin.Context) {
 	param := requests.NewKubeIngressUpdateRequest() // 如果你有 NewKubeIngressUpdateRequest() 也可用它
@@ -261,8 +261,8 @@ func (c *KubeIngressController) Patch(ctx *gin.Context) {
 // @Param name query string true "Ingress 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/patch-json [post]
 func (c *KubeIngressController) PatchJSON(ctx *gin.Context) {
 	param := requests.NewKubeIngressUpdateRequest()
@@ -291,8 +291,8 @@ func (c *KubeIngressController) PatchJSON(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Ingress 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/delete [delete]
 func (c *KubeIngressController) Delete(ctx *gin.Context) {
 	param := requests.NewKubeIngressDeleteRequest()
@@ -328,8 +328,8 @@ func (c *KubeIngressController) Delete(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Ingress 名称"
 // @Success 200 {string} string "YAML 内容"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/yaml [get]
 func (c *KubeIngressController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeIngressDetailRequest()
@@ -361,8 +361,8 @@ func (c *KubeIngressController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body object{yaml=string} true "YAML 内容"
 // @Success 200 {object} string
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/apply-yaml [put]
 func (c *KubeIngressController) ApplyYaml(ctx *gin.Context) {
 	var req struct {
@@ -398,8 +398,8 @@ func (c *KubeIngressController) ApplyYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body object{yaml=string} true "YAML 内容"
 // @Success 200 {object} string
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/ingress/create-from-yaml [post]
 func (c *KubeIngressController) CreateFromYaml(ctx *gin.Context) {
 	var req struct {

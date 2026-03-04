@@ -1,4 +1,4 @@
-package secret
+﻿package secret
 
 import (
 	"fmt"
@@ -26,8 +26,8 @@ func NewKubeSecretController() *KubeSecretController {
 // @Produce     json
 // @Param       body  body  requests.KubeSecretCreateRequest  true  "Secret 创建参数"
 // @Success     200   {object} response.Response "成功"
-// @Failure     400   {object} errorcode.Error   "请求参数错误"
-// @Failure     500   {object} errorcode.Error   "内部错误"
+// @Failure     400   {object} map[string]interface{}   "请求参数错误"
+// @Failure     500   {object} map[string]interface{}   "内部错误"
 // @Router      /api/v1/k8s/secret/create [post]
 func (ctl *KubeSecretController) Create(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -69,8 +69,8 @@ func (ctl *KubeSecretController) Create(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/list [get]
 func (c *KubeSecretController) List(ctx *gin.Context) {
 	// 构造请求参数结构体
@@ -121,8 +121,8 @@ func (c *KubeSecretController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Secret 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/detail [get]
 func (c *KubeSecretController) Detail(ctx *gin.Context) {
 	// 构造请求参数
@@ -165,8 +165,8 @@ func (c *KubeSecretController) Detail(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Secret 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/delete [delete]
 func (c *KubeSecretController) Delete(ctx *gin.Context) {
 	param := requests.NewKubeSecretDeleteRequest()
@@ -202,8 +202,8 @@ func (c *KubeSecretController) Delete(ctx *gin.Context) {
 // @Param name query string true "Secret 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/patch [patch]
 func (c *KubeSecretController) Patch(ctx *gin.Context) {
 	param := requests.NewKubeSecretUpdateRequest()
@@ -238,8 +238,8 @@ func (c *KubeSecretController) Patch(ctx *gin.Context) {
 // @Param name query string true "Secret 名称"
 // @Param content body string true "Patch Body(JSON字符串)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/patch-json [post]
 func (c *KubeSecretController) PatchJSON(ctx *gin.Context) {
 	param := requests.NewKubeSecretUpdateRequest()
@@ -272,8 +272,8 @@ func (c *KubeSecretController) PatchJSON(ctx *gin.Context) {
 // @Produce     json
 // @Param       body  body  requests.KubeSecretDecodeRequest  true  "要解码的数据"
 // @Success     200   {object} response.Response "成功"
-// @Failure     400   {object} errorcode.Error   "请求参数错误"
-// @Failure     500   {object} errorcode.Error   "内部错误"
+// @Failure     400   {object} map[string]interface{}   "请求参数错误"
+// @Failure     500   {object} map[string]interface{}   "内部错误"
 // @Router      /api/v1/k8s/secret/decode [post]
 func (c *KubeSecretController) Decode(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -307,8 +307,8 @@ func (c *KubeSecretController) Decode(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/secret/create-from-yaml [post]
 func (c *KubeSecretController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -338,8 +338,8 @@ func (c *KubeSecretController) CreateFromYaml(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "Secret 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/yaml [get]
 func (c *KubeSecretController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeSecretDetailRequest()
@@ -372,8 +372,8 @@ func (c *KubeSecretController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeConfigMapApplyYamlRequest true "YAML 内容"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/secret/apply-yaml [put]
 func (c *KubeSecretController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeConfigMapApplyYamlRequest()

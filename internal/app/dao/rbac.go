@@ -283,7 +283,7 @@ func (d *Dao) ClusterPermissionList(userID, clusterID int64, page, limit int) ([
 	}
 
 	// 填充集群名称和用户名
-	var result []*models.ClusterPermissionDetail
+	result := make([]*models.ClusterPermissionDetail, 0, len(perms))
 	for _, perm := range perms {
 		detail := &models.ClusterPermissionDetail{
 			SysUserCluster: *perm,
@@ -322,7 +322,7 @@ func (d *Dao) ClusterPermissionListByUser(userID int64) ([]*models.ClusterPermis
 		return nil, err
 	}
 
-	var result []*models.ClusterPermissionDetail
+	result := make([]*models.ClusterPermissionDetail, 0, len(perms))
 	for _, perm := range perms {
 		detail := &models.ClusterPermissionDetail{
 			SysUserCluster: *perm,
@@ -410,4 +410,31 @@ func (d *Dao) GetUserAccessibleClusters(userID int64) ([]*models.K8sCluster, err
 		Where("sys_user_cluster.user_id = ? AND sys_user_cluster.can_view = 1 AND kube_cluster.is_del = 0", userID).
 		Find(&clusters).Error
 	return clusters, err
+}
+
+// GetUserAccessibleNamespaces 获取用户在指定集群可访问的命名空间
+func (d *Dao) GetUserAccessibleNamespaces(userID, clusterID int64) ([]string, error) {
+	// 超级管理员可访问所有
+	if d.IsSuperAdmin(userID) {
+		return []string{}, nil
+	}
+
+	// 查询用户在该集群的权限
+	var perm models.SysUserCluster
+	err := d.db.Where("user_id = ? AND cluster_id = ?", userID, clusterID).First(&perm).Error
+	if err != nil {
+		return []string{"__none__"}, nil // 返回特殊标记表示无权限
+	}
+
+	// 解析命名空间 JSON
+	if perm.Namespaces == "" {
+		return []string{}, nil // 空字符串表示可访问所有
+	}
+
+	var namespaces []string
+	if err := json.Unmarshal([]byte(perm.Namespaces), &namespaces); err != nil {
+		return []string{}, nil
+	}
+
+	return namespaces, nil
 }

@@ -1,4 +1,4 @@
-package daemonset
+﻿package daemonset
 
 import (
 	"github.com/gin-gonic/gin"
@@ -26,8 +26,8 @@ func NewKubeDaemonSetController() *KubeDaemonSetController {
 // @Produce json
 // @Param body body requests.KubeDaemonSetCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/create [post]
 func (c *KubeDaemonSetController) Create(ctx *gin.Context) {
 	// 创建请求体结构
@@ -63,8 +63,8 @@ func (c *KubeDaemonSetController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/create-from-yaml [post]
 func (c *KubeDaemonSetController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -97,8 +97,8 @@ func (c *KubeDaemonSetController) CreateFromYaml(ctx *gin.Context) {
 // @Param page query int true "页码 (从1开始)"
 // @Param limit query int true "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/daemonset/list [get]
 func (c *KubeDaemonSetController) List(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetListRequest()
@@ -130,8 +130,8 @@ func (c *KubeDaemonSetController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/detail [get]
 func (c *KubeDaemonSetController) Detail(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetDetailRequest()
@@ -160,8 +160,8 @@ func (c *KubeDaemonSetController) Detail(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/delete [delete]
 func (c *KubeDaemonSetController) Delete(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetDeleteRequest()
@@ -196,8 +196,8 @@ func (c *KubeDaemonSetController) Delete(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} response.Response "Service 删除成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "服务器内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/v1/k8s/daemonset/delete_service [delete]
 func (c *KubeDaemonSetController) DeleteService(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetDeleteRequest()
@@ -231,8 +231,8 @@ func (c *KubeDaemonSetController) DeleteService(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeDaemonSetUpdateImageRequest true "更新镜像参数"
 // @Success 200 {object} string "更新成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "服务器内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/v1/k8s/daemonset/update_image [put]
 func (c *KubeDaemonSetController) UpdateImage(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetUpdateImageRequest()
@@ -267,8 +267,8 @@ func (c *KubeDaemonSetController) UpdateImage(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} string "DaemonSet 重启成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/restart [post]
 func (c *KubeDaemonSetController) Restart(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetRestartRequest()
@@ -299,8 +299,8 @@ func (c *KubeDaemonSetController) Restart(ctx *gin.Context) {
 // @Produce json
 // @Param request body requests.KubeDaemonSetRollbackRequest true "回滚参数（namespace、name、revision_name）"
 // @Success 200 {object} string "DaemonSet 回滚成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/rollback [post]
 func (c *KubeDaemonSetController) Rollback(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetRollbackRequest()
@@ -330,8 +330,8 @@ func (c *KubeDaemonSetController) Rollback(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/ds_pods [get]
 func (c *KubeDaemonSetController) Pods(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetPodsRequest()
@@ -359,8 +359,8 @@ func (c *KubeDaemonSetController) Pods(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/history [get]
 func (c *KubeDaemonSetController) History(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetHistoryRequest()
@@ -386,8 +386,8 @@ func (c *KubeDaemonSetController) History(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeEventListRequest true "事件查询参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/daemonset/events [post]
 func (c *KubeDaemonSetController) Events(ctx *gin.Context) {
 	param := requests.NewKubeEventListRequest()
@@ -416,8 +416,8 @@ func (c *KubeDaemonSetController) Events(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "DaemonSet 名称"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/daemonset/yaml [get]
 func (c *KubeDaemonSetController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeDaemonSetDetailRequest()
@@ -449,8 +449,8 @@ func (c *KubeDaemonSetController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeApplyYamlRequest true "YAML内容"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/daemonset/apply_yaml [put]
 func (c *KubeDaemonSetController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeApplyYamlRequest()

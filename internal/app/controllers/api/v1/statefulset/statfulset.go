@@ -1,4 +1,4 @@
-package statefulset
+﻿package statefulset
 
 import (
 	"fmt"
@@ -29,8 +29,8 @@ func NewKubeStatefulSetController() *KubeStatefulSetController {
 // @Produce json
 // @Param body body requests.KubeStatefulSetCreateRequest true "创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/create [post]
 func (c *KubeStatefulSetController) Create(ctx *gin.Context) {
 	req := requests.NewKubeStatefulSetCreateRequest()
@@ -62,8 +62,8 @@ func (c *KubeStatefulSetController) Create(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 创建参数"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/create-from-yaml [post]
 func (c *KubeStatefulSetController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -96,8 +96,8 @@ func (c *KubeStatefulSetController) CreateFromYaml(ctx *gin.Context) {
 // @Param page query int false "页码（默认 1）"
 // @Param limit query int false "每页数量（默认 10）"
 // @Success 200 {object} string "查询成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/list [get]
 func (c *KubeStatefulSetController) List(ctx *gin.Context) {
 	param := requests.NewKubeStatefulSetListRequest()
@@ -131,8 +131,8 @@ func (c *KubeStatefulSetController) List(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "StatefulSet 名称"
 // @Success 200 {object} string "获取详情成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/detail [get]
 func (c *KubeStatefulSetController) Detail(ctx *gin.Context) {
 	param := requests.NewKubeStatefulSetDetailRequest()
@@ -163,9 +163,9 @@ func (c *KubeStatefulSetController) Detail(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeStatefulSetScaleRequest true "扩缩容参数（namespace、name、scale_num）"
 // @Success 200 {object} map[string]interface{} "扩缩容成功，返回修改前后及当前副本信息"
-// @Failure 400 {object} errorcode.Error
-// @Failure 404 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/scale [put]
 func (c *KubeStatefulSetController) Scale(ctx *gin.Context) {
 	param := requests.NewKubeStatefulSetScaleRequest()
@@ -207,10 +207,10 @@ func (c *KubeStatefulSetController) Scale(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeStatefulSetUpdateImageRequest true "更新镜像参数（namespace、name、container、image）"
 // @Success 200 {object} map[string]interface{} "更新成功，返回资源版本与副本进度"
-// @Failure 400 {object} errorcode.Error
-// @Failure 404 {object} errorcode.Error
-// @Failure 409 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 409 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/update_image [put]
 func (c *KubeStatefulSetController) UpdateImage(ctx *gin.Context) {
 	// 1) 绑定请求体
@@ -254,9 +254,9 @@ func (c *KubeStatefulSetController) UpdateImage(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeStatefulSetRestartRequest true "重启参数（namespace、name）"
 // @Success 200 {object} map[string]interface{} "重启成功，返回命名空间、名称与触发时间等信息"
-// @Failure 400 {object} errorcode.Error "参数错误"
-// @Failure 404 {object} errorcode.Error "StatefulSet 未找到"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 404 {object} map[string]interface{} "StatefulSet 未找到"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/statefulset/restart [post]
 func (c *KubeStatefulSetController) Restart(ctx *gin.Context) {
 	ts := time.Now().Format(time.RFC3339)
@@ -291,9 +291,9 @@ func (c *KubeStatefulSetController) Restart(ctx *gin.Context) {
 // @Param       namespace query string true  "命名空间"
 // @Param       name      query string true  "StatefulSet 名称"
 // @Success     200 {object} map[string]interface{} "示例: {\"namespace\":\"default\",\"name\":\"web\",\"status\":\"StatefulSet 删除成功\"}"
-// @Failure     400 {object} errorcode.Error "参数错误"
-// @Failure     404 {object} errorcode.Error "StatefulSet 未找到"
-// @Failure     500 {object} errorcode.Error "内部错误"
+// @Failure     400 {object} map[string]interface{} "参数错误"
+// @Failure     404 {object} map[string]interface{} "StatefulSet 未找到"
+// @Failure     500 {object} map[string]interface{} "内部错误"
 // @Router      /api/v1/k8s/statefulset/delete [delete]
 // @Security    BearerAuth
 func (c *KubeStatefulSetController) Delete(ctx *gin.Context) {
@@ -325,9 +325,9 @@ func (c *KubeStatefulSetController) Delete(ctx *gin.Context) {
 // @Produce     json
 // @Param       body  body  map[string]string  true  "删除参数（namespace、name）"
 // @Success     200 {object} map[string]interface{} "删除成功"
-// @Failure     400 {object} errorcode.Error "参数错误"
-// @Failure     404 {object} errorcode.Error "Service 未找到"
-// @Failure     500 {object} errorcode.Error "内部错误"
+// @Failure     400 {object} map[string]interface{} "参数错误"
+// @Failure     404 {object} map[string]interface{} "Service 未找到"
+// @Failure     500 {object} map[string]interface{} "内部错误"
 // @Router      /api/v1/k8s/statefulset/delete_svc [delete]
 func (c *KubeStatefulSetController) DeleteService(ctx *gin.Context) {
 	param := requests.NewKubeStatefulSetDeleteRequest()
@@ -357,8 +357,8 @@ func (c *KubeStatefulSetController) DeleteService(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "StatefulSet 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/sts_pods [get]
 func (c *KubeStatefulSetController) PodList(ctx *gin.Context) {
 	param := requests.NewKubeCommonRequest()
@@ -388,8 +388,8 @@ func (c *KubeStatefulSetController) PodList(ctx *gin.Context) {
 // @Param kind query string false "资源类型"
 // @Param name query string false "资源名称"
 // @Success 200 {object} response.Response "事件列表加载完成"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/events [post]
 func (c *KubeStatefulSetController) EventList(ctx *gin.Context) {
 	param := requests.NewKubeEventListRequest()
@@ -420,8 +420,8 @@ func (c *KubeStatefulSetController) EventList(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "StatefulSet 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/history [get]
 func (c *KubeStatefulSetController) History(ctx *gin.Context) {
 	param := requests.NewKubeCommonRequest()
@@ -451,8 +451,8 @@ func (c *KubeStatefulSetController) History(ctx *gin.Context) {
 // @Produce json
 // @Param request body requests.KubeStatefulSetRollbackRequest true "回滚参数（namespace、name、revision_name）"
 // @Success 200 {object} string "StatefulSet 回滚成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/k8s/statefulset/rollback [post]
 func (c *KubeStatefulSetController) Rollback(ctx *gin.Context) {
 	param := requests.NewKubeStatefulSetRollbackRequest()
@@ -483,8 +483,8 @@ func (c *KubeStatefulSetController) Rollback(ctx *gin.Context) {
 // @Param namespace query string true "命名空间"
 // @Param name query string true "StatefulSet 名称"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/statefulset/yaml [get]
 func (c *KubeStatefulSetController) Yaml(ctx *gin.Context) {
 	param := requests.NewKubeStatefulSetDetailRequest()
@@ -516,8 +516,8 @@ func (c *KubeStatefulSetController) Yaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.KubeApplyYamlRequest true "YAML内容"
 // @Success 200 {object} map[string]interface{} "成功"
-// @Failure 400 {object} errorcode.Error "请求错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/statefulset/apply_yaml [put]
 func (c *KubeStatefulSetController) ApplyYaml(ctx *gin.Context) {
 	param := requests.NewKubeApplyYamlRequest()

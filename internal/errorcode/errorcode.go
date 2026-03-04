@@ -12,6 +12,14 @@ type Error struct {
 	details []string // 错误详情，用于存储更详细的错误信息列表
 }
 
+// ErrorResponse Swagger 文档用的错误响应结构
+// @Description 错误响应
+type ErrorResponse struct {
+	Code    int      `json:"code" example:"400001"`
+	Msg     string   `json:"msg" example:"请求参数错误"`
+	Details []string `json:"details,omitempty"`
+}
+
 // 错误码注册表
 var codes = map[int]string{}
 

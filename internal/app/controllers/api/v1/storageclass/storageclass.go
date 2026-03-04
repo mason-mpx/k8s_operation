@@ -1,4 +1,4 @@
-package storageclass
+﻿package storageclass
 
 import (
 	"github.com/gin-gonic/gin"
@@ -25,8 +25,8 @@ func NewKubeStorageClassController() *KubeStorageClassController {
 // @Produce     json
 // @Param       body  body  requests.KubeStorageClassCreateRequest  true  "StorageClass 创建参数"
 // @Success     200   {object} response.Response "成功"
-// @Failure     400   {object} errorcode.Error   "请求参数错误"
-// @Failure     500   {object} errorcode.Error   "内部错误"
+// @Failure     400   {object} map[string]interface{}   "请求参数错误"
+// @Failure     500   {object} map[string]interface{}   "内部错误"
 // @Router      /api/v1/k8s/storageclass/create [post]
 func (ctl *KubeStorageClassController) Create(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -71,8 +71,8 @@ func (ctl *KubeStorageClassController) Create(ctx *gin.Context) {
 // @Param page  query int    true  "页码 (从1开始)"
 // @Param limit query int    true  "每页数量 (默认20)"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/storageclass/list [get]
 func (c *KubeStorageClassController) List(ctx *gin.Context) {
 	// 1. 构造请求参数结构体
@@ -108,8 +108,8 @@ func (c *KubeStorageClassController) List(ctx *gin.Context) {
 // @Produce json
 // @Param   name query string true "StorageClass 名称"
 // @Success 200 {object} string "成功"
-// @Failure 400 {object} errorcode.Error
-// @Failure 500 {object} errorcode.Error
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
 // @Router  /api/v1/k8s/storageclass/detail [get]
 func (c *KubeStorageClassController) Detail(ctx *gin.Context) {
 	// 参数
@@ -147,8 +147,8 @@ func (c *KubeStorageClassController) Detail(ctx *gin.Context) {
 // @Produce json
 // @Param   name query string true "StorageClass 名称"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error   "请求参数错误"
-// @Failure 500 {object} errorcode.Error   "内部错误"
+// @Failure 400 {object} map[string]interface{}   "请求参数错误"
+// @Failure 500 {object} map[string]interface{}   "内部错误"
 // @Router  /api/v1/k8s/storageclass/delete [delete]
 func (c *KubeStorageClassController) Delete(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -179,8 +179,8 @@ func (c *KubeStorageClassController) Delete(ctx *gin.Context) {
 // @Produce json
 // @Param name query string true "StorageClass 名称"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/storageclass/yaml [get]
 func (c *KubeStorageClassController) GetYaml(ctx *gin.Context) {
 	r := response.NewResponse(ctx)
@@ -212,8 +212,8 @@ func (c *KubeStorageClassController) GetYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 内容"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/storageclass/create-from-yaml [post]
 func (c *KubeStorageClassController) CreateFromYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()
@@ -242,8 +242,8 @@ func (c *KubeStorageClassController) CreateFromYaml(ctx *gin.Context) {
 // @Produce json
 // @Param body body requests.YamlCreateRequest true "YAML 内容"
 // @Success 200 {object} response.Response "成功"
-// @Failure 400 {object} errorcode.Error "请求参数错误"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/k8s/storageclass/apply-yaml [post]
 func (c *KubeStorageClassController) ApplyYaml(ctx *gin.Context) {
 	req := requests.NewYamlCreateRequest()

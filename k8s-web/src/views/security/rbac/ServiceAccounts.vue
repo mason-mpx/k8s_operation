@@ -407,10 +407,10 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  color: #d1d5db;
+  color: #4b5563;
   font-size: 13px;
   cursor: pointer;
 }
@@ -437,10 +437,10 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .detail-section h3 {
   font-size: 14px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #374151;
   margin: 0 0 16px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .detail-grid {
@@ -465,7 +465,7 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 .detail-item span {
   font-size: 14px;
-  color: #f3f4f6;
+  color: #1f2937;
 }
 
 /* Secrets 列表 */
@@ -480,8 +480,8 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
 }
 
@@ -492,7 +492,7 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 .secret-name {
   font-family: 'Fira Code', monospace;
   font-size: 13px;
-  color: #a5b4fc;
+  color: #6366f1;
 }
 
 .empty-secrets {
@@ -508,7 +508,7 @@ onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #e5e7eb;
+  color: #374151;
   font-size: 14px;
 }
 

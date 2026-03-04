@@ -27,7 +27,9 @@ func NewAppConfigRuntimeClient(cfg *rest.Config) (client.Client, error) {
 // 全局初始化（类似 SetupK8sBootstrap）
 func SetupAppConfigClient() error {
 	if global.KubeConfig == nil {
-		return fmt.Errorf("KubeConfig is nil, should run SetupK8sBootstrap first")
+		// 空启动模式：跳过 AppConfig 客户端初始化
+		// 用户需要先通过界面添加集群
+		return nil
 	}
 
 	cli, err := NewAppConfigRuntimeClient(global.KubeConfig)

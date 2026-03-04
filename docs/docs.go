@@ -63,13 +63,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -106,13 +108,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -170,13 +174,15 @@ const docTemplate = `{
                     "401": {
                         "description": "Token 无效或已超过最大刷新时间",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -216,19 +222,22 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "409": {
                         "description": "用户已存在/冲突",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1068,13 +1077,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1124,13 +1135,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1180,13 +1193,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1228,13 +1243,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1273,13 +1290,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1712,13 +1731,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1759,13 +1780,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1812,19 +1835,22 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "401": {
                         "description": "签名验证失败",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1865,13 +1891,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1912,13 +1940,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1954,13 +1984,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2008,13 +2040,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2109,13 +2143,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2156,13 +2192,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2204,13 +2242,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2246,13 +2286,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2293,13 +2335,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2340,13 +2384,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2863,13 +2909,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2911,13 +2959,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -2959,13 +3009,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3019,13 +3071,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3067,13 +3121,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3112,13 +3168,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3158,13 +3216,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3205,13 +3265,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3252,13 +3314,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3314,13 +3378,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3373,13 +3439,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3432,13 +3500,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3477,13 +3547,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3524,13 +3596,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3569,13 +3643,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3614,13 +3690,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3656,13 +3734,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3703,13 +3783,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3765,13 +3847,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3811,13 +3895,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3857,13 +3943,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3902,13 +3990,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3949,13 +4039,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -3994,13 +4086,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4039,13 +4133,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4086,13 +4182,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4134,13 +4232,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "服务器内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4181,13 +4281,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4228,13 +4330,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4273,13 +4377,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4320,13 +4426,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4382,13 +4490,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4433,13 +4543,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4479,13 +4591,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4525,13 +4639,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "服务器内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4574,13 +4690,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4621,13 +4739,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4666,13 +4786,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4711,13 +4833,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4758,13 +4882,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4806,13 +4932,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "服务器内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4853,13 +4981,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4935,13 +5065,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "服务器内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -4982,13 +5114,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5044,13 +5178,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5089,13 +5225,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5136,13 +5274,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5181,13 +5321,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5226,13 +5368,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5271,13 +5415,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5316,13 +5462,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5365,13 +5513,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5415,13 +5565,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5460,13 +5612,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5510,13 +5664,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5557,13 +5713,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5604,13 +5762,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5666,13 +5826,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5725,13 +5887,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5784,13 +5948,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5831,13 +5997,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5876,13 +6044,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5921,13 +6091,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5966,13 +6138,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6013,13 +6187,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6060,13 +6236,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6122,13 +6300,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6168,13 +6348,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6214,13 +6396,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6260,13 +6444,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6307,13 +6493,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6352,13 +6540,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6397,13 +6587,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6444,13 +6636,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6490,13 +6684,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6531,13 +6727,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "删除失败",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6572,19 +6770,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "资源不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6624,13 +6825,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6679,13 +6882,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6729,13 +6934,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6771,13 +6978,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6818,13 +7027,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6864,19 +7075,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "资源不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6911,19 +7125,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "资源不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -6963,19 +7180,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "资源不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7016,13 +7236,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7062,13 +7284,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7117,13 +7341,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7157,13 +7383,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7219,13 +7447,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7265,13 +7495,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7307,13 +7539,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7353,13 +7587,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "创建 Pod 失败",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7400,13 +7636,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7448,13 +7686,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7512,13 +7752,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7567,13 +7809,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7615,13 +7859,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7660,13 +7906,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7708,13 +7956,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7754,25 +8004,29 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "Pod 不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "429": {
                         "description": "被 PDB 限制",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7827,13 +8081,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7875,13 +8131,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7923,13 +8181,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -7969,13 +8229,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8031,13 +8293,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8081,19 +8345,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "503": {
                         "description": "metrics-server 不可用",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8129,19 +8396,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "503": {
                         "description": "metrics-server 不可用",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8181,13 +8451,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8224,13 +8496,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8275,13 +8549,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8327,13 +8603,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8373,13 +8651,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8418,13 +8698,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8458,13 +8740,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8498,13 +8782,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8544,13 +8830,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8599,13 +8887,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8648,13 +8938,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8688,13 +8980,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8734,13 +9028,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8780,13 +9076,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8825,13 +9123,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8872,13 +9172,15 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8920,19 +9222,22 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "资源不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -8988,13 +9293,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9034,25 +9341,29 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "403": {
                         "description": "StorageClass 不允许扩容",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "资源不存在",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9553,13 +9864,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9599,13 +9912,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9644,13 +9959,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9690,13 +10007,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9737,13 +10056,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9784,13 +10105,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9846,13 +10169,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9905,13 +10230,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -9964,13 +10291,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10011,13 +10340,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10056,13 +10387,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10102,13 +10435,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10147,13 +10482,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10194,13 +10531,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10241,13 +10580,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10338,13 +10679,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10397,13 +10740,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10456,13 +10801,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10503,13 +10850,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10550,13 +10899,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10595,13 +10946,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10640,13 +10993,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10697,19 +11052,22 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "StatefulSet 未找到",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10753,19 +11111,22 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "Service 未找到",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10810,13 +11171,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10861,13 +11224,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10908,13 +11273,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -10963,13 +11330,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11010,19 +11379,22 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "StatefulSet 未找到",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11062,13 +11434,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11109,19 +11483,22 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11162,13 +11539,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11209,25 +11588,29 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11270,13 +11653,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11315,13 +11700,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11361,13 +11748,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11406,13 +11795,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11446,13 +11837,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11486,13 +11879,15 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11541,13 +11936,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11581,13 +11978,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -11695,6 +12094,106 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/settings": {
+            "get": {
+                "description": "获取所有平台配置项",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "平台管理"
+                ],
+                "summary": "获取平台设置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlatformSettingsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "批量更新平台配置项",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "平台管理"
+                ],
+                "summary": "更新平台设置",
+                "parameters": [
+                    {
+                        "description": "设置内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PlatformSettingsResponse"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/settings/reset": {
+            "post": {
+                "description": "将所有设置恢复为默认值",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "平台管理"
+                ],
+                "summary": "重置平台设置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlatformSettingsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -12326,6 +12825,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/rbac/user/namespaces": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取当前用户在指定集群可访问的命名空间列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取用户可访问的命名空间",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "集群ID",
+                        "name": "cluster_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/user/permissions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取当前用户的完整权限信息（权限隔离用）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取当前用户完整权限",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/user/create": {
             "post": {
                 "description": "创建用户",
@@ -12357,13 +12915,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -12400,13 +12960,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -12460,13 +13022,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -12503,13 +13067,15 @@ const docTemplate = `{
                     "400": {
                         "description": "请求错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
                         "description": "内部错误",
                         "schema": {
-                            "$ref": "#/definitions/errorcode.Error"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -12517,8 +13083,62 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "errorcode.Error": {
-            "type": "object"
+        "models.AboutSettings": {
+            "type": "object",
+            "properties": {
+                "build_date": {
+                    "type": "string"
+                },
+                "db_type": {
+                    "type": "string"
+                },
+                "go_version": {
+                    "type": "string"
+                },
+                "k8s_support": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "vue_version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AlertSettings": {
+            "type": "object",
+            "properties": {
+                "alert_silence": {
+                    "type": "integer"
+                },
+                "cpu_threshold": {
+                    "type": "integer"
+                },
+                "disk_threshold": {
+                    "type": "integer"
+                },
+                "mem_threshold": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.BasicSettings": {
+            "type": "object",
+            "properties": {
+                "default_cluster": {
+                    "type": "string"
+                },
+                "default_page": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            }
         },
         "models.EnvVar": {
             "type": "object",
@@ -12528,6 +13148,66 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
+                }
+            }
+        },
+        "models.NotificationSettings": {
+            "type": "object",
+            "properties": {
+                "dingtalk_webhook": {
+                    "type": "string"
+                },
+                "enable_dingtalk": {
+                    "type": "boolean"
+                },
+                "enable_email": {
+                    "type": "boolean"
+                },
+                "enable_webhook": {
+                    "type": "boolean"
+                },
+                "smtp_server": {
+                    "type": "string"
+                },
+                "webhook_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PlatformSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "about": {
+                    "$ref": "#/definitions/models.AboutSettings"
+                },
+                "alert": {
+                    "$ref": "#/definitions/models.AlertSettings"
+                },
+                "basic": {
+                    "$ref": "#/definitions/models.BasicSettings"
+                },
+                "notification": {
+                    "$ref": "#/definitions/models.NotificationSettings"
+                },
+                "security": {
+                    "$ref": "#/definitions/models.SecuritySettings"
+                }
+            }
+        },
+        "models.SecuritySettings": {
+            "type": "object",
+            "properties": {
+                "audit_retention": {
+                    "type": "integer"
+                },
+                "enable_2fa": {
+                    "type": "boolean"
+                },
+                "password_policy": {
+                    "type": "string"
+                },
+                "session_timeout": {
+                    "type": "integer"
                 }
             }
         },
@@ -14885,6 +15565,21 @@ const docTemplate = `{
         "response.Response": {
             "type": "object"
         },
+        "response.SuccessResponse": {
+            "description": "通用成功响应",
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "data": {},
+                "msg": {
+                    "type": "string",
+                    "example": "OK"
+                }
+            }
+        },
         "services.AlertSummary": {
             "type": "object",
             "properties": {
@@ -15233,6 +15928,14 @@ const docTemplate = `{
                 "url"
             ],
             "properties": {
+                "access_key_id": {
+                    "description": "阿里云 ACR 使用",
+                    "type": "string"
+                },
+                "access_key_secret": {
+                    "description": "阿里云 ACR 使用",
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -15248,6 +15951,10 @@ const docTemplate = `{
                     "minLength": 1
                 },
                 "password": {
+                    "type": "string"
+                },
+                "region": {
+                    "description": "区域（如 cn-hangzhou）",
                     "type": "string"
                 },
                 "type": {
@@ -15278,6 +15985,12 @@ const docTemplate = `{
                 "url"
             ],
             "properties": {
+                "access_key_id": {
+                    "type": "string"
+                },
+                "access_key_secret": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -15296,6 +16009,9 @@ const docTemplate = `{
                     "minLength": 1
                 },
                 "password": {
+                    "type": "string"
+                },
+                "region": {
                     "type": "string"
                 },
                 "type": {

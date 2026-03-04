@@ -78,6 +78,15 @@ func (d *Dao) UserGetByName(username string) (*models.User, error) {
 	return user.GetByName(d.db)
 }
 
+// UserGetByID 通过ID获取用户
+func (d *Dao) UserGetByID(id int64) (*models.User, error) {
+	var user models.User
+	if err := d.db.Where("id = ? AND is_del = 0", id).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // UserMigratePassword 将用户密码迁移到 bcrypt 格式
 func (d *Dao) UserMigratePassword(userID uint32, plainPassword string) error {
 	hashedPassword, err := utils.HashPassword(plainPassword)

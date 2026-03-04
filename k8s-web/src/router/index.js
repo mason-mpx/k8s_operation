@@ -1,9 +1,33 @@
 // src/router/index.js
 import {createRouter, createWebHistory} from 'vue-router'
+import permissionStore from '@/stores/permission'
 
 import Login from '@/views/auth/Login.vue'
 import Layout from '@/components/Layout.vue'
 import Dashboard from '@/views/dashboard/Dashboard.vue'
+
+/**
+ * 路由权限配置
+ * roles: 允许访问的角色列表
+ */
+const routePermissions = {
+  // 平台管理
+  '/platform/health': ['super_admin', 'platform_admin'],
+  '/platform/settings': ['super_admin', 'platform_admin'],
+  
+  // 安全管理
+  '/users': ['super_admin', 'platform_admin'],
+  '/rbac': ['super_admin', 'platform_admin'],
+  '/user-permissions': ['super_admin', 'platform_admin'],
+  '/security/audit': ['super_admin', 'platform_admin'],
+  
+  // CI/CD
+  '/cicd/templates': ['super_admin', 'platform_admin'],
+  
+  // 镜像管理
+  '/images/repositories': ['super_admin', 'platform_admin'],
+  '/images/cleanup': ['super_admin', 'platform_admin']
+}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -77,6 +101,7 @@ const router = createRouter({
         // 平台功能（不需要 clusterId）
         {path: 'users', component: () => import('@/views/platform/Users.vue')},
         {path: 'rbac', component: () => import('@/views/platform/RBACPermissions.vue')},
+        {path: 'user-permissions', component: () => import('@/views/platform/UserPermissions.vue')},
 
         // CICD 流水线
         {path: 'cicd/pipelines', component: () => import('@/views/cicd/Pipelines.vue')},
@@ -114,16 +139,66 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth)
   const token = localStorage.getItem('token') || sessionStorage.getItem('token')
   
+  // 未登录时跳转到登录页
   if (requiresAuth && !token) {
-    // 未登录时，带上原目标路径跳转到登录页
     next({ path: '/login', query: { redirect: to.fullPath } })
-  } else {
-    next()
+    return
   }
+  
+  // 登录页直接放行
+  if (to.path === '/login') {
+    next()
+    return
+  }
+  
+  // 已登录时，确保加载了权限
+  if (token && !permissionStore.state.loaded) {
+    try {
+      await permissionStore.loadPermissions()
+    } catch (e) {
+      console.error('加载权限失败', e)
+    }
+  }
+  
+  // 检查路由权限
+  const routeRoles = routePermissions[to.path]
+  if (routeRoles) {
+    // 超级管理员可以访问所有页面
+    if (permissionStore.state.isSuperAdmin) {
+      next()
+      return
+    }
+    
+    // 检查用户角色
+    const userRoles = permissionStore.roleTypes.value
+    const hasPermission = routeRoles.some(role => userRoles.includes(role))
+    
+    if (!hasPermission) {
+      // 无权限时跳转到 403 页面或首页
+      console.warn(`[权限拒绝] 访问 ${to.path} 需要角色: ${routeRoles.join(', ')}`)
+      next({ path: '/dashboard', query: { forbidden: 'true' } })
+      return
+    }
+  }
+  
+  // 集群级路由权限检查
+  if (to.path.startsWith('/c/') && to.params.clusterId) {
+    const clusterId = parseInt(to.params.clusterId)
+    if (clusterId && !permissionStore.state.isSuperAdmin) {
+      const canAccess = permissionStore.canAccessCluster(clusterId, 'view')
+      if (!canAccess) {
+        console.warn(`[权限拒绝] 无权访问集群 ${clusterId}`)
+        next({ path: '/clusters', query: { forbidden: 'cluster' } })
+        return
+      }
+    }
+  }
+  
+  next()
 })
 
 export default router

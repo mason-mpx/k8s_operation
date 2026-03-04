@@ -1,4 +1,4 @@
-package auth
+﻿package auth
 
 import (
 	"net/http"
@@ -15,8 +15,8 @@ import (
 // @Produce json
 // @Param Authorization header string true "Bearer token"
 // @Success 200 {object} string "成功"
-// @Failure 401 {object} errorcode.Error "Token 无效或已超过最大刷新时间"
-// @Failure 500 {object} errorcode.Error "内部错误"
+// @Failure 401 {object} map[string]interface{} "Token 无效或已超过最大刷新时间"
+// @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/auth/refresh [post]
 //
 // AuthController 结构体的刷新 Token 方法
