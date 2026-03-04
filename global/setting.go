@@ -11,11 +11,12 @@ const (
 )
 
 var (
-	ServerSetting   *setting.ServerSettingS
-	DatabaseSetting *setting.DatabaseSettingS
-	AppSetting      *setting.AppSettingS
-	CacheSetting    *setting.CacheSettingS
-	ClusterTTL      *setting.ClusterClientConfig
-	JenkinsSetting  *setting.JenkinsSettingS  // Jenkins CI/CD 配置
-	SecuritySetting *setting.SecuritySettingS // 安全配置（加密密钥等）
+	ServerSetting    *setting.ServerSettingS
+	DatabaseSetting  *setting.DatabaseSettingS
+	AppSetting       *setting.AppSettingS
+	CacheSetting     *setting.CacheSettingS
+	ClusterTTL       *setting.ClusterClientConfig
+	JenkinsSetting   *setting.JenkinsSettingS   // Jenkins CI/CD 配置
+	SecuritySetting  *setting.SecuritySettingS  // 安全配置（加密密钥等）
+	PlatformSetting  *setting.PlatformSettingsS // 平台系统设置（默认值，优先级低于数据库）
 )

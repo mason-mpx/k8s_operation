@@ -69,5 +69,14 @@ func DecodeKubeconfigSmart(data string) (string, error) {
 		// 解码失败，可能就是明文
 		return s, nil
 	}
-	return string(raw), nil
+
+	decoded := string(raw)
+
+	// 4) 验证 base64 解码后是否是有效的 kubeconfig
+	if !strings.Contains(decoded, "apiVersion:") && !strings.HasPrefix(decoded, "{") {
+		// 解码后不是 kubeconfig 格式，返回原始数据
+		return s, nil
+	}
+
+	return decoded, nil
 }

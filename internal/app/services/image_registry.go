@@ -34,45 +34,54 @@ type RegistryListRequest struct {
 
 // RegistryCreateRequest 创建请求参数
 type RegistryCreateRequest struct {
-	Name        string `json:"name" binding:"required,min=1,max=100"`
-	Type        string `json:"type" binding:"required,oneof=docker harbor gcr ecr acr quay"`
-	URL         string `json:"url" binding:"required,url"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	Insecure    bool   `json:"insecure"`
-	Description string `json:"description"`
-	IsDefault   bool   `json:"is_default"`
+	Name            string `json:"name" binding:"required,min=1,max=100"`
+	Type            string `json:"type" binding:"required,oneof=docker harbor gcr ecr acr quay"`
+	URL             string `json:"url" binding:"required,url"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	AccessKeyID     string `json:"access_key_id"`     // 阿里云 ACR 使用
+	AccessKeySecret string `json:"access_key_secret"` // 阿里云 ACR 使用
+	Region          string `json:"region"`            // 区域（如 cn-hangzhou）
+	Insecure        bool   `json:"insecure"`
+	Description     string `json:"description"`
+	IsDefault       bool   `json:"is_default"`
 }
 
 // RegistryUpdateRequest 更新请求参数
 type RegistryUpdateRequest struct {
-	ID          int64  `json:"id" binding:"required"`
-	Name        string `json:"name" binding:"required,min=1,max=100"`
-	Type        string `json:"type" binding:"required,oneof=docker harbor gcr ecr acr quay"`
-	URL         string `json:"url" binding:"required,url"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	Insecure    bool   `json:"insecure"`
-	Description string `json:"description"`
-	IsDefault   bool   `json:"is_default"`
+	ID              int64  `json:"id" binding:"required"`
+	Name            string `json:"name" binding:"required,min=1,max=100"`
+	Type            string `json:"type" binding:"required,oneof=docker harbor gcr ecr acr quay"`
+	URL             string `json:"url" binding:"required,url"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	AccessKeyID     string `json:"access_key_id"`
+	AccessKeySecret string `json:"access_key_secret"`
+	Region          string `json:"region"`
+	Insecure        bool   `json:"insecure"`
+	Description     string `json:"description"`
+	IsDefault       bool   `json:"is_default"`
 }
 
 // RegistryResponse 仓库响应
 type RegistryResponse struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	URL         string `json:"url"`
-	Username    string `json:"username"`
-	HasPassword bool   `json:"has_password"`
-	Insecure    bool   `json:"insecure"`
-	Description string `json:"description"`
-	IsDefault   bool   `json:"is_default"`
-	Status      string `json:"status"`
-	LastCheckAt int64  `json:"last_check_at"`
-	LastError   string `json:"last_error"`
-	CreatedAt   int64  `json:"created_at"`
-	ModifiedAt  int64  `json:"modified_at"`
+	ID             int64  `json:"id"`
+	Name           string `json:"name"`
+	Type           string `json:"type"`
+	URL            string `json:"url"`
+	Username       string `json:"username"`
+	HasPassword    bool   `json:"has_password"`
+	AccessKeyID    string `json:"access_key_id"`
+	HasAccessKey   bool   `json:"has_access_key"`
+	Region         string `json:"region"`
+	Insecure       bool   `json:"insecure"`
+	Description    string `json:"description"`
+	IsDefault      bool   `json:"is_default"`
+	Status         string `json:"status"`
+	LastCheckAt    int64  `json:"last_check_at"`
+	LastError      string `json:"last_error"`
+	CreatedAt      int64  `json:"created_at"`
+	ModifiedAt     int64  `json:"modified_at"`
 }
 
 // RegistryStats 仓库统计
@@ -86,20 +95,23 @@ type RegistryStats struct {
 // toResponse 转换为响应结构
 func toResponse(r *models.ImageRegistry) *RegistryResponse {
 	return &RegistryResponse{
-		ID:          r.ID,
-		Name:        r.Name,
-		Type:        r.Type,
-		URL:         r.URL,
-		Username:    r.Username,
-		HasPassword: r.Password != "",
-		Insecure:    r.Insecure,
-		Description: r.Description,
-		IsDefault:   r.IsDefault,
-		Status:      r.Status,
-		LastCheckAt: r.LastCheckAt,
-		LastError:   r.LastError,
-		CreatedAt:   r.CreatedAt,
-		ModifiedAt:  r.ModifiedAt,
+		ID:           r.ID,
+		Name:         r.Name,
+		Type:         r.Type,
+		URL:          r.URL,
+		Username:     r.Username,
+		HasPassword:  r.Password != "",
+		AccessKeyID:  r.AccessKeyID,
+		HasAccessKey: r.AccessKeySecret != "",
+		Region:       r.Region,
+		Insecure:     r.Insecure,
+		Description:  r.Description,
+		IsDefault:    r.IsDefault,
+		Status:       r.Status,
+		LastCheckAt:  r.LastCheckAt,
+		LastError:    r.LastError,
+		CreatedAt:    r.CreatedAt,
+		ModifiedAt:   r.ModifiedAt,
 	}
 }
 
@@ -152,16 +164,19 @@ func (s *ImageRegistryService) Create(req *RegistryCreateRequest, userID int64) 
 	}
 
 	registry := &models.ImageRegistry{
-		Name:        req.Name,
-		Type:        req.Type,
-		URL:         strings.TrimSuffix(req.URL, "/"),
-		Username:    req.Username,
-		Password:    req.Password,
-		Insecure:    req.Insecure,
-		Description: req.Description,
-		IsDefault:   req.IsDefault,
-		Status:      "unknown",
-		CreatedBy:   userID,
+		Name:            req.Name,
+		Type:            req.Type,
+		URL:             strings.TrimSuffix(req.URL, "/"),
+		Username:        req.Username,
+		Password:        req.Password,
+		AccessKeyID:     req.AccessKeyID,
+		AccessKeySecret: req.AccessKeySecret,
+		Region:          req.Region,
+		Insecure:        req.Insecure,
+		Description:     req.Description,
+		IsDefault:       req.IsDefault,
+		Status:          "unknown",
+		CreatedBy:       userID,
 	}
 
 	if err := s.model.Create(registry); err != nil {
@@ -203,6 +218,11 @@ func (s *ImageRegistryService) Update(req *RegistryUpdateRequest) (*RegistryResp
 	if req.Password != "" {
 		existing.Password = req.Password
 	}
+	existing.AccessKeyID = req.AccessKeyID
+	if req.AccessKeySecret != "" {
+		existing.AccessKeySecret = req.AccessKeySecret
+	}
+	existing.Region = req.Region
 	existing.Insecure = req.Insecure
 	existing.Description = req.Description
 	existing.IsDefault = req.IsDefault
@@ -242,7 +262,36 @@ func (s *ImageRegistryService) CheckConnection(id int64) error {
 	lastError := ""
 	checkTime := time.Now().Unix()
 
-	// 创建 HTTP 客户端
+	// 阿里云 ACR 使用 OpenAPI 检测
+	if registry.Type == "acr" {
+		if registry.AccessKeyID == "" || registry.AccessKeySecret == "" {
+			status = "disconnected"
+			lastError = "未配置 AccessKey"
+		} else {
+			acrClient, err := NewACRClient(registry)
+			if err != nil {
+				status = "disconnected"
+				lastError = err.Error()
+			} else {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				_, err := acrClient.listNamespaces(ctx)
+				cancel()
+				if err != nil {
+					status = "disconnected"
+					lastError = err.Error()
+				} else {
+					status = "connected"
+				}
+			}
+		}
+		// 更新状态
+		if err := s.model.UpdateStatus(id, status, lastError, checkTime); err != nil {
+			global.Logger.Error("更新仓库状态失败", zap.Error(err))
+		}
+		return nil
+	}
+
+	// 其他类型使用 HTTP 检测
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{

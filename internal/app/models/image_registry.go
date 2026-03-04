@@ -8,22 +8,25 @@ import (
 
 // ImageRegistry 镜像仓库配置
 type ImageRegistry struct {
-	ID          int64  `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name        string `gorm:"type:varchar(100);not null;uniqueIndex:idx_registry_name" json:"name"`          // 仓库名称
-	Type        string `gorm:"type:varchar(50);not null;default:'docker'" json:"type"`                        // 类型: docker, harbor, gcr, ecr, acr, quay
-	URL         string `gorm:"type:varchar(500);not null" json:"url"`                                         // 仓库地址
-	Username    string `gorm:"type:varchar(100)" json:"username"`                                             // 用户名
-	Password    string `gorm:"type:varchar(500)" json:"-"`                                                    // 密码（加密存储，不返回给前端）
-	Insecure    bool   `gorm:"type:tinyint(1);default:0" json:"insecure"`                                     // 是否跳过 TLS 验证
-	Description string `gorm:"type:varchar(500)" json:"description"`                                          // 描述
-	IsDefault   bool   `gorm:"type:tinyint(1);default:0" json:"is_default"`                                   // 是否默认仓库
-	Status      string `gorm:"type:varchar(50);default:'unknown'" json:"status"`                              // 连接状态: connected, disconnected, unknown
-	LastCheckAt int64  `gorm:"type:bigint" json:"last_check_at"`                                              // 最后检测时间
-	LastError   string `gorm:"type:varchar(500)" json:"last_error"`                                           // 最后错误信息
-	CreatedBy   int64  `gorm:"type:bigint" json:"created_by"`                                                 // 创建人
-	CreatedAt   int64  `gorm:"type:bigint;autoCreateTime" json:"created_at"`
-	ModifiedAt  int64  `gorm:"type:bigint;autoUpdateTime" json:"modified_at"`
-	IsDel       int    `gorm:"type:tinyint(1);default:0" json:"-"`
+	ID              int64  `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name            string `gorm:"type:varchar(100);not null;uniqueIndex:idx_registry_name" json:"name"`    // 仓库名称
+	Type            string `gorm:"type:varchar(50);not null;default:'docker'" json:"type"`                  // 类型: docker, harbor, gcr, ecr, acr, quay
+	URL             string `gorm:"type:varchar(500);not null" json:"url"`                                   // 仓库地址
+	Username        string `gorm:"type:varchar(100)" json:"username"`                                       // 用户名
+	Password        string `gorm:"type:varchar(500)" json:"-"`                                              // 密码（加密存储，不返回给前端）
+	AccessKeyID     string `gorm:"type:varchar(100)" json:"access_key_id"`                                  // 阿里云 AccessKey ID（ACR 使用）
+	AccessKeySecret string `gorm:"type:varchar(200)" json:"-"`                                              // 阿里云 AccessKey Secret（加密存储）
+	Region          string `gorm:"type:varchar(50)" json:"region"`                                          // 区域（如 cn-hangzhou）
+	Insecure        bool   `gorm:"type:tinyint(1);default:0" json:"insecure"`                               // 是否跳过 TLS 验证
+	Description     string `gorm:"type:varchar(500)" json:"description"`                                    // 描述
+	IsDefault       bool   `gorm:"type:tinyint(1);default:0" json:"is_default"`                             // 是否默认仓库
+	Status          string `gorm:"type:varchar(50);default:'unknown'" json:"status"`                        // 连接状态: connected, disconnected, unknown
+	LastCheckAt     int64  `gorm:"type:bigint" json:"last_check_at"`                                        // 最后检测时间
+	LastError       string `gorm:"type:varchar(500)" json:"last_error"`                                     // 最后错误信息
+	CreatedBy       int64  `gorm:"type:bigint" json:"created_by"`                                           // 创建人
+	CreatedAt       int64  `gorm:"type:bigint;autoCreateTime" json:"created_at"`
+	ModifiedAt      int64  `gorm:"type:bigint;autoUpdateTime" json:"modified_at"`
+	IsDel           int    `gorm:"type:tinyint(1);default:0" json:"-"`
 }
 
 func (ImageRegistry) TableName() string {
@@ -47,15 +50,18 @@ func (m *ImageRegistryModel) Create(registry *ImageRegistry) error {
 // Update 更新镜像仓库
 func (m *ImageRegistryModel) Update(registry *ImageRegistry) error {
 	return m.db.Model(registry).Updates(map[string]interface{}{
-		"name":        registry.Name,
-		"type":        registry.Type,
-		"url":         registry.URL,
-		"username":    registry.Username,
-		"password":    registry.Password,
-		"insecure":    registry.Insecure,
-		"description": registry.Description,
-		"is_default":  registry.IsDefault,
-		"modified_at": registry.ModifiedAt,
+		"name":              registry.Name,
+		"type":              registry.Type,
+		"url":               registry.URL,
+		"username":          registry.Username,
+		"password":          registry.Password,
+		"access_key_id":     registry.AccessKeyID,
+		"access_key_secret": registry.AccessKeySecret,
+		"region":            registry.Region,
+		"insecure":          registry.Insecure,
+		"description":       registry.Description,
+		"is_default":        registry.IsDefault,
+		"modified_at":       registry.ModifiedAt,
 	}).Error
 }
 

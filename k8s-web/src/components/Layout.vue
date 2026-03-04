@@ -4,23 +4,24 @@
     <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
         <div class="logo">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 100 100">
-            <g fill="#326ce5">
-              <path
-                d="M39.971 5.05c-3.607-.418-7.152.532-9.957 2.694l-1.315 1.035 1.703 2.17 1.227-1.006c1.946-1.606 4.387-2.537 6.984-2.537 3.97 0 7.513 2.053 9.616 5.298l1.127 1.629 2.012-1.388-1.217-1.772c-2.563-3.722-6.534-6.13-10.984-6.23z"
-              />
-              <path
-                d="M42.026 94.796c3.608.418 7.153-.53 9.958-2.693l1.315-1.035-1.702-2.17-1.228 1.006c-1.947 1.606-4.388 2.537-6.985 2.537-3.969 0-7.512-2.053-9.615-5.298l-1.127-1.63-2.012 1.388 1.217 1.772c2.564 3.723 6.535 6.13 10.984 6.23z"
-              />
-              <path
-                d="M5.136 42.085c.416 3.606-.532 7.152-2.694 9.957l-1.035 1.315 2.17 1.703 1.006-1.227c1.606-1.946 2.537-4.387 2.537-6.984 0-3.97-2.053-7.513-5.298-9.616l-1.629-1.127 1.388-2.012 1.772 1.217c3.722 2.563 6.13 6.534 6.23 10.984z"
-              />
-              <path
-                d="M94.961 39.912c-.418-3.608.53-7.153 2.693-9.958l1.035-1.315-2.17-1.702-1.006 1.228c-1.606 1.947-2.537 4.388-2.537 6.985 0 3.969 2.053 7.512 5.298 9.615l1.63 1.127-1.388 2.012-1.772-1.217c-3.723-2.564-6.13-6.535-6.23-10.984z"
-              />
-            </g>
-          </svg>
-          <span>Kubernetes Admin</span>
+          <div class="logo-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+              <defs>
+                <linearGradient id="k8s-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#326CE5"/>
+                  <stop offset="100%" style="stop-color:#54A3FF"/>
+                </linearGradient>
+              </defs>
+              <circle cx="16" cy="16" r="15" fill="url(#k8s-gradient)"/>
+              <g fill="#fff" transform="translate(6,6) scale(0.625)">
+                <polygon points="16,0 20,12 32,12 22,20 26,32 16,24 6,32 10,20 0,12 12,12"/>
+              </g>
+            </svg>
+          </div>
+          <div class="logo-text">
+            <span class="logo-title">K8s Platform</span>
+            <span class="logo-version">v2.0</span>
+          </div>
         </div>
       </div>
 
@@ -50,6 +51,68 @@
           </div>
         </div>
       </nav>
+
+      <!-- ✅ 底部固定区域（大厂风格） -->
+      <div class="sidebar-footer">
+        <div class="footer-divider"></div>
+        
+        <!-- 应用商城 -->
+        <router-link to="/platform/appstore" class="footer-item" active-class="footer-item-active">
+          <div class="footer-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
+          <span class="footer-text">应用商城</span>
+        </router-link>
+
+        <!-- 系统设置 -->
+        <router-link to="/platform/settings" class="footer-item" active-class="footer-item-active">
+          <div class="footer-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </div>
+          <span class="footer-text">系统设置</span>
+          <span class="footer-badge">NEW</span>
+        </router-link>
+
+        <!-- 帮助中心 -->
+        <div class="footer-item" @click="showHelp = true">
+          <div class="footer-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <span class="footer-text">帮助中心</span>
+        </div>
+
+        <!-- 用户信息卡片 -->
+        <div class="user-card">
+          <div class="user-avatar">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
+          <div class="user-details">
+            <span class="user-name">{{ username }}</span>
+            <span class="user-role">管理员</span>
+          </div>
+          <button class="logout-icon" @click="handleLogout" title="退出登录">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
     </aside>
 
     <!-- 主内容区域 -->
@@ -61,9 +124,21 @@
           </button>
         </div>
         <div class="nav-right">
-          <div class="user-info">
-            <span class="username">{{ username }}</span>
-            <button @click="handleLogout" class="logout-btn">退出登录</button>
+          <!-- 简化的操作区域 -->
+          <div class="nav-actions">
+            <button class="nav-action-btn" title="通知">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span class="notification-badge">3</span>
+            </button>
+            <button class="nav-action-btn" title="搜索">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
           </div>
         </div>
       </header>
@@ -84,6 +159,7 @@ const router = useRouter()
 const route = useRoute()
 
 const sidebarCollapsed = ref(false)
+const showHelp = ref(false)
 
 const username = computed(() => {
   const userStr = localStorage.getItem('user') || sessionStorage.getItem('user')
@@ -122,33 +198,31 @@ const handleLogout = async () => {
 }
 
 /**
- * ✅ 方案 A：Layout（全局侧边栏）只放“平台级菜单”
- * - dashboard / clusters / users / cicd / images / environments
- * - 集群内部（nodes/pods/networking/config...）交给 ClusterLayout.vue
+ * ✅ 侧边栏菜单（底部设置已移动到 sidebar-footer）
  */
 const menuGroups = ref([
-  // ✅ 顶层：首页（单项也行）
+  // 首页
   {
     name: '首页',
     icon: '🏠',
     count: 0,
     collapsed: false,
     match: ['/dashboard'],
-    path: '/dashboard', // ✅ 关键：点组头就跳转
+    path: '/dashboard',
   },
+  // 平台
   {
     name: '平台',
     icon: '🏷️',
-    count: 5,
+    count: 2,
     collapsed: true,
     match: ['/dashboard', '/clusters', '/platform'],
     items: [
       { path: '/clusters', label: '集群列表' },
       { path: '/platform/health', label: '平台健康' },
-      { path: '/platform/appstore', label: '应用商城' },
-      { path: '/platform/settings', label: '系统设置' },
     ],
   },
+  // 安全
   {
     name: '安全',
     icon: '🛡️',
@@ -165,10 +239,11 @@ const menuGroups = ref([
       { path: '/security/rbac/permission-check', label: '权限校验工具' },
     ],
   },
+  // CI/CD
   {
     name: 'CI/CD',
     icon: '⚡',
-    count: 4,
+    count: 3,
     collapsed: true,
     match: ['/cicd'],
     items: [
@@ -177,6 +252,7 @@ const menuGroups = ref([
       { path: '/cicd/templates', label: '流水线模板' },
     ],
   },
+  // 镜像与环境
   {
     name: '镜像与环境',
     icon: '📦',
@@ -225,22 +301,22 @@ watch(
 
 /* ===== 侧边栏 ===== */
 .sidebar {
-  width: 15rem; /* 240px → 15rem */
-  background-color: #2d3748;
+  width: 15rem;
+  background: linear-gradient(180deg, #1e2a3a 0%, #2d3748 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar.collapsed {
-  width: 4rem; /* 64px → 4rem */
+  width: 4rem;
 }
 
 .sidebar-header {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid #4a5568;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .logo {
@@ -249,17 +325,34 @@ watch(
   gap: 0.75rem;
 }
 
-.logo svg {
-  width: 2rem;
-  height: 2rem;
+.logo-icon {
+  width: 2.5rem;
+  height: 2.5rem;
   flex-shrink: 0;
 }
 
-.logo span {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #326ce5;
-  white-space: nowrap;
+.logo-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.logo-version {
+  font-size: 0.65rem;
+  color: #64b5f6;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .sidebar-nav {
@@ -279,7 +372,6 @@ watch(
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   color: #e2e8f0;
-  background-color: #2d3748;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
@@ -288,7 +380,7 @@ watch(
 }
 
 .group-header:hover {
-  background-color: #4a5568;
+  background-color: rgba(255, 255, 255, 0.08);
   border-left-color: #326ce5;
   padding-left: 1.25rem;
 }
@@ -363,16 +455,152 @@ watch(
 }
 
 .nav-item:hover {
-  background-color: #4a5568;
+  background-color: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   padding-left: 2.75rem;
 }
 
 .nav-item-active {
-  background-color: #326ce5;
+  background: linear-gradient(90deg, #326ce5 0%, #4a85f0 100%);
   color: #ffffff;
   border-left-color: #ffffff;
   box-shadow: 2px 0 8px rgba(50, 108, 229, 0.3);
+}
+
+/* ===== 底部固定区域（大厂风格） ===== */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 0.5rem 0.75rem 1rem;
+}
+
+.footer-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  margin-bottom: 0.75rem;
+}
+
+.footer-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  color: #a0aec0;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 0.25rem;
+}
+
+.footer-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.footer-item-active {
+  background: linear-gradient(90deg, rgba(50, 108, 229, 0.3), rgba(50, 108, 229, 0.1));
+  color: #64b5f6;
+}
+
+.footer-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.footer-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.footer-text {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  flex: 1;
+}
+
+.footer-badge {
+  padding: 0.125rem 0.375rem;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 600;
+  border-radius: 0.25rem;
+  text-transform: uppercase;
+}
+
+/* 用户信息卡片 */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%);
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-avatar svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #ffffff;
+}
+
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
+  display: block;
+  font-size: 0.6875rem;
+  color: #a0aec0;
+  margin-top: 1px;
+}
+
+.logout-icon {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.375rem;
+  background: transparent;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  color: #a0aec0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.logout-icon:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.logout-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* ===== 主内容区 ===== */
@@ -411,31 +639,50 @@ watch(
   background-color: #f7fafc;
 }
 
-.user-info {
+.nav-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.username {
-  font-size: 0.875rem;
-  color: #4a5568;
-}
-
-.logout-btn {
-  padding: 0.5rem 1rem;
-  background-color: #326ce5;
-  color: white;
+.nav-action-btn {
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0.5rem;
+  background: transparent;
   border: none;
-  border-radius: 0.375rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  border-radius: 0.5rem;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #64748b;
+  transition: all 0.2s ease;
 }
 
-.logout-btn:hover {
-  background-color: #2558c9;
+.nav-action-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.nav-action-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0.125rem;
+  right: 0.125rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .page-content {

@@ -151,3 +151,81 @@ type JenkinsSettingS struct {
 	// 通知配置
 	DingTalkWebhook string `mapstructure:"DingTalkWebhook"` // 钉钉机器人 Webhook URL
 }
+
+// =============================================================================
+// 平台系统设置配置结构体（混合模式）
+// =============================================================================
+
+// PlatformSettingsS 平台系统设置主结构
+type PlatformSettingsS struct {
+	Basic        PlatformBasicSettings        `mapstructure:"Basic"`
+	Security     PlatformSecuritySettings     `mapstructure:"Security"`
+	Alert        PlatformAlertSettings        `mapstructure:"Alert"`
+	Notification PlatformNotificationSettings `mapstructure:"Notification"`
+	About        PlatformAboutSettings        `mapstructure:"About"`
+}
+
+// PlatformBasicSettings 基础设置
+type PlatformBasicSettings struct {
+	DefaultPage    string `mapstructure:"DefaultPage"`    // 默认进入页
+	DefaultCluster string `mapstructure:"DefaultCluster"` // 默认集群
+	Language       string `mapstructure:"Language"`       // 界面语言
+	Timezone       string `mapstructure:"Timezone"`       // 时区设置
+}
+
+// PlatformSecuritySettings 安全设置
+type PlatformSecuritySettings struct {
+	SessionTimeout int    `mapstructure:"SessionTimeout"` // 会话超时(分钟)
+	Enable2FA      bool   `mapstructure:"Enable2FA"`      // 双因素认证
+	PasswordPolicy string `mapstructure:"PasswordPolicy"` // 密码策略
+	AuditRetention int    `mapstructure:"AuditRetention"` // 审计日志保留天数
+}
+
+// PlatformAlertSettings 告警设置
+type PlatformAlertSettings struct {
+	CPUThreshold  int `mapstructure:"CPUThreshold"`  // CPU 阈值
+	MemThreshold  int `mapstructure:"MemThreshold"`  // 内存阈值
+	DiskThreshold int `mapstructure:"DiskThreshold"` // 磁盘阈值
+	AlertSilence  int `mapstructure:"AlertSilence"`  // 告警静默期(分钟)
+}
+
+// PlatformNotificationSettings 通知设置
+type PlatformNotificationSettings struct {
+	EnableEmail    bool                 `mapstructure:"EnableEmail"`
+	SMTP           SMTPSettings         `mapstructure:"SMTP"`
+	EnableDingTalk bool                 `mapstructure:"EnableDingTalk"`
+	DingTalk       DingTalkSettings     `mapstructure:"DingTalk"`
+	EnableWebhook  bool                 `mapstructure:"EnableWebhook"`
+	Webhook        WebhookSettings      `mapstructure:"Webhook"`
+}
+
+// SMTPSettings SMTP 配置
+type SMTPSettings struct {
+	Server   string `mapstructure:"Server"`
+	Username string `mapstructure:"Username"`
+	Password string `mapstructure:"Password"` // 敏感，不存数据库
+	From     string `mapstructure:"From"`
+	TLS      bool   `mapstructure:"TLS"`
+}
+
+// DingTalkSettings 钉钉配置
+type DingTalkSettings struct {
+	Webhook string `mapstructure:"Webhook"` // 敏感，不存数据库
+	Secret  string `mapstructure:"Secret"`  // 加签密钥
+}
+
+// WebhookSettings 自定义 Webhook 配置
+type WebhookSettings struct {
+	URL     string            `mapstructure:"URL"`     // 敏感，不存数据库
+	Headers map[string]string `mapstructure:"Headers"` // 自定义请求头
+}
+
+// PlatformAboutSettings 关于平台（只读）
+type PlatformAboutSettings struct {
+	Version    string `mapstructure:"Version"`
+	BuildDate  string `mapstructure:"BuildDate"`
+	GoVersion  string `mapstructure:"GoVersion"`
+	VueVersion string `mapstructure:"VueVersion"`
+	DBType     string `mapstructure:"DBType"`
+	K8sSupport string `mapstructure:"K8sSupport"`
+}

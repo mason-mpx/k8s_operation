@@ -246,6 +246,50 @@
               </div>
             </div>
 
+            <!-- 阿里云 ACR 配置 -->
+            <div class="acr-config-section" v-if="formData.type === 'acr'">
+              <div class="section-title">
+                <span class="section-icon">🔑</span>
+                阿里云 AccessKey 配置
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label required">AccessKey ID</label>
+                  <input 
+                    type="text" 
+                    v-model="formData.access_key_id" 
+                    class="form-input" 
+                    placeholder="阿里云 AccessKey ID"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label required">AccessKey Secret</label>
+                  <input 
+                    type="password" 
+                    v-model="formData.access_key_secret" 
+                    class="form-input" 
+                    :placeholder="isEdit ? '留空保持不变' : '阿里云 AccessKey Secret'"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">区域</label>
+                <select v-model="formData.region" class="form-select">
+                  <option value="">自动识别（从 URL 解析）</option>
+                  <option value="cn-hangzhou">华东 1 (杭州)</option>
+                  <option value="cn-shanghai">华东 2 (上海)</option>
+                  <option value="cn-beijing">华北 2 (北京)</option>
+                  <option value="cn-shenzhen">华南 1 (深圳)</option>
+                  <option value="cn-chengdu">西南 1 (成都)</option>
+                  <option value="cn-hongkong">中国香港</option>
+                  <option value="ap-southeast-1">新加坡</option>
+                  <option value="us-west-1">美国西部 1</option>
+                </select>
+                <span class="form-hint">如果 URL 包含区域信息（如 registry.cn-hangzhou.aliyuncs.com），可留空自动识别</span>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">描述</label>
               <textarea 
@@ -339,6 +383,9 @@ export default {
       url: '',
       username: '',
       password: '',
+      access_key_id: '',
+      access_key_secret: '',
+      region: '',
       insecure: false,
       description: '',
       is_default: false
@@ -424,6 +471,9 @@ export default {
         url: '',
         username: '',
         password: '',
+        access_key_id: '',
+        access_key_secret: '',
+        region: '',
         insecure: false,
         description: '',
         is_default: false
@@ -440,6 +490,9 @@ export default {
         url: registry.url,
         username: registry.username || '',
         password: '',
+        access_key_id: registry.access_key_id || '',
+        access_key_secret: '',
+        region: registry.region || '',
         insecure: registry.insecure || false,
         description: registry.description || '',
         is_default: registry.is_default || false
@@ -1242,6 +1295,37 @@ export default {
 .checkbox-hint {
   font-size: 12px;
   color: #a0aec0;
+}
+
+/* 阿里云 ACR 配置区域 */
+.acr-config-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #fef9e7 0%, #fff8e1 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 16px;
+}
+
+.section-icon {
+  font-size: 18px;
+}
+
+.acr-config-section .form-group {
+  margin-bottom: 12px;
+}
+
+.acr-config-section .form-row {
+  margin-bottom: 12px;
 }
 
 .btn-cancel {

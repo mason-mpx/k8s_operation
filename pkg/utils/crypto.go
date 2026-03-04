@@ -172,6 +172,24 @@ func IsPasswordHashed(password string) bool {
 	return prefix == "$2a$" || prefix == "$2b$" || prefix == "$2y$"
 }
 
+// CheckPasswordSmart 智能密码验证（兼容旧明文密码）
+// 返回值：
+// - matched: 密码是否匹配
+// - needMigrate: 是否需要迁移到 bcrypt
+func CheckPasswordSmart(storedPassword, inputPassword string) (matched bool, needMigrate bool) {
+	// 1) 如果存储的是 bcrypt 哈希，使用 bcrypt 验证
+	if IsPasswordHashed(storedPassword) {
+		return CheckPassword(storedPassword, inputPassword), false
+	}
+
+	// 2) 存储的是明文密码，直接比对
+	if storedPassword == inputPassword {
+		return true, true // 匹配成功，需要迁移
+	}
+
+	return false, false
+}
+
 // ========== 全局加密服务实例 ==========
 
 var globalCrypto *CryptoService
