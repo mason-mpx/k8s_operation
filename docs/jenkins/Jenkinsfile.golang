@@ -222,8 +222,8 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    env.IMAGE_WITH_DIGEST = env.IMAGE_DIGEST
-                        ? "${params.IMAGE_REPO}@${env.IMAGE_DIGEST}"
+                    env.IMAGE_WITH_DIGEST = env.IMAGE_DIGEST 
+                        ? "${params.IMAGE_REPO}@${env.IMAGE_DIGEST}" 
                         : env.FULL_IMAGE
 
                     echo "Digest: ${env.IMAGE_DIGEST ?: '未获取到'}"

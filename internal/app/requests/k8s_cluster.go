@@ -62,7 +62,7 @@ func ValidK8sClusterUpdateRequest(data interface{}, ctx *gin.Context) map[string
 		"id":              []string{"required"},
 		"cluster_name":    []string{"required"},
 		"cluster_version": []string{"required"},
-		"kube_config":     []string{"required"}, // 需要强制更新 kubeconfig 就打开这行
+		// kube_config 可选：不填则不更新
 	}
 
 	messages := govalidator.MapData{
@@ -74,9 +74,6 @@ func ValidK8sClusterUpdateRequest(data interface{}, ctx *gin.Context) map[string
 		},
 		"cluster_version": []string{
 			"required: 集群版本为必填字段(cluster_version)",
-		},
-		"kube_config": []string{
-			"required: kubeconfig 为必填字段(kube_config)",
 		},
 	}
 
