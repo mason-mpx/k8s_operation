@@ -1,16 +1,3 @@
-// Jenkinsfile - Go 项目 CI/CD（支持阶段级回调）
-// =============================================================
-// 架构：
-//   Jenkins（虚拟机 + containerd）
-//     -> checkout(平台传入 repo/branch)  阶段回调
-//     -> go test  阶段回调
-//     -> nerdctl build  阶段回调
-//     -> push  阶段回调
-//     -> 最终回调平台（触发审批/部署阶段）
-//
-// 签名格式: HMAC-SHA256(secret, "job_name:build_number:status")
-// =============================================================
-
 pipeline {
     agent any
 
@@ -18,12 +5,14 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        skipDefaultCheckout(true)
+        // 关键：不要 skipDefaultCheckout，否则 workspace 里没代码
+        // skipDefaultCheckout(true)
     }
 
     parameters {
-        string(name: 'GIT_REPO', defaultValue: '', description: 'Git 仓库地址（必填）')
-        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git 分支')
+        // 这里不再需要 GIT_REPO / GIT_BRANCH（因为 Job 已经绑定 SCM）
+        // string(name: 'GIT_REPO', defaultValue: '', description: 'Git 仓库地址（必填）')
+        // string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git 分支')
 
         string(name: 'IMAGE_REPO', defaultValue: '', description: '镜像仓库地址（必填）')
         string(name: 'IMAGE_TAG', defaultValue: '', description: '镜像标签（空自动生成）')
@@ -47,39 +36,26 @@ pipeline {
 
     stages {
 
-        // ==================== 1. 拉取代码 ====================
-        stage('Checkout') {
+        // ==================== 1. 读取已拉取代码信息 ====================
+        stage('Checkout Info') {
             steps {
-                echo "=== 拉取代码 ==="
+                echo "=== 使用 Jenkins 已拉取代码（避免重复 checkout） ==="
 
                 script {
-                    if (!params.GIT_REPO?.trim()) {
-                        error("GIT_REPO 不能为空")
-                    }
                     if (!params.IMAGE_REPO?.trim()) {
                         error("IMAGE_REPO 不能为空")
                     }
-                }
 
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${params.GIT_BRANCH}"]],
-                    userRemoteConfigs: [[
-                        url: params.GIT_REPO,
-                        credentialsId: 'gitee-id'
-                    ]],
-                    extensions: [
-                        [$class: 'CleanBeforeCheckout'],
-                        [$class: 'PruneStaleBranch']
-                    ]
-                ])
-
-                script {
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                     env.GIT_COMMIT_FULL  = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     env.GIT_COMMIT_MSG   = sh(script: 'git log -1 --pretty=%B | head -1', returnStdout: true).trim()
 
-                    env.GIT_BRANCH_NAME  = params.GIT_BRANCH.replaceAll('/', '-')
+                    // 从当前工作区解析分支（如果是 detached HEAD，可能拿不到分支名）
+                    env.GIT_BRANCH_NAME = sh(
+                        script: "git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'",
+                        returnStdout: true
+                    ).trim().replaceAll('/', '-')
+
                     env.BUILD_TS = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
 
                     env.FINAL_TAG = params.IMAGE_TAG?.trim()
@@ -89,7 +65,8 @@ pipeline {
                     env.FULL_IMAGE = "${params.IMAGE_REPO}:${env.FINAL_TAG}"
 
                     echo "Commit: ${env.GIT_COMMIT_SHORT}"
-                    echo "Image: ${env.FULL_IMAGE}"
+                    echo "Branch: ${env.GIT_BRANCH_NAME}"
+                    echo "Image : ${env.FULL_IMAGE}"
                 }
             }
             post {
@@ -98,17 +75,14 @@ pipeline {
             }
         }
 
-        // ==================== 2. 依赖下载 ====================
         stage('Dependencies') {
             steps {
                 echo "=== 下载依赖 ==="
-
                 script {
                     if (!fileExists('go.mod')) {
                         echo "未检测到 go.mod，跳过依赖下载"
                         return
                     }
-
                     sh """
                         set -e
                         go version
@@ -123,18 +97,15 @@ pipeline {
             }
         }
 
-        // ==================== 3. 单元测试 ====================
         stage('Test') {
             when { expression { return !params.SKIP_TESTS } }
             steps {
                 echo "=== 执行测试 ==="
-
                 script {
                     if (!fileExists('go.mod')) {
                         echo "未检测到 go.mod，跳过测试"
                         return
                     }
-
                     sh """
                         set -e
                         go test -v -race -coverprofile=coverage.out ./...
@@ -148,20 +119,17 @@ pipeline {
             }
         }
 
-        // ==================== 4. 代码检查（可选） ====================
         stage('Lint') {
             when { expression { return !params.SKIP_TESTS } }
             steps {
                 echo "=== 代码检查 ==="
-
                 script {
-                    // 检查是否安装了 golangci-lint
                     def hasLint = sh(
-                        script: "which golangci-lint && echo 'yes' || echo 'no'",
+                        script: "which golangci-lint >/dev/null 2>&1 && echo 'yes' || echo 'no'",
                         returnStdout: true
                     ).trim()
 
-                    if (hasLint.contains('yes')) {
+                    if (hasLint == 'yes') {
                         sh "golangci-lint run --timeout=5m || true"
                     } else {
                         echo "未安装 golangci-lint，使用 go vet"
@@ -175,21 +143,19 @@ pipeline {
             }
         }
 
-        // ==================== 5. 构建镜像 ====================
         stage('Build Image') {
             steps {
                 echo "=== 构建镜像 ==="
-
                 sh """
                     set -e
-                    nerdctl build \\
-                        -t ${env.FULL_IMAGE} \\
-                        -f ${params.DOCKERFILE_PATH} \\
-                        --build-arg GO_VERSION=${params.GO_VERSION} \\
-                        --label git.commit=${env.GIT_COMMIT_FULL} \\
-                        --label git.branch=${env.GIT_BRANCH_NAME} \\
-                        --label build.number=${env.BUILD_NUMBER} \\
-                        --label build.timestamp=${env.BUILD_TS} \\
+                    nerdctl build \
+                        -t ${env.FULL_IMAGE} \
+                        -f ${params.DOCKERFILE_PATH} \
+                        --build-arg GO_VERSION=${params.GO_VERSION} \
+                        --label git.commit=${env.GIT_COMMIT_FULL} \
+                        --label git.branch=${env.GIT_BRANCH_NAME} \
+                        --label build.number=${env.BUILD_NUMBER} \
+                        --label build.timestamp=${env.BUILD_TS} \
                         .
                 """
             }
@@ -199,11 +165,9 @@ pipeline {
             }
         }
 
-        // ==================== 6. 推送镜像 ====================
         stage('Push Image') {
             steps {
                 echo "=== 推送镜像 ==="
-
                 script {
                     def registryHost = params.IMAGE_REPO.split('/')[0]
 
@@ -215,8 +179,8 @@ pipeline {
 
                     env.IMAGE_DIGEST = sh(
                         script: """
-                            nerdctl inspect ${env.FULL_IMAGE} \\
-                            --format '{{range .RepoDigests}}{{println .}}{{end}}' \\
+                            nerdctl inspect ${env.FULL_IMAGE} \
+                            --format '{{range .RepoDigests}}{{println .}}{{end}}' \
                             2>/dev/null | grep -oE 'sha256:[a-f0-9]+' | head -1 || echo ''
                         """,
                         returnStdout: true
@@ -238,22 +202,15 @@ pipeline {
     }
 
     post {
-        success {
-            script { callbackPlatform('SUCCESS', 'Go 项目构建成功') }
-        }
-        failure {
-            script { callbackPlatform('FAILURE', 'Go 项目构建失败') }
-        }
-        aborted {
-            script { callbackPlatform('ABORTED', '构建中止') }
-        }
+        success { script { callbackPlatform('SUCCESS', 'Go 项目构建成功') } }
+        failure { script { callbackPlatform('FAILURE', 'Go 项目构建失败') } }
+        aborted { script { callbackPlatform('ABORTED', '构建中止') } }
         always {
             sh "nerdctl rmi ${env.FULL_IMAGE} || true"
             cleanWs()
         }
     }
 }
-
 // ==================== 阶段级回调（实时更新UI） ====================
 def stageCallback(String stageType, String status) {
     if (!params.PLATFORM_CALLBACK_URL?.trim()) {
