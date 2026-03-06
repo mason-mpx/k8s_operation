@@ -5,15 +5,11 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        // 关键：不要 skipDefaultCheckout，否则 workspace 里没代码
+        // 不要 skipDefaultCheckout，否则 workspace 里没代码
         // skipDefaultCheckout(true)
     }
 
     parameters {
-        // 这里不再需要 GIT_REPO / GIT_BRANCH（因为 Job 已经绑定 SCM）
-        // string(name: 'GIT_REPO', defaultValue: '', description: 'Git 仓库地址（必填）')
-        // string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git 分支')
-
         string(name: 'IMAGE_REPO', defaultValue: '', description: '镜像仓库地址（必填）')
         string(name: 'IMAGE_TAG', defaultValue: '', description: '镜像标签（空自动生成）')
         string(name: 'DOCKERFILE_PATH', defaultValue: 'Dockerfile', description: 'Dockerfile 路径')
@@ -22,12 +18,12 @@ pipeline {
         string(name: 'PIPELINE_ID', defaultValue: '', description: '平台流水线ID')
 
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: '跳过单元测试')
-        string(name: 'GO_VERSION', defaultValue: '1.22', description: 'Go 版本')
+        string(name: 'GO_VERSION', defaultValue: '1.22', description: 'Dockerfile 构建参数中的 Go 版本')
     }
 
     environment {
-        GOROOT = "/usr/local/go"
-        PATH = "/usr/local/go/bin:${env.PATH}"
+        GOROOT         = "/usr/local/go"
+        PATH           = "/usr/local/go/bin:${env.PATH}"
         REGISTRY_CREDS = credentials('harbor-registry')
         HMAC_SECRET    = credentials('hmac-secret')
         GOPROXY        = 'https://goproxy.cn,direct'
@@ -38,7 +34,6 @@ pipeline {
 
     stages {
 
-        // ==================== 1. 读取已拉取代码信息 ====================
         stage('Checkout Info') {
             steps {
                 echo "=== 使用 Jenkins 已拉取代码（避免重复 checkout） ==="
@@ -52,11 +47,19 @@ pipeline {
                     env.GIT_COMMIT_FULL  = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     env.GIT_COMMIT_MSG   = sh(script: 'git log -1 --pretty=%B | head -1', returnStdout: true).trim()
 
-                    // 从当前工作区解析分支（如果是 detached HEAD，可能拿不到分支名）
                     env.GIT_BRANCH_NAME = sh(
-                        script: "git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'",
+                        script: '''
+                            branch=$(git symbolic-ref --short -q HEAD || true)
+                            if [ -n "$branch" ]; then
+                              echo "$branch"
+                            elif [ -n "$GIT_BRANCH" ]; then
+                              echo "$GIT_BRANCH"
+                            else
+                              echo "unknown"
+                            fi
+                        ''',
                         returnStdout: true
-                    ).trim().replaceAll('/', '-')
+                    ).trim().replaceAll('^origin/', '').replaceAll('/', '-')
 
                     env.BUILD_TS = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
 
@@ -85,12 +88,13 @@ pipeline {
                         echo "未检测到 go.mod，跳过依赖下载"
                         return
                     }
-                    sh """
+
+                    sh '''
                         set -e
                         go version
                         go mod download
                         go mod verify
-                    """
+                    '''
                 }
             }
             post {
@@ -108,11 +112,13 @@ pipeline {
                         echo "未检测到 go.mod，跳过测试"
                         return
                     }
-                    sh """
+
+                    sh '''
                         set -e
+                        export CGO_ENABLED=1
                         go test -v -race -coverprofile=coverage.out ./...
                         go tool cover -func=coverage.out | tail -1
-                    """
+                    '''
                 }
             }
             post {
@@ -132,10 +138,10 @@ pipeline {
                     ).trim()
 
                     if (hasLint == 'yes') {
-                        sh "golangci-lint run --timeout=5m || true"
+                        sh 'golangci-lint run --timeout=5m || true'
                     } else {
                         echo "未安装 golangci-lint，使用 go vet"
-                        sh "go vet ./..."
+                        sh 'go vet ./...'
                     }
                 }
             }
@@ -213,6 +219,7 @@ pipeline {
         }
     }
 }
+
 // ==================== 阶段级回调（实时更新UI） ====================
 def stageCallback(String stageType, String status) {
     if (!params.PLATFORM_CALLBACK_URL?.trim()) {
@@ -263,18 +270,18 @@ def callbackPlatform(String status, String message) {
     }
 
     def payload = [
-        job_name     : env.JOB_NAME,
-        build_number : env.BUILD_NUMBER as Integer,
-        status       : status,
-        pipeline_id  : params.PIPELINE_ID ? params.PIPELINE_ID as Long : 0,
-        image_url    : env.FULL_IMAGE ?: '',
-        image_digest : env.IMAGE_DIGEST ?: '',
+        job_name          : env.JOB_NAME,
+        build_number      : env.BUILD_NUMBER as Integer,
+        status            : status,
+        pipeline_id       : params.PIPELINE_ID ? params.PIPELINE_ID as Long : 0,
+        image_url         : env.FULL_IMAGE ?: '',
+        image_digest      : env.IMAGE_DIGEST ?: '',
         image_with_digest : env.IMAGE_WITH_DIGEST ?: '',
-        git_commit   : env.GIT_COMMIT_SHORT ?: '',
-        git_branch   : env.GIT_BRANCH_NAME ?: '',
-        duration_sec : currentBuild.duration ? (currentBuild.duration / 1000) as Integer : 0,
-        message      : message,
-        build_url    : env.BUILD_URL ?: ''
+        git_commit        : env.GIT_COMMIT_SHORT ?: '',
+        git_branch        : env.GIT_BRANCH_NAME ?: '',
+        duration_sec      : currentBuild.duration ? (currentBuild.duration / 1000) as Integer : 0,
+        message           : message,
+        build_url         : env.BUILD_URL ?: ''
     ]
 
     def body = groovy.json.JsonOutput.toJson(payload)
@@ -303,8 +310,18 @@ def callbackPlatform(String status, String message) {
 
 // ==================== HMAC-SHA256 ====================
 def hmacSha256(String secret, String data) {
-    return sh(
-        script: "echo -n '${data}' | openssl dgst -sha256 -hmac '${secret}' | awk '{print \$2}'",
-        returnStdout: true
-    ).trim()
+    def result = ''
+    withEnv([
+        "SIGN_SECRET=${secret}",
+        "SIGN_DATA=${data}"
+    ]) {
+        result = sh(
+            script: '''
+                set +x
+                printf "%s" "$SIGN_DATA" | openssl dgst -sha256 -hmac "$SIGN_SECRET" | awk '{print $2}'
+            ''',
+            returnStdout: true
+        ).trim()
+    }
+    return result
 }
