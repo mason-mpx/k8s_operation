@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        GOROOT = "/usr/local/go"
-        PATH = "/usr/local/go/bin:${env.PATH}"
-    }
-
     options {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
@@ -31,6 +26,8 @@ pipeline {
     }
 
     environment {
+        GOROOT = "/usr/local/go"
+        PATH = "/usr/local/go/bin:${env.PATH}"
         REGISTRY_CREDS = credentials('harbor-registry')
         HMAC_SECRET    = credentials('hmac-secret')
         GOPROXY        = 'https://goproxy.cn,direct'
