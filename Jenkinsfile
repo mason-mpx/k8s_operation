@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        GOROOT = "/usr/local/go"
+        PATH = "/usr/local/go/bin:${env.PATH}"
+    }
+
     options {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
