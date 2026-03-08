@@ -63,8 +63,7 @@ func (f *ClusterClientFactory) Get(ctx context.Context, clusterID uint32) (*K8sC
 		cli := c.clients
 		f.mu.RUnlock()
 
-		// 建议加 debug log：cache hit
-		fmt.Sprintf("cluster client cache hit", "cluster_id", clusterID, "ver", ver, "client", fmt.Sprintf("%p", cli))
+		// cache hit
 		return cli, nil
 	}
 	f.mu.RUnlock()
