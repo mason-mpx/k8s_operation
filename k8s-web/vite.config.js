@@ -17,12 +17,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: '0.0.0.0', // 监听所有网络接口，支持外网访问
-    allowedHosts: ['james521.gnway.cc', 'localhost'], // 允许的域名
+    allowedHosts: ['james521.gnway.cc:8000', 'localhost'], // 允许的域名
 
     // ✅ 关键：开发代理
     proxy: {
       '/api': {
-        target: 'http://james521.gnway.cc:10537', // Gin 后端
+        target: 'http://localhost:8080', // Gin 后端
         changeOrigin: true,
       },
     },

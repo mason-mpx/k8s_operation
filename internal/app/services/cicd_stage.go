@@ -941,14 +941,14 @@ func (s *Services) checkDeploymentPodStatus(ctx context.Context, client kubernet
 				if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
 					errMsg := fmt.Sprintf("镜像拉取失败 [%s]: %s", reason, msg)
 					logs.WriteString(fmt.Sprintf("[ERROR] Pod %s: %s\n", pod.Name, errMsg))
-					return fmt.Errorf(errMsg)
+					return errors.New(errMsg)
 				}
 				
 				// 检测 CrashLoopBackOff
 				if reason == "CrashLoopBackOff" {
 					errMsg := fmt.Sprintf("容器崩溃重启 [%s]: %s", reason, msg)
 					logs.WriteString(fmt.Sprintf("[ERROR] Pod %s: %s\n", pod.Name, errMsg))
-					return fmt.Errorf(errMsg)
+					return errors.New(errMsg)
 				}
 			}
 		}
@@ -1424,7 +1424,7 @@ func (s *Services) RollbackDeployStage(ctx context.Context, stageID int64, targe
 			RollbackAt:   rollbackTime,
 			UserID:       userID,
 			Message:      errMsg,
-		}, fmt.Errorf(errMsg)
+		}, errors.New(errMsg)
 	}
 
 	// 5. 获取 Deployment
@@ -1439,7 +1439,7 @@ func (s *Services) RollbackDeployStage(ctx context.Context, stageID int64, targe
 			RollbackAt:   rollbackTime,
 			UserID:       userID,
 			Message:      errMsg,
-		}, fmt.Errorf(errMsg)
+		}, errors.New(errMsg)
 	}
 
 	// 6. 获取 ReplicaSet 列表
@@ -1455,7 +1455,7 @@ func (s *Services) RollbackDeployStage(ctx context.Context, stageID int64, targe
 			RollbackAt:   rollbackTime,
 			UserID:       userID,
 			Message:      errMsg,
-		}, fmt.Errorf(errMsg)
+		}, errors.New(errMsg)
 	}
 
 	var targetRSObj *appv1.ReplicaSet
@@ -1547,7 +1547,7 @@ func (s *Services) RollbackDeployStage(ctx context.Context, stageID int64, targe
 				RollbackAt:   rollbackTime,
 				UserID:       userID,
 				Message:      errMsg,
-			}, fmt.Errorf(errMsg)
+			}, errors.New(errMsg)
 		}
 		if !validRS {
 			global.Logger.Warn("[安全] 回滚目标版本不属于该 Deployment",
@@ -1626,7 +1626,7 @@ func (s *Services) RollbackDeployStage(ctx context.Context, stageID int64, targe
 			RollbackAt:   rollbackTime,
 			UserID:       userID,
 			Message:      errMsg,
-		}, fmt.Errorf(errMsg)
+		}, errors.New(errMsg)
 	}
 
 	// 9. 完整审计日志

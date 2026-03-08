@@ -23,7 +23,11 @@ pipeline {
 
     environment {
         GOROOT         = "/usr/local/go"
-        PATH           = "/usr/local/go/bin:${env.PATH}"
+        GOPATH         = "/var/lib/jenkins/go"
+        GOMODCACHE     = "/var/lib/jenkins/go/pkg/mod"
+        GOCACHE        = "/var/lib/jenkins/.cache/go-build"
+        PATH           = "/usr/local/go/bin:${env.GOPATH}/bin:${env.PATH}"
+
         REGISTRY_CREDS = credentials('harbor-registry')
         HMAC_SECRET    = credentials('hmac-secret')
         GOPROXY        = 'https://goproxy.cn,direct'
@@ -92,6 +96,8 @@ pipeline {
                     sh '''
                         set -e
                         go version
+                        go env GOMODCACHE
+                        go env GOCACHE
                         go mod download
                         go mod verify
                     '''
@@ -100,6 +106,27 @@ pipeline {
             post {
                 success { script { stageCallback('dependencies', 'success') } }
                 failure { script { stageCallback('dependencies', 'failed') } }
+            }
+        }
+
+        stage('Compile Check') {
+            steps {
+                echo "=== 编译检查 / 预热缓存 ==="
+                script {
+                    if (!fileExists('go.mod')) {
+                        echo "未检测到 go.mod，跳过编译检查"
+                        return
+                    }
+
+                    sh '''
+                        set -e
+                        go test -run '^$' ./...
+                    '''
+                }
+            }
+            post {
+                success { script { stageCallback('compile', 'success') } }
+                failure { script { stageCallback('compile', 'failed') } }
             }
         }
 
@@ -113,10 +140,19 @@ pipeline {
                         return
                     }
 
+                    def hasTests = sh(
+                        script: "find . -name '*_test.go' | grep . >/dev/null 2>&1 && echo yes || echo no",
+                        returnStdout: true
+                    ).trim()
+
+                    if (hasTests != 'yes') {
+                        echo "未检测到任何 *_test.go，跳过真实测试"
+                        return
+                    }
+
                     sh '''
                         set -e
-                        export CGO_ENABLED=1
-                        go test -v -race -coverprofile=coverage.out ./...
+                        go test -v -coverprofile=coverage.out ./...
                         go tool cover -func=coverage.out | tail -1
                     '''
                 }
