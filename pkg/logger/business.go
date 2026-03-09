@@ -1,9 +1,12 @@
 package logger
 
 import (
+	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -20,9 +23,17 @@ import (
 //  4. 返回一个封装后的 *Logger（内部含 zap.Logger）。
 //
 // 使用场景：
-//   - 用于记录“业务操作日志 / 审计日志”，如用户注册、登录、修改配置等。
+//   - 用于记录"业务操作日志 / 审计日志"，如用户注册、登录、修改配置等。
 //   - 业务日志通常只需要 Info 级别，因为它主要是行为追踪，而不是错误调试。
 func NewBusinessLogger(ropt RotateOptions, options ...Option) *Logger {
+	// 确保日志目录存在
+	if ropt.FileName != "" {
+		logDir := filepath.Dir(ropt.FileName)
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
+			// 日志目录创建失败，打印警告但不阻塞启动
+			fmt.Fprintf(os.Stderr, "[WARN] create business log directory %q failed: %v\n", logDir, err)
+		}
+	}
 	// 1. 配置日志编码器（时间格式改为人类可读）
 	encCfg := zap.NewProductionEncoderConfig()
 	encCfg.TimeKey = "time" // 字段名由 "ts" 改为 "time"
