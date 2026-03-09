@@ -1,4 +1,4 @@
-﻿package pod
+package pod
 
 import (
 	"errors"
@@ -568,9 +568,6 @@ func (c *PodController) GetContainerLogs(ctx *gin.Context) {
 				return
 			}
 		}
-		
-		// 关键：follow 分支必须 return（虽然上面都 return 了，但保持结构安全）
-		return
 	}
 
 	// —— 一次性 —— //

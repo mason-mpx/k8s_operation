@@ -272,7 +272,7 @@ def stageCallback(String stageType, String status) {
         ]
 
         def body = groovy.json.JsonOutput.toJson(payload)
-        def stageUrl = params.PLATFORM_CALLBACK_URL.replace('/callback', '/stage/callback')
+        def stageUrl = params.PLATFORM_CALLBACK_URL.replace('/pipeline/callback', '/stage/callback')
 
         def signature = ''
         if (env.HMAC_SECRET?.trim()) {
