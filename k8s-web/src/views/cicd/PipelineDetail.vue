@@ -395,6 +395,33 @@
                 <span class="filter-count">{{ getStageStatusCount('pending') }}</span>
               </button>
             </div>
+            <!-- 视图切换按钮 -->
+            <div class="view-mode-switch">
+              <button
+                :class="['view-mode-btn', { active: stageViewMode === 'horizontal' }]"
+                @click="stageViewMode = 'horizontal'"
+                title="水平流式视图"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <circle cx="5" cy="12" r="2"/>
+                  <circle cx="12" cy="12" r="2"/>
+                  <circle cx="19" cy="12" r="2"/>
+                </svg>
+              </button>
+              <button
+                :class="['view-mode-btn', { active: stageViewMode === 'vertical' }]"
+                @click="stageViewMode = 'vertical'"
+                title="经典视图"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              </button>
+            </div>
             <button class="toolbar-btn" @click="loadStages" :disabled="stagesLoading">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="23 4 23 10 17 10"/>
@@ -404,6 +431,18 @@
             </button>
           </div>
 
+          <!-- 水平流式视图（阿里云/腾讯云风格） -->
+          <template v-if="stageViewMode === 'horizontal' && !stagesLoading">
+            <PipelineHorizontalView
+              :stages="pipelineStages"
+              @approve="handleApproveStage"
+              @deploy="handleDeployStage"
+              @view-logs="activeTab = 'logs'; loadLogs()"
+            />
+          </template>
+
+          <!-- 经典视图（原版） -->
+          <template v-else-if="stageViewMode === 'vertical'">
           <!-- 加载状态 -->
           <div v-if="stagesLoading && pipelineStages.length === 0" class="stages-loading">
             <div class="loading-spinner"></div>
@@ -944,6 +983,7 @@
             </svg>
             <p>点击上方阶段卡片查看详情</p>
           </div>
+          </template>
         </div>
 
         <!-- 构建日志 -->
@@ -1593,9 +1633,13 @@ import {
   getDeployHistory
 } from '@/api/platform/pipeline'
 import deploymentsApi from '@/api/cluster/workloads/deployments'
+import { PipelineHorizontalView } from '@/components/cicd'
 
 export default {
   name: 'PipelineDetail',
+  components: {
+    PipelineHorizontalView
+  },
   setup() {
     const router = useRouter()
     const route = useRoute()
@@ -1656,6 +1700,7 @@ export default {
     const expandedStages = ref([]) // 展开的阶段列表
     const selectedStage = ref(null) // 当前选中的阶段
     const stageFilter = ref('')
+    const stageViewMode = ref('horizontal')  // 视图模式：'horizontal'（水平流式）或 'vertical'（原版）
 
     // 运行弹窗相关
     const showRunDialog = ref(false)
@@ -2890,6 +2935,7 @@ export default {
       selectedStage,
       stageDetailExpanded,
       stageFilter,
+      stageViewMode,
       filteredStages,
       failedStages,
       hasRunningStage,
@@ -3384,6 +3430,46 @@ export default {
   align-items: center;
   margin-bottom: 20px;
   gap: 16px;
+}
+
+/* 视图切换按钮 */
+.view-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.view-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.view-mode-btn:hover {
+  background: #e2e8f0;
+  color: #3b82f6;
+}
+
+.view-mode-btn.active {
+  background: white;
+  color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.view-mode-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* 阶段加载和空状态 */
