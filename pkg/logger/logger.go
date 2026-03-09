@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -70,15 +71,46 @@ var (
 func NewLogger(level zapcore.Level, ropt RotateOptions, options ...Option) *Logger {
 	// 确保日志目录存在
 	if ropt.FileName != "" {
-		_ = os.MkdirAll(filepath.Dir(ropt.FileName), 0o755)
+		logDir := filepath.Dir(ropt.FileName)
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
+			// 日志目录创建失败，打印警告但不阻塞启动
+			fmt.Fprintf(os.Stderr, "[WARN] create log directory %q failed: %v\n", logDir, err)
+		}
 	}
 
-	encCfg := zap.NewProductionEncoderConfig()
-	encCfg.TimeKey = "time"
-	encCfg.EncodeTime = func(t time.Time, pae zapcore.PrimitiveArrayEncoder) {
+	// ---------- 文件日志编码（JSON） ----------
+	fileEncCfg := zap.NewProductionEncoderConfig()
+	fileEncCfg.TimeKey = "time"
+	fileEncCfg.LevelKey = "level"
+	fileEncCfg.NameKey = "logger"
+	fileEncCfg.CallerKey = "caller"
+	fileEncCfg.MessageKey = "msg"
+	fileEncCfg.StacktraceKey = "stacktrace"
+	fileEncCfg.LineEnding = zapcore.DefaultLineEnding
+	fileEncCfg.EncodeLevel = zapcore.LowercaseLevelEncoder
+	fileEncCfg.EncodeTime = func(t time.Time, pae zapcore.PrimitiveArrayEncoder) {
 		pae.AppendString(t.Format("2006-01-02 15:04:05"))
 	}
+	fileEncCfg.EncodeDuration = zapcore.StringDurationEncoder
+	fileEncCfg.EncodeCaller = zapcore.ShortCallerEncoder
 
+	// ---------- 控制台日志编码（Console，更适合 kubectl logs） ----------
+	consoleEncCfg := zap.NewDevelopmentEncoderConfig()
+	consoleEncCfg.TimeKey = "time"
+	consoleEncCfg.LevelKey = "level"
+	consoleEncCfg.NameKey = "logger"
+	consoleEncCfg.CallerKey = "caller"
+	consoleEncCfg.MessageKey = "msg"
+	consoleEncCfg.StacktraceKey = "stacktrace"
+	consoleEncCfg.LineEnding = zapcore.DefaultLineEnding
+	consoleEncCfg.EncodeLevel = zapcore.CapitalLevelEncoder
+	consoleEncCfg.EncodeTime = func(t time.Time, pae zapcore.PrimitiveArrayEncoder) {
+		pae.AppendString(t.Format("2006-01-02 15:04:05"))
+	}
+	consoleEncCfg.EncodeDuration = zapcore.StringDurationEncoder
+	consoleEncCfg.EncodeCaller = zapcore.ShortCallerEncoder
+
+	// ---------- 文件输出 ----------
 	fileWriter := zapcore.AddSync(&lumberjack.Logger{
 		Filename:   ropt.FileName,
 		MaxSize:    ropt.MaxSize,
@@ -86,16 +118,33 @@ func NewLogger(level zapcore.Level, ropt RotateOptions, options ...Option) *Logg
 		MaxAge:     ropt.MaxAge,
 		Compress:   ropt.Compress,
 	})
+
+	// ---------- 控制台输出 ----------
 	consoleWriter := zapcore.AddSync(os.Stdout)
-	ws := zapcore.NewMultiWriteSyncer(fileWriter, consoleWriter)
 
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(encCfg), ws, level)
+	// 文件日志 core
+	fileCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(fileEncCfg),
+		fileWriter,
+		level,
+	)
 
-	// ✅ 先构造 base，再拿 Sugar
+	// 控制台日志 core
+	consoleCore := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(consoleEncCfg),
+		consoleWriter,
+		level,
+	)
+
+	// 合并多个输出
+	core := zapcore.NewTee(fileCore, consoleCore)
+
+	// 构造 logger
 	base := zap.New(core, append(options, AddCaller(), AddCallerSkip(1))...)
+
 	return &Logger{
 		logger: base,
-		sugar:  base.Sugar(), // ✅ 一定要赋值
+		sugar:  base.Sugar(),
 		level:  level,
 	}
 }
@@ -125,7 +174,7 @@ func (l *Logger) Warn(msg string, fields ...zap.Field)  { l.logger.Warn(msg, fie
 func (l *Logger) Error(msg string, fields ...zap.Field) { l.logger.Error(msg, fields...) }
 func (l *Logger) Fatal(msg string, fields ...zap.Field) { l.logger.Fatal(msg, fields...) }
 
-// printf 风格（✅ 用 sugarSafe）
+// printf 风格
 func (l *Logger) Debugf(format string, args ...any) { l.sugarSafe().Debugf(format, args...) }
 func (l *Logger) Infof(format string, args ...any)  { l.sugarSafe().Infof(format, args...) }
 func (l *Logger) Warnf(format string, args ...any)  { l.sugarSafe().Warnf(format, args...) }
