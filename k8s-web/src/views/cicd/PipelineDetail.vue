@@ -1686,16 +1686,8 @@ export default {
       return history.value.filter(run => run.status === status).length
     }
 
-    // 阶段数据（从 Jenkins API 获取）
-    // 注意：初始状态为模拟数据，实际数据从 API 获取
-    const pipelineStages = ref([
-      { name: '代码检出', status: 'success', duration: '3s', type: 'checkout', steps: [{ name: 'Git Clone', status: 'success' }] },
-      { name: '构建', status: 'success', duration: '5s', type: 'build', steps: [{ name: 'Compile', status: 'success' }, { name: 'Package', status: 'success' }] },
-      { name: '测试', status: 'success', duration: '2s', type: 'test', steps: [{ name: 'Unit Test', status: 'success' }] },
-      { name: '推送镜像', status: 'success', duration: '8s', type: 'push', steps: [{ name: 'Push Image', status: 'success' }] },
-      { name: '人工审批', status: 'pending', duration: '-', type: 'approval', steps: [] },
-      { name: '部署', status: 'pending', duration: '-', type: 'deploy', steps: [] }
-    ])
+    // 阶段数据（动态从后端获取，与 Jenkins 保持一致）
+    const pipelineStages = ref([])
     const stagesLoading = ref(false)
     const expandedStages = ref([]) // 展开的阶段列表
     const selectedStage = ref(null) // 当前选中的阶段
@@ -1816,7 +1808,8 @@ export default {
     const inferStageStatus = (stages) => {
       // 获取流水线状态（优先级：latest_run > pipeline）
       const runStatus = latestRun.value?.status || pipeline.value.last_run_status || pipeline.value.status
-      const buildStageTypes = ['checkout', 'build', 'test', 'push']
+      // 构建阶段类型（动态识别，包含 custom 类型）
+      const buildStageTypes = ['checkout', 'dependencies', 'compile', 'test', 'lint', 'build', 'push', 'custom']
 
       console.log('[inferStageStatus] runStatus:', runStatus, 'stages:', stages.length)
 
@@ -1885,8 +1878,11 @@ export default {
     const getDemoStageDuration = (stageType) => {
       const durations = {
         'checkout': '3s',
+        'dependencies': '8s',
+        'compile': '5s',
+        'test': '10s',
+        'lint': '5s',
         'build': '15s',
-        'test': '8s',
         'push': '12s'
       }
       return durations[stageType] || '-'

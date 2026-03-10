@@ -724,7 +724,8 @@ func (s *Services) VerifyHMACSignatureSimple(signature, jobName string, buildNum
 type PipelineStageInfo struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
-	Status   string `json:"status"` // success, failed, running, pending
+	Type     string `json:"type"`   // 阶段类型: checkout/dependencies/compile/test/lint/build/push/approval/deploy/custom
+	Status   string `json:"status"` // success, failed, running, pending, waiting
 	Duration string `json:"duration"`
 	Steps    []PipelineStepInfo `json:"steps"`
 }
@@ -737,7 +738,7 @@ type PipelineStepInfo struct {
 	Duration string `json:"duration"`
 }
 
-// PipelineStages 获取流水线阶段数据
+// PipelineStages 获取流水线阶段数据（动态从 Jenkins 获取）
 func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int) ([]PipelineStageInfo, error) {
 	// 获取流水线
 	pipeline, err := s.dao.PipelineGetByID(ctx, id)
@@ -754,13 +755,13 @@ func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int
 	}
 	if buildNumber == 0 {
 		// 返回默认阶段（未运行状态）
-		return s.getDefaultStages(), nil
+		return s.getDefaultStagesForPipeline(pipeline), nil
 	}
 
 	// 获取 Jenkins 客户端
 	client := s.getJenkinsClient(pipeline.JenkinsURL)
 	if client == nil {
-		return s.getDefaultStages(), nil
+		return s.getDefaultStagesForPipeline(pipeline), nil
 	}
 
 	// 从 Jenkins 获取阶段数据
@@ -771,15 +772,16 @@ func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int
 			zap.Int("build_number", buildNumber),
 			zap.Error(err),
 		)
-		return s.getDefaultStages(), nil
+		return s.getDefaultStagesForPipeline(pipeline), nil
 	}
 
-	// 转换为前端友好格式
-	stages := make([]PipelineStageInfo, 0, len(pipelineRun.Stages))
+	// 动态转换为前端友好格式（保持 Jenkins 阶段名称）
+	stages := make([]PipelineStageInfo, 0, len(pipelineRun.Stages)+2)
 	for _, stage := range pipelineRun.Stages {
 		stageInfo := PipelineStageInfo{
 			ID:       stage.ID,
 			Name:     stage.Name,
+			Type:     s.inferStageTypeFromName(stage.Name), // 动态推断阶段类型
 			Status:   s.convertJenkinsStatus(stage.Status),
 			Duration: s.formatDuration(stage.DurationMillis),
 			Steps:    make([]PipelineStepInfo, 0),
@@ -798,17 +800,99 @@ func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int
 		stages = append(stages, stageInfo)
 	}
 
+	// 追加平台特有阶段（审批/部署）
+	stages = s.appendPlatformStages(stages, pipeline, pipelineRun.Status)
+
 	return stages, nil
 }
 
-// getDefaultStages 获取默认阶段模板
-func (s *Services) getDefaultStages() []PipelineStageInfo {
-	return []PipelineStageInfo{
-		{Name: "Checkout", Status: "pending", Steps: []PipelineStepInfo{{Name: "Git Clone", Status: "pending"}}},
-		{Name: "Build", Status: "pending", Steps: []PipelineStepInfo{{Name: "Compile", Status: "pending"}, {Name: "Package", Status: "pending"}}},
-		{Name: "Test", Status: "pending", Steps: []PipelineStepInfo{{Name: "Unit Test", Status: "pending"}}},
-		{Name: "Deploy", Status: "pending", Steps: []PipelineStepInfo{{Name: "Push Image", Status: "pending"}, {Name: "Deploy to K8s", Status: "pending"}}},
+// inferStageTypeFromName 根据阶段名称推断阶段类型
+func (s *Services) inferStageTypeFromName(name string) string {
+	nameLower := strings.ToLower(name)
+	
+	// 按优先级匹配
+	switch {
+	case strings.Contains(nameLower, "checkout") || strings.Contains(nameLower, "代码检出") || strings.Contains(nameLower, "拉取代码"):
+		return "checkout"
+	case strings.Contains(nameLower, "dependencies") || strings.Contains(nameLower, "依赖"):
+		return "dependencies"
+	case strings.Contains(nameLower, "compile") || strings.Contains(nameLower, "编译"):
+		return "compile"
+	case strings.Contains(nameLower, "test") || strings.Contains(nameLower, "测试"):
+		return "test"
+	case strings.Contains(nameLower, "lint") || strings.Contains(nameLower, "代码检查") || strings.Contains(nameLower, "vet"):
+		return "lint"
+	case strings.Contains(nameLower, "push") || strings.Contains(nameLower, "推送镜像"):
+		return "push"
+	case strings.Contains(nameLower, "build") || strings.Contains(nameLower, "构建"):
+		return "build"
+	case strings.Contains(nameLower, "approval") || strings.Contains(nameLower, "审批"):
+		return "approval"
+	case strings.Contains(nameLower, "deploy") || strings.Contains(nameLower, "部署"):
+		return "deploy"
+	default:
+		return "custom" // 未知阶段类型
 	}
+}
+
+// appendPlatformStages 追加平台特有阶段（审批/部署）
+func (s *Services) appendPlatformStages(stages []PipelineStageInfo, pipeline *models.CicdPipeline, jenkinsStatus string) []PipelineStageInfo {
+	buildSuccess := jenkinsStatus == "SUCCESS"
+	
+	// 添加审批阶段（如果配置了）
+	if pipeline.RequireApproval {
+		approvalStatus := "pending"
+		if buildSuccess {
+			approvalStatus = "waiting" // 构建成功后等待审批
+		}
+		stages = append(stages, PipelineStageInfo{
+			ID:     "approval",
+			Name:   "人工审批",
+			Type:   "approval",
+			Status: approvalStatus,
+			Steps:  []PipelineStepInfo{},
+		})
+	}
+
+	// 添加部署阶段（如果配置了）
+	if pipeline.AutoDeploy {
+		stages = append(stages, PipelineStageInfo{
+			ID:     "deploy",
+			Name:   "部署",
+			Type:   "deploy",
+			Status: "pending",
+			Steps:  []PipelineStepInfo{},
+		})
+	}
+
+	return stages
+}
+
+// getDefaultStagesForPipeline 获取默认阶段（未运行时展示）
+func (s *Services) getDefaultStagesForPipeline(pipeline *models.CicdPipeline) []PipelineStageInfo {
+	stages := []PipelineStageInfo{
+		{ID: "1", Name: "Checkout Info", Type: "checkout", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "2", Name: "Dependencies", Type: "dependencies", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "3", Name: "Compile Check", Type: "compile", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "4", Name: "Test", Type: "test", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "5", Name: "Lint", Type: "lint", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "6", Name: "Build Image", Type: "build", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "7", Name: "Push Image", Type: "push", Status: "pending", Steps: []PipelineStepInfo{}},
+	}
+	
+	// 根据流水线配置追加平台阶段
+	if pipeline.RequireApproval {
+		stages = append(stages, PipelineStageInfo{
+			ID: "8", Name: "人工审批", Type: "approval", Status: "pending", Steps: []PipelineStepInfo{},
+		})
+	}
+	if pipeline.AutoDeploy {
+		stages = append(stages, PipelineStageInfo{
+			ID: "9", Name: "部署", Type: "deploy", Status: "pending", Steps: []PipelineStepInfo{},
+		})
+	}
+	
+	return stages
 }
 
 // convertJenkinsStatus 转换 Jenkins 状态为前端状态

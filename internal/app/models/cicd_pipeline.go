@@ -187,14 +187,17 @@ func (CicdPipelineRun) TableName() string { return "cicd_pipeline_run" }
 
 // ==================== 流水线阶段执行记录 ====================
 
-// 阶段类型常量
+// 阶段类型常量（与 Jenkinsfile 保持一致）
 const (
-	StageTypeCheckout = "checkout" // 代码检出
-	StageTypeBuild    = "build"    // 构建
-	StageTypeTest     = "test"     // 测试
-	StageTypePush     = "push"     // 推送镜像
-	StageTypeApproval = "approval" // 人工审批
-	StageTypeDeploy   = "deploy"   // 部署
+	StageTypeCheckout     = "checkout"     // 代码检出
+	StageTypeDependencies = "dependencies" // 依赖下载
+	StageTypeCompile      = "compile"      // 编译检查
+	StageTypeTest         = "test"         // 单元测试
+	StageTypeLint         = "lint"         // 代码检查
+	StageTypeBuild        = "build"        // 构建镜像
+	StageTypePush         = "push"         // 推送镜像
+	StageTypeApproval     = "approval"     // 人工审批
+	StageTypeDeploy       = "deploy"       // 部署
 )
 
 // 阶段状态常量
