@@ -308,16 +308,16 @@ type StageCallbackRequest struct {
 	JobName     string `json:"job_name" valid:"job_name"`         // Jenkins Job 名称
 	BuildNumber int    `json:"build_number" valid:"build_number"` // 构建号
 	PipelineID  int64  `json:"pipeline_id" valid:"pipeline_id"`   // 流水线ID
-	StageType   string `json:"stage_type" valid:"stage_type"`     // 阶段类型: checkout/build/test/push
-	Status      string `json:"status" valid:"status"`             // 阶段状态: running/success/failed
+	StageType   string `json:"stage_type" valid:"stage_type"`     // 阶段类型: checkout/dependencies/compile/test/lint/build/push/approval/deploy
+	Status      string `json:"status" valid:"status"`             // 阶段状态: running/success/failed/waiting
 }
 
 func ValidStageCallbackRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
 		"job_name":     []string{"required"},
 		"build_number": []string{"required"},
-		"stage_type":   []string{"required", "in:checkout,build,test,push"},
-		"status":       []string{"required", "in:running,success,failed"},
+		"stage_type":   []string{"required", "in:checkout,dependencies,compile,test,lint,build,push,approval,deploy"},
+		"status":       []string{"required", "in:running,success,failed,waiting"},
 	}
 	messages := govalidator.MapData{
 		"job_name":     []string{"required:Job名称不能为空"},
