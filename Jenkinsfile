@@ -5,8 +5,8 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        // 不要 skipDefaultCheckout，否则 workspace 里没代码
-        // skipDefaultCheckout(true)
+        // 跳过默认 checkout，在 Clean Workspace 阶段手动拉取
+        skipDefaultCheckout(true)
     }
 
     parameters {
@@ -37,6 +37,16 @@ pipeline {
     }
 
     stages {
+
+        stage('Clean Workspace') {
+            steps {
+                echo "=== 清理工作空间，确保每次都是最新代码 ==="
+                // 删除工作空间中的所有文件
+                deleteDir()
+                // 重新拉取代码
+                checkout scm
+            }
+        }
 
         stage('Checkout Info') {
             steps {
