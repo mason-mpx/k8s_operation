@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # ---------- builder ----------
 ARG GO_VERSION=1.24
 FROM swr.cn-east-3.myhuaweicloud.com/kubesre/docker.io/golang:${GO_VERSION} AS builder
@@ -45,6 +43,6 @@ ENV K8S_CONFIG=/app/configs/k8s.yaml
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://127.0.0.1:8080/health || exit 1
+    CMD wget -qO- http://127.0.0.1:8080/healthz/live || exit 1
 
 ENTRYPOINT ["/app/k8s_operation"]
