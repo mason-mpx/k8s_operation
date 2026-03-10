@@ -189,6 +189,7 @@ func (CicdPipelineRun) TableName() string { return "cicd_pipeline_run" }
 
 // 阶段类型常量（与 Jenkinsfile 保持一致）
 const (
+	StageTypeClean        = "clean"        // 清理工作空间
 	StageTypeSCM          = "scm"          // Jenkins 声明式管道自动添加的 SCM checkout
 	StageTypeCheckout     = "checkout"     // 代码检出
 	StageTypeDependencies = "dependencies" // 依赖下载

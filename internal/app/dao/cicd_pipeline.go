@@ -157,6 +157,19 @@ func (d *Dao) PipelineRunGetLatest(ctx context.Context, pipelineID int64) (*mode
 	return &run, nil
 }
 
+// PipelineRunGetRunning 获取流水线正在运行的记录
+func (d *Dao) PipelineRunGetRunning(ctx context.Context, pipelineID int64) (*models.CicdPipelineRun, error) {
+	var run models.CicdPipelineRun
+	err := d.db.WithContext(ctx).
+		Where("pipeline_id = ? AND status IN (?, ?)", pipelineID, models.PipelineRunStatusPending, models.PipelineRunStatusRunning).
+		Order("id DESC").
+		First(&run).Error
+	if err != nil {
+		return nil, err
+	}
+	return &run, nil
+}
+
 // PipelineRunList 获取流水线运行历史
 func (d *Dao) PipelineRunList(ctx context.Context, pipelineID int64, page, pageSize int) ([]*models.CicdPipelineRun, int64, error) {
 	var list []*models.CicdPipelineRun

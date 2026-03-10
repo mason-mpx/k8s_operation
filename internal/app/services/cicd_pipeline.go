@@ -485,8 +485,11 @@ func (s *Services) PipelineStatusWithRun(ctx context.Context, id int64) (*models
 		return nil, nil, nil, fmt.Errorf("查询流水线失败: %w", err)
 	}
 
-	// 获取最新运行记录
-	latestRun, _ := s.dao.PipelineRunGetLatest(ctx, id)
+	// 获取运行记录：优先正在运行的，否则获取最新的
+	latestRun, _ := s.dao.PipelineRunGetRunning(ctx, id)
+	if latestRun == nil {
+		latestRun, _ = s.dao.PipelineRunGetLatest(ctx, id)
+	}
 
 	// 如果有构建号，获取 Jenkins 构建状态
 	var buildInfo *jenkins.BuildInfo
@@ -749,9 +752,20 @@ func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int
 		return nil, fmt.Errorf("查询流水线失败: %w", err)
 	}
 
-	// 确定构建号
+	// 确定构建号：优先使用正在运行的构建
 	if buildNumber == 0 {
-		buildNumber = pipeline.LastBuildNumber
+		// 查找正在运行的构建记录
+		runningRun, _ := s.dao.PipelineRunGetRunning(ctx, id)
+		if runningRun != nil && runningRun.BuildNumber > 0 {
+			buildNumber = runningRun.BuildNumber
+			global.Logger.Debug("[流水线] 使用正在运行的构建号",
+				zap.Int64("pipeline_id", id),
+				zap.Int("build_number", buildNumber),
+			)
+		} else {
+			// 没有正在运行的，使用最后一次构建号
+			buildNumber = pipeline.LastBuildNumber
+		}
 	}
 	if buildNumber == 0 {
 		// 返回默认阶段（未运行状态）
@@ -812,8 +826,11 @@ func (s *Services) inferStageTypeFromName(name string) string {
 	
 	// 按优先级匹配
 	switch {
+	// 清理工作空间阶段
+	case strings.Contains(nameLower, "clean") || strings.Contains(nameLower, "清理"):
+		return "clean"
 	// Jenkins 声明式管道自动添加的 SCM checkout 阶段
-	case strings.Contains(nameLower, "declarative: checkout scm") || strings.Contains(nameLower, "scm"):
+	case strings.Contains(nameLower, "declarative: checkout scm") || (strings.Contains(nameLower, "scm") && !strings.Contains(nameLower, "clean")):
 		return "scm"
 	case strings.Contains(nameLower, "checkout") || strings.Contains(nameLower, "代码检出") || strings.Contains(nameLower, "拉取代码"):
 		return "checkout"
@@ -874,7 +891,7 @@ func (s *Services) appendPlatformStages(stages []PipelineStageInfo, pipeline *mo
 // getDefaultStagesForPipeline 获取默认阶段（未运行时展示）
 func (s *Services) getDefaultStagesForPipeline(pipeline *models.CicdPipeline) []PipelineStageInfo {
 	stages := []PipelineStageInfo{
-		{ID: "1", Name: "Declarative: Checkout SCM", Type: "scm", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "1", Name: "Clean Workspace", Type: "clean", Status: "pending", Steps: []PipelineStepInfo{}},
 		{ID: "2", Name: "Checkout Info", Type: "checkout", Status: "pending", Steps: []PipelineStepInfo{}},
 		{ID: "3", Name: "Dependencies", Type: "dependencies", Status: "pending", Steps: []PipelineStepInfo{}},
 		{ID: "4", Name: "Compile Check", Type: "compile", Status: "pending", Steps: []PipelineStepInfo{}},

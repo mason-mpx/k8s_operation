@@ -1772,9 +1772,20 @@ export default {
       stagesLoading.value = true
       try {
         let stages = null
+        const isRunning = pipeline.value.status === 'running' || latestRun.value?.status === 'running'
 
-        // 优先从数据库获取阶段数据（包含审批/部署阶段）
-        if (latestRun.value && latestRun.value.id) {
+        // 核心逻辑：运行中优先从 Jenkins 获取实时状态，否则从数据库获取
+        if (isRunning) {
+          // 运行中：优先从 Jenkins wfapi 获取实时阶段状态
+          const response = await getPipelineStages(pipelineId.value)
+          if (response.code === 0 && response.data && response.data.stages) {
+            stages = response.data.stages
+            console.log('[loadStages] 运行中，从 Jenkins 获取实时阶段:', stages.map(s => ({ name: s.name, type: s.type, status: s.status })))
+          }
+        }
+
+        // 非运行中或 Jenkins 获取失败：从数据库获取（包含审批/部署阶段）
+        if (!stages && latestRun.value && latestRun.value.id) {
           const response = await getRunStages(latestRun.value.id)
           if (response.code === 0 && response.data && response.data.stages) {
             stages = response.data.stages
@@ -1782,12 +1793,12 @@ export default {
           }
         }
 
-        // 回退到从 Jenkins 获取阶段数据
+        // 最后回退：从 Jenkins 获取默认阶段
         if (!stages) {
           const response = await getPipelineStages(pipelineId.value)
           if (response.code === 0 && response.data && response.data.stages) {
             stages = response.data.stages
-            console.log('[loadStages] 从 Jenkins 获取阶段数据:', stages.map(s => ({ name: s.name, type: s.type, status: s.status })))
+            console.log('[loadStages] 回退从 Jenkins 获取阶段:', stages.map(s => ({ name: s.name, type: s.type, status: s.status })))
           }
         }
 
@@ -1804,12 +1815,12 @@ export default {
     }
 
     // 智能推断阶段状态（参考 Rancher/KubeSphere 设计）
-    // 当 API 返回的状态都是 pending 时，根据流水线整体状态推断
+    // 核心原则：Jenkins 返回的实时状态优先，只有状态为 pending 时才推断
     const inferStageStatus = (stages) => {
       // 获取流水线状态（优先级：latest_run > pipeline）
       const runStatus = latestRun.value?.status || pipeline.value.last_run_status || pipeline.value.status
       // 构建阶段类型（动态识别，包含 custom 类型）
-      const buildStageTypes = ['scm', 'checkout', 'dependencies', 'compile', 'test', 'lint', 'build', 'push', 'custom']
+      const buildStageTypes = ['clean', 'scm', 'checkout', 'dependencies', 'compile', 'test', 'lint', 'build', 'push', 'custom']
 
       console.log('[inferStageStatus] runStatus:', runStatus, 'stages:', stages.length)
 
@@ -1819,7 +1830,6 @@ export default {
         const currentStatus = stage.status || 'pending'
 
         // 审批阶段：保持后端返回的实际状态，不覆盖
-        // 如果后端已经返回 success/approved/failed/rejected，直接使用
         if (stageType === 'approval') {
           if (['success', 'approved', 'failed', 'rejected'].includes(currentStatus)) {
             return stage  // 保持后端返回的实际状态
@@ -1831,12 +1841,12 @@ export default {
           return stage
         }
 
-        // 如果阶段已经有明确状态（非 pending），不覆盖
+        // 如果阶段已经有明确状态（非 pending），不覆盖 - Jenkins 返回的实时状态优先
         if (currentStatus && currentStatus !== 'pending') {
           return stage
         }
 
-        // 根据流水线状态推断构建阶段状态
+        // 仅当状态为 pending 时，根据流水线状态推断构建阶段状态
         if (runStatus === 'success' || runStatus === 'SUCCESS') {
           // 构建成功：所有构建阶段都成功
           if (isBuildStage) {
@@ -1857,18 +1867,8 @@ export default {
               return { ...stage, status: 'failed', duration: stage.duration || '-' }
             }
           }
-        } else if (runStatus === 'running' || runStatus === 'IN_PROGRESS') {
-          // 运行中：最后一个构建阶段运行中
-          if (isBuildStage) {
-            const buildStages = stages.filter(s => buildStageTypes.includes(s.type || s.stage_type || ''))
-            const currentBuildIndex = buildStages.findIndex(s => s.name === stage.name)
-            if (currentBuildIndex < buildStages.length - 1) {
-              return { ...stage, status: 'success', duration: stage.duration || getDemoStageDuration(stageType) }
-            } else {
-              return { ...stage, status: 'running', duration: '-' }
-            }
-          }
         }
+        // 运行中状态不推断，依赖 Jenkins wfapi 返回的实时状态
 
         return stage
       })
@@ -2789,9 +2789,14 @@ export default {
     // 阶段类型名称
     const getStageTypeName = (type) => {
       const map = {
+        clean: '清理工作空间',
+        scm: 'SCM检出',
         checkout: '代码检出',
-        build: '构建',
-        test: '测试',
+        dependencies: '依赖下载',
+        compile: '编译检查',
+        test: '单元测试',
+        lint: '代码检查',
+        build: '构建镜像',
         push: '推送镜像',
         approval: '人工审批',
         deploy: '部署'

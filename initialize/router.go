@@ -152,7 +152,19 @@ func (s *Engine) injectRouterGroup(root *gin.RouterGroup, factory *services.Clus
 	}
 
 	// ======================================================
-	// C 类：CICD 路由（JWT: yes, ClusterMiddleware: no）
+	// C-1 类：CICD 回调路由（公开，跳过 JWT）
+	// 重要：必须在 cicdGroup 之前注册，避免 Gin 路由树中继承中间件冲突
+	// Jenkins 回调接口不需要 JWT 认证，使用 HMAC 签名验证
+	// /api/v1/k8s/cicd/pipeline/callback
+	// /api/v1/k8s/cicd/stage/callback
+	// /api/v1/k8s/cicd/callback/build
+	// ======================================================
+	cicdPublic := v1.Group("/k8s/cicd")
+	cicdPublic.Use(middlewares.AuthJWTSkip())
+	kube_cicd.NewCicdCallbackRouter().Inject(cicdPublic)
+
+	// ======================================================
+	// C-2 类：CICD 路由（JWT: yes, ClusterMiddleware: no）
 	// /api/v1/k8s/cicd/...
 	// ======================================================
 	cicdGroup := k8sRoot.Group("/cicd")
@@ -161,17 +173,6 @@ func (s *Engine) injectRouterGroup(root *gin.RouterGroup, factory *services.Clus
 	} {
 		r.Inject(cicdGroup)
 	}
-
-	// ======================================================
-	// D 类：CICD 回调路由（公开，跳过 JWT）
-	// Jenkins 回调接口不需要认证，使用 HMAC 签名验证
-	// /api/v1/k8s/cicd/pipeline/callback
-	// /api/v1/k8s/cicd/stage/callback
-	// /api/v1/k8s/cicd/callback/build
-	// ======================================================
-	cicdPublic := v1.Group("/k8s/cicd")
-	cicdPublic.Use(middlewares.AuthJWTSkip())
-	kube_cicd.NewCicdCallbackRouter().Inject(cicdPublic)
 
 	// ======================================================
 	// B 类：目标集群资源操作（必须传 clusterID）

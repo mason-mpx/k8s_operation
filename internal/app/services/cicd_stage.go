@@ -30,7 +30,7 @@ type StageDefinition struct {
 
 // DefaultStageDefinitions 默认阶段定义（与 Jenkinsfile 保持一致）
 var DefaultStageDefinitions = []StageDefinition{
-	{Order: 1, Type: models.StageTypeSCM, Name: "SCM检出", Enabled: true},              // Jenkins 声明式管道自动添加
+	{Order: 1, Type: models.StageTypeClean, Name: "清理工作空间", Enabled: true},
 	{Order: 2, Type: models.StageTypeCheckout, Name: "代码检出", Enabled: true},
 	{Order: 3, Type: models.StageTypeDependencies, Name: "依赖下载", Enabled: true},
 	{Order: 4, Type: models.StageTypeCompile, Name: "编译检查", Enabled: true},
