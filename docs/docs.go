@@ -15417,11 +15417,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "stage_type": {
-                    "description": "阶段类型: checkout/build/test/push",
+                    "description": "阶段类型: checkout/dependencies/compile/test/lint/build/push/approval/deploy",
                     "type": "string"
                 },
                 "status": {
-                    "description": "阶段状态: running/success/failed",
+                    "description": "阶段状态: running/success/failed/waiting",
                     "type": "string"
                 }
             }
