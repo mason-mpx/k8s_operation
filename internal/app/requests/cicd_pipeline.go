@@ -316,7 +316,7 @@ func ValidStageCallbackRequest(data interface{}, ctx *gin.Context) map[string][]
 	rules := govalidator.MapData{
 		"job_name":     []string{"required"},
 		"build_number": []string{"required"},
-		"stage_type":   []string{"required", "in:checkout,dependencies,compile,test,lint,build,push,approval,deploy"},
+		"stage_type":   []string{"required", "in:scm,checkout,dependencies,compile,test,lint,build,push,approval,deploy"},
 		"status":       []string{"required", "in:running,success,failed,waiting"},
 	}
 	messages := govalidator.MapData{

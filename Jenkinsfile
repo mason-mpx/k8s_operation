@@ -18,7 +18,7 @@ pipeline {
         string(name: 'PIPELINE_ID', defaultValue: '', description: '平台流水线ID')
 
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: '跳过单元测试')
-        string(name: 'GO_VERSION', defaultValue: '1.22', description: 'Dockerfile 构建参数中的 Go 版本')
+        string(name: 'GO_VERSION', defaultValue: '1.24', description: 'Dockerfile 构建参数中的 Go 版本')
     }
 
     environment {

@@ -812,6 +812,9 @@ func (s *Services) inferStageTypeFromName(name string) string {
 	
 	// 按优先级匹配
 	switch {
+	// Jenkins 声明式管道自动添加的 SCM checkout 阶段
+	case strings.Contains(nameLower, "declarative: checkout scm") || strings.Contains(nameLower, "scm"):
+		return "scm"
 	case strings.Contains(nameLower, "checkout") || strings.Contains(nameLower, "代码检出") || strings.Contains(nameLower, "拉取代码"):
 		return "checkout"
 	case strings.Contains(nameLower, "dependencies") || strings.Contains(nameLower, "依赖"):
@@ -871,24 +874,25 @@ func (s *Services) appendPlatformStages(stages []PipelineStageInfo, pipeline *mo
 // getDefaultStagesForPipeline 获取默认阶段（未运行时展示）
 func (s *Services) getDefaultStagesForPipeline(pipeline *models.CicdPipeline) []PipelineStageInfo {
 	stages := []PipelineStageInfo{
-		{ID: "1", Name: "Checkout Info", Type: "checkout", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "2", Name: "Dependencies", Type: "dependencies", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "3", Name: "Compile Check", Type: "compile", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "4", Name: "Test", Type: "test", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "5", Name: "Lint", Type: "lint", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "6", Name: "Build Image", Type: "build", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "7", Name: "Push Image", Type: "push", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "1", Name: "Declarative: Checkout SCM", Type: "scm", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "2", Name: "Checkout Info", Type: "checkout", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "3", Name: "Dependencies", Type: "dependencies", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "4", Name: "Compile Check", Type: "compile", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "5", Name: "Test", Type: "test", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "6", Name: "Lint", Type: "lint", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "7", Name: "Build Image", Type: "build", Status: "pending", Steps: []PipelineStepInfo{}},
+		{ID: "8", Name: "Push Image", Type: "push", Status: "pending", Steps: []PipelineStepInfo{}},
 	}
 	
 	// 根据流水线配置追加平台阶段
 	if pipeline.RequireApproval {
 		stages = append(stages, PipelineStageInfo{
-			ID: "8", Name: "人工审批", Type: "approval", Status: "pending", Steps: []PipelineStepInfo{},
+			ID: "9", Name: "人工审批", Type: "approval", Status: "pending", Steps: []PipelineStepInfo{},
 		})
 	}
 	if pipeline.AutoDeploy {
 		stages = append(stages, PipelineStageInfo{
-			ID: "9", Name: "部署", Type: "deploy", Status: "pending", Steps: []PipelineStepInfo{},
+			ID: "10", Name: "部署", Type: "deploy", Status: "pending", Steps: []PipelineStepInfo{},
 		})
 	}
 	

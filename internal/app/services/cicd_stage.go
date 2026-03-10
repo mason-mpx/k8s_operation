@@ -30,15 +30,16 @@ type StageDefinition struct {
 
 // DefaultStageDefinitions 默认阶段定义（与 Jenkinsfile 保持一致）
 var DefaultStageDefinitions = []StageDefinition{
-	{Order: 1, Type: models.StageTypeCheckout, Name: "代码检出", Enabled: true},
-	{Order: 2, Type: models.StageTypeDependencies, Name: "依赖下载", Enabled: true},
-	{Order: 3, Type: models.StageTypeCompile, Name: "编译检查", Enabled: true},
-	{Order: 4, Type: models.StageTypeTest, Name: "单元测试", Enabled: true},
-	{Order: 5, Type: models.StageTypeLint, Name: "代码检查", Enabled: true},
-	{Order: 6, Type: models.StageTypeBuild, Name: "构建镜像", Enabled: true},
-	{Order: 7, Type: models.StageTypePush, Name: "推送镜像", Enabled: true},
-	{Order: 8, Type: models.StageTypeApproval, Name: "人工审批", Enabled: false}, // 默认关闭
-	{Order: 9, Type: models.StageTypeDeploy, Name: "部署", Enabled: false},             // 默认关闭
+	{Order: 1, Type: models.StageTypeSCM, Name: "SCM检出", Enabled: true},              // Jenkins 声明式管道自动添加
+	{Order: 2, Type: models.StageTypeCheckout, Name: "代码检出", Enabled: true},
+	{Order: 3, Type: models.StageTypeDependencies, Name: "依赖下载", Enabled: true},
+	{Order: 4, Type: models.StageTypeCompile, Name: "编译检查", Enabled: true},
+	{Order: 5, Type: models.StageTypeTest, Name: "单元测试", Enabled: true},
+	{Order: 6, Type: models.StageTypeLint, Name: "代码检查", Enabled: true},
+	{Order: 7, Type: models.StageTypeBuild, Name: "构建镜像", Enabled: true},
+	{Order: 8, Type: models.StageTypePush, Name: "推送镜像", Enabled: true},
+	{Order: 9, Type: models.StageTypeApproval, Name: "人工审批", Enabled: false},  // 默认关闭
+	{Order: 10, Type: models.StageTypeDeploy, Name: "部署", Enabled: false},            // 默认关闭
 }
 
 // ==================== 阶段执行服务 ====================

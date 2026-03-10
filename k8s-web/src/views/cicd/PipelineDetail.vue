@@ -1809,7 +1809,7 @@ export default {
       // 获取流水线状态（优先级：latest_run > pipeline）
       const runStatus = latestRun.value?.status || pipeline.value.last_run_status || pipeline.value.status
       // 构建阶段类型（动态识别，包含 custom 类型）
-      const buildStageTypes = ['checkout', 'dependencies', 'compile', 'test', 'lint', 'build', 'push', 'custom']
+      const buildStageTypes = ['scm', 'checkout', 'dependencies', 'compile', 'test', 'lint', 'build', 'push', 'custom']
 
       console.log('[inferStageStatus] runStatus:', runStatus, 'stages:', stages.length)
 
