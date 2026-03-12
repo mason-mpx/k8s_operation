@@ -4,8 +4,12 @@ import {Message} from '@arco-design/web-vue'
 import {useClusterStore} from '@/stores/cluster'
 import {pinia} from '@/stores'
 
+// 判断是否通过穿透地址访问（非 localhost）
+const isRemoteAccess = !['localhost', '127.0.0.1'].includes(window.location.hostname)
+
 const http = axios.create({
-  baseURL: '',
+  // 穿透访问时直接请求后端穿透地址，本地访问时走 Vite proxy
+  baseURL: isRemoteAccess ? 'http://james521.gnway.cc:80' : '',
   timeout: 45000,
   withCredentials: false, // JWT Header 模式：不走 Cookie
 })

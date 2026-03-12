@@ -14,6 +14,10 @@ pipeline {
         string(name: 'IMAGE_TAG', defaultValue: '', description: '镜像标签（空自动生成）')
         string(name: 'DOCKERFILE_PATH', defaultValue: 'Dockerfile', description: 'Dockerfile 路径')
 
+        // 平台传递的 Git 参数
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: '构建分支（平台传递）')
+        string(name: 'GIT_REPO', defaultValue: '', description: 'Git 仓库地址（平台传递）')
+
         string(name: 'PLATFORM_CALLBACK_URL', defaultValue: '', description: '平台回调地址')
         string(name: 'PIPELINE_ID', defaultValue: '', description: '平台流水线ID')
 
@@ -40,11 +44,27 @@ pipeline {
 
         stage('Clean Workspace') {
             steps {
-                echo "=== 清理工作空间，确保每次都是最新代码 ==="
-                // 删除工作空间中的所有文件
+                echo "=== 清理工作空间，拉取代码 ==="
                 deleteDir()
-                // 重新拉取代码
-                checkout scm
+                
+                script {
+                    // 确定目标分支：优先用平台传递的，否则用 Jenkins Job 配置的
+                    def targetBranch = params.GIT_BRANCH?.trim() ?: 'main'
+                    
+                    // checkout 并创建本地分支（避免 detached HEAD）
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${targetBranch}"]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'LocalBranch', localBranch: targetBranch]  // 关键！创建本地分支
+                        ],
+                        userRemoteConfigs: scm.userRemoteConfigs
+                    ])
+                    
+                    env.TARGET_BRANCH = targetBranch
+                    echo "目标分支: ${targetBranch}"
+                }
             }
         }
 
@@ -61,25 +81,41 @@ pipeline {
                     env.GIT_COMMIT_FULL  = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     env.GIT_COMMIT_MSG   = sh(script: 'git log -1 --pretty=%B | head -1', returnStdout: true).trim()
 
-                    env.GIT_BRANCH_NAME = sh(
-                        script: '''
-                            branch=$(git symbolic-ref --short -q HEAD || true)
-                            if [ -n "$branch" ]; then
-                              echo "$branch"
-                            elif [ -n "$GIT_BRANCH" ]; then
-                              echo "$GIT_BRANCH"
-                            else
-                              echo "unknown"
-                            fi
-                        ''',
-                        returnStdout: true
-                    ).trim().replaceAll('^origin/', '').replaceAll('/', '-')
+                    // 获取分支名（优先使用平台传递的分支）
+                    def branchName = env.TARGET_BRANCH ?: ''
+                    
+                    // 如果平台未传递，尝试从 Jenkins 环境变量获取
+                    if (!branchName) {
+                        branchName = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
+                    }
+                    
+                    // 最终兼底: 从 Git 命令获取
+                    if (!branchName) {
+                        branchName = sh(
+                            script: 'git symbolic-ref --short -q HEAD 2>/dev/null || git rev-parse --short HEAD',
+                            returnStdout: true
+                        ).trim()
+                    }
+                    
+                    // 清理分支名
+                    env.GIT_BRANCH_NAME = branchName
+                        .replaceAll('^origin/', '')
+                        .replaceAll('^refs/heads/', '')
+                        .replaceAll('/', '-')
 
                     env.BUILD_TS = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
 
-                    env.FINAL_TAG = params.IMAGE_TAG?.trim()
-                        ? params.IMAGE_TAG.trim()
-                        : "${env.GIT_BRANCH_NAME}-${env.GIT_COMMIT_SHORT}-${env.BUILD_TS}"
+                    // 生产环境推荐使用语义化版本（手动传入 IMAGE_TAG）
+                    // 自动生成格式: {branch}-{commit}-{timestamp}
+                    if (params.IMAGE_TAG?.trim()) {
+                        env.FINAL_TAG = params.IMAGE_TAG.trim()
+                    } else if (env.GIT_BRANCH_NAME ==~ /^(main|master|release.*)$/) {
+                        // 主分支/发布分支: 使用简洁格式
+                        env.FINAL_TAG = "${env.GIT_COMMIT_SHORT}-${env.BUILD_TS}"
+                    } else {
+                        // 其他分支: 带分支名
+                        env.FINAL_TAG = "${env.GIT_BRANCH_NAME}-${env.GIT_COMMIT_SHORT}-${env.BUILD_TS}"
+                    }
 
                     env.FULL_IMAGE = "${params.IMAGE_REPO}:${env.FINAL_TAG}"
 

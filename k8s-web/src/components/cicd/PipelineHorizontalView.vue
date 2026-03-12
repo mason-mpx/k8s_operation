@@ -129,7 +129,7 @@
             <button 
               v-if="selectedStage.type === 'approval' && selectedStage.status === 'waiting'"
               class="action-btn approve"
-              @click="$emit('approve', selectedStage, 'approve')"
+              @click="$emit('approve', selectedStage.id, 'approve')"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"/>
@@ -139,7 +139,7 @@
             <button 
               v-if="selectedStage.type === 'approval' && selectedStage.status === 'waiting'"
               class="action-btn reject"
-              @click="$emit('approve', selectedStage, 'reject')"
+              @click="$emit('approve', selectedStage.id, 'reject')"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -149,7 +149,7 @@
             <button 
               v-if="selectedStage.type === 'deploy' && selectedStage.status === 'pending'"
               class="action-btn deploy"
-              @click="$emit('deploy', selectedStage)"
+              @click="$emit('deploy', selectedStage.id)"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>

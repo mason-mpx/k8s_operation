@@ -31,3 +31,18 @@ func (r *KubeConfigMapRouter) Inject(router *gin.RouterGroup) {
 		router.POST("/patch-json", configmap.PatchJSON)    // JSON Merge Patch 更新
 	}
 }
+
+// KubeMultiResourceRouter 多资源 YAML 路由
+type KubeMultiResourceRouter struct{}
+
+func NewKubeMultiResourceRouter() *KubeMultiResourceRouter {
+	return &KubeMultiResourceRouter{}
+}
+
+// Inject 注册多资源 YAML 路由
+func (r *KubeMultiResourceRouter) Inject(router *gin.RouterGroup) {
+	configmap := v1.NewKubeConfigMapController()
+	
+	router.POST("/parse-yaml", configmap.ParseMultiYaml)  // 解析多资源 YAML
+	router.POST("/apply-yaml", configmap.ApplyMultiYaml)  // 应用多资源 YAML
+}
