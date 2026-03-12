@@ -105,15 +105,11 @@ pipeline {
 
                     env.BUILD_TS = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
 
-                    // 生产环境推荐使用语义化版本（手动传入 IMAGE_TAG）
-                    // 自动生成格式: {branch}-{commit}-{timestamp}
+                    // 标签格式: {branch}-{commit}-{timestamp}
+                    // 手动传入 IMAGE_TAG 则使用指定值（如 v1.2.3）
                     if (params.IMAGE_TAG?.trim()) {
                         env.FINAL_TAG = params.IMAGE_TAG.trim()
-                    } else if (env.GIT_BRANCH_NAME ==~ /^(main|master|release.*)$/) {
-                        // 主分支/发布分支: 使用简洁格式
-                        env.FINAL_TAG = "${env.GIT_COMMIT_SHORT}-${env.BUILD_TS}"
                     } else {
-                        // 其他分支: 带分支名
                         env.FINAL_TAG = "${env.GIT_BRANCH_NAME}-${env.GIT_COMMIT_SHORT}-${env.BUILD_TS}"
                     }
 
