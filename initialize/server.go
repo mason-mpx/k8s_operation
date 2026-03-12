@@ -43,8 +43,10 @@ func (s *Engine) injectMiddlewares() {
 		AllowOrigins: []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
-			"http://james521.gnway.cc:30851", // 外网前端地址
-			"http://james521.gnway.cc:10537", // 外网后端地址
+			"http://james521.gnway.cc:8000",  // 内网穿透前端地址
+			"http://james521.gnway.cc:80",    // 内网穿透后端地址
+			"http://james521.gnway.cc:30851", // K8s NodePort 前端
+			"http://james521.gnway.cc:10537", // K8s NodePort 后端
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{

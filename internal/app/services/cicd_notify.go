@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -133,7 +134,7 @@ func (s *Services) buildAutoDeployNotifyMessage(pipeline *models.CicdPipeline, i
 		statusText = "自动部署失败"
 	}
 
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 	platformURL := s.getPlatformURL()
 
 	workloadKind := pipeline.TargetWorkloadKind
@@ -208,7 +209,7 @@ func (s *Services) buildLegacyDeployNotifyMessage(pipeline *models.CicdPipeline,
 		statusText = "自动部署失败"
 	}
 
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 	platformURL := s.getPlatformURL()
 
 	text := fmt.Sprintf(`### %s %s
@@ -262,7 +263,7 @@ func (s *Services) buildLegacyDeployNotifyMessage(pipeline *models.CicdPipeline,
 // buildBuildStartedMessage 构建构建开始通知消息
 func (s *Services) buildBuildStartedMessage(pipeline *models.CicdPipeline, run *models.CicdPipelineRun, buildNumber int) *DingTalkMessage {
 	platformURL := s.getPlatformURL()
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 
 	text := fmt.Sprintf(`### 🚀 构建已触发
 
@@ -309,7 +310,7 @@ func (s *Services) buildDeployNotifyMessage(pipeline *models.CicdPipeline, stage
 		statusText = "部署失败"
 	}
 
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 	platformURL := s.getPlatformURL()
 	
 	text := fmt.Sprintf(`### %s %s
@@ -421,7 +422,7 @@ func (s *Services) buildBuildNotifyMessage(pipeline *models.CicdPipeline, run *m
 }
 
 func (s *Services) buildApprovalNotifyMessage(pipeline *models.CicdPipeline, run *models.CicdPipelineRun) *DingTalkMessage {
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 	platformURL := s.getPlatformURL()
 	
 	text := fmt.Sprintf(`### ⏳ 待审批
@@ -448,7 +449,8 @@ func (s *Services) buildApprovalNotifyMessage(pipeline *models.CicdPipeline, run
 	// 添加快捷链接
 	text += "\n\n---\n"
 	if platformURL != "" {
-		text += fmt.Sprintf("✅ [点击进行审批](%s/cicd/pipelines/%d?tab=stages)\n\n", platformURL, pipeline.ID)
+		// 跳转到流水线详情页的执行阶段，并自动选中审批阶段
+		text += fmt.Sprintf("✅ [点击进行审批](%s/cicd/pipelines/%d?tab=stages&auto_select=approval)\n\n", platformURL, pipeline.ID)
 	}
 	if pipeline.JenkinsURL != "" && pipeline.JenkinsJob != "" {
 		text += fmt.Sprintf("🛠 [查看 Jenkins 构建日志](%s/job/%s/%d/console)", 
@@ -476,7 +478,7 @@ func (s *Services) buildRollbackNotifyMessage(pipeline *models.CicdPipeline, sta
 		statusText = "回滚失败"
 	}
 
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 	platformURL := s.getPlatformURL()
 
 	text := fmt.Sprintf(`### %s %s
@@ -544,7 +546,7 @@ func (s *Services) buildCancelDeployNotifyMessage(pipeline *models.CicdPipeline,
 		actionDesc = fmt.Sprintf("取消并回滚到 %s", targetRS)
 	}
 
-	envText := s.getEnvDisplayName(pipeline.DeployEnv)
+	envText := s.getEnvDisplayNameWithCluster(pipeline.DeployEnv, pipeline.TargetClusterID)
 	platformURL := s.getPlatformURL()
 
 	text := fmt.Sprintf(`### %s %s
@@ -620,11 +622,44 @@ func (s *Services) getEnvDisplayName(env string) string {
 		return "🧪 测试环境"
 	case models.DeployEnvStaging:
 		return "📦 预发环境"
-	case models.DeployEnvProd:
+	case models.DeployEnvProd, "production":
 		return "🚀 生产环境"
+	case "":
+		return "未设置"
 	default:
 		return env
 	}
+}
+
+// getEnvDisplayNameWithCluster 获取环境显示名称（支持从集群名称解析）
+func (s *Services) getEnvDisplayNameWithCluster(env string, clusterID int64) string {
+	// 如果已有环境配置，直接使用
+	if env != "" {
+		return s.getEnvDisplayName(env)
+	}
+	
+	// 尝试从集群名称中解析环境
+	if clusterID > 0 {
+		var cluster models.K8sCluster
+		if err := global.DB.Where("id = ?", clusterID).First(&cluster).Error; err == nil {
+			clusterName := cluster.ClusterName
+			// 从集群名称中识别环境关键词
+			if strings.Contains(clusterName, "生产") || strings.Contains(clusterName, "prod") {
+				return "🚀 生产环境"
+			}
+			if strings.Contains(clusterName, "预发") || strings.Contains(clusterName, "staging") {
+				return "📦 预发环境"
+			}
+			if strings.Contains(clusterName, "测试") || strings.Contains(clusterName, "test") {
+				return "🧪 测试环境"
+			}
+			if strings.Contains(clusterName, "开发") || strings.Contains(clusterName, "dev") {
+				return "🔧 开发环境"
+			}
+		}
+	}
+	
+	return "未设置"
 }
 
 func (s *Services) sendDingTalkNotify(webhook string, msg *DingTalkMessage) {

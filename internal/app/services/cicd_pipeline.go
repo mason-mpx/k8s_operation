@@ -1240,23 +1240,39 @@ func (s *Services) autoDeployWithLegacyConfig(ctx context.Context, pipeline *mod
 	}
 	result.Image = finalImage
 
-	_, err := deployment.PatchDeploymentImage(ctx, global.ManagementKubeClient, namespace, deploymentName, containerName, finalImage)
-	if err != nil {
-		result.DeployMessage = fmt.Sprintf("部署失败: %v", err)
-
-		// 发送部署失败钉钉通知
-		go s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, finalImage, false, err.Error())
-
-		return result
-	}
+	// 异步执行部署，等待 Rollout 完成后发通知
+	go s.executeLegacyDeployAsync(context.Background(), pipeline, namespace, deploymentName, containerName, finalImage)
 
 	result.DeploySuccess = true
-	result.DeployMessage = fmt.Sprintf("部署成功: %s/%s 镜像已更新", namespace, deploymentName)
-
-	// 发送部署成功钉钉通知
-	go s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, finalImage, true, "")
-
+	result.DeployMessage = fmt.Sprintf("部署已启动: %s/%s 正在更新...", namespace, deploymentName)
 	return result
+}
+
+// executeLegacyDeployAsync 异步执行旧配置部署（等待 Rollout 完成）
+func (s *Services) executeLegacyDeployAsync(ctx context.Context, pipeline *models.CicdPipeline, namespace, deploymentName, containerName, image string) {
+	var logs strings.Builder
+	logs.WriteString(fmt.Sprintf("[旧配置部署] 开始更新 %s/%s\n", namespace, deploymentName))
+
+	// 1. 更新镜像
+	_, err := deployment.PatchDeploymentImage(ctx, global.ManagementKubeClient, namespace, deploymentName, containerName, image)
+	if err != nil {
+		global.Logger.Error("[旧配置部署] 更新镜像失败", zap.Error(err))
+		s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, image, false, err.Error())
+		return
+	}
+
+	logs.WriteString("[INFO] 镜像更新已提交，等待 Rollout 完成...\n")
+
+	// 2. 等待 Rollout 完成
+	err = s.waitAutoDeployRollout(ctx, global.ManagementKubeClient, namespace, deploymentName, &logs)
+	if err != nil {
+		global.Logger.Error("[旧配置部署] Rollout 失败", zap.Error(err))
+		s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, image, false, err.Error())
+		return
+	}
+
+	global.Logger.Info("[旧配置部署] Rollout 完成")
+	s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, image, true, "")
 }
 
 // patchStatefulSetImage 更新 StatefulSet 镜像

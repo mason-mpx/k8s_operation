@@ -166,13 +166,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getApprovalList, approvalAction } from '@/api/cicd/environment.js'
 
+const route = useRoute()
 const approvals = ref([])
 const loading = ref(false)
 const actionLoading = ref(false)
 const statusFilter = ref('')
+const pipelineIdFilter = ref(null)  // 流水线ID筛选
 
 // 弹窗状态
 const showActionModal = ref(false)
@@ -187,8 +190,19 @@ const rejectedCount = computed(() => approvals.value.filter(a => a.status === 'r
 
 // 过滤后的列表
 const filteredApprovals = computed(() => {
-  if (!statusFilter.value) return approvals.value
-  return approvals.value.filter(a => a.status === statusFilter.value)
+  let list = approvals.value
+  
+  // 按状态筛选
+  if (statusFilter.value) {
+    list = list.filter(a => a.status === statusFilter.value)
+  }
+  
+  // 按流水线ID筛选
+  if (pipelineIdFilter.value) {
+    list = list.filter(a => a.pipeline_id === pipelineIdFilter.value)
+  }
+  
+  return list
 })
 
 // 加载审批列表
@@ -295,8 +309,25 @@ const submitAction = async () => {
 }
 
 onMounted(() => {
+  // 从 URL 参数获取筛选条件
+  if (route.query.status) {
+    statusFilter.value = route.query.status
+  }
+  if (route.query.pipeline_id) {
+    pipelineIdFilter.value = parseInt(route.query.pipeline_id)
+  }
   loadApprovals()
 })
+
+// 监听路由参数变化
+watch(() => route.query, (newQuery) => {
+  if (newQuery.status) {
+    statusFilter.value = newQuery.status
+  }
+  if (newQuery.pipeline_id) {
+    pipelineIdFilter.value = parseInt(newQuery.pipeline_id)
+  }
+}, { immediate: false })
 </script>
 
 <style scoped>

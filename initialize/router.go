@@ -263,6 +263,14 @@ func (s *Engine) injectRouterGroup(root *gin.RouterGroup, factory *services.Clus
 		r.Inject(configmap)
 	}
 
+	// multi-resource (多资源 YAML 解析/应用)
+	multiResource := k8sTarget.Group("/multi-resource")
+	for _, r := range []injector{
+		kube_configmap.NewKubeMultiResourceRouter(),
+	} {
+		r.Inject(multiResource)
+	}
+
 	// storageclass
 	storageclass := k8sTarget.Group("/storageclass")
 	for _, r := range []injector{

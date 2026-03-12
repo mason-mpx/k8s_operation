@@ -435,6 +435,7 @@
           <template v-if="stageViewMode === 'horizontal' && !stagesLoading">
             <PipelineHorizontalView
               :stages="pipelineStages"
+              :pipeline-id="pipelineId"
               @approve="handleApproveStage"
               @deploy="handleDeployStage"
               @view-logs="activeTab = 'logs'; loadLogs()"
@@ -617,7 +618,7 @@
             <transition name="slide-fade">
               <div v-show="stageDetailExpanded" class="detail-body">
               <!-- 审批阶段操作 -->
-              <div v-if="selectedStage.type === 'approval' && (selectedStage.status === 'waiting' || selectedStage.status === 'pending')" class="stage-action-panel approval-panel-enhanced">
+              <div v-if="selectedStage.type === 'approval' && (selectedStage.status === 'waiting' || selectedStage.status === 'pending')" :class="['stage-action-panel', 'approval-panel-enhanced', { 'highlight-pulse': highlightApproval }]">
                 <div class="approval-header">
                   <div class="approval-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1705,6 +1706,7 @@ export default {
     const cancelling = ref(false)   // 取消中
     const approvalDecision = ref('approve')  // 默认通过
     const approvalComment = ref('')  // 审批备注
+    const highlightApproval = ref(false)  // 是否高亮审批面板（从钉钉跳转来时）
 
     // 版本选择弹窗相关
     const showVersionDialog = ref(false)
@@ -2267,7 +2269,8 @@ export default {
       await handleRun()
     }
 
-    // 审批阶段操作（旧版方法保留）
+    // 审批阶段操作
+    // 优化：审批通过后自动触发部署
     const handleApproveStage = async (stageId, action) => {
       approving.value = true
       try {
@@ -2276,9 +2279,39 @@ export default {
         const response = await approveStage(stageId, action, '')
         if (response.code === 0) {
           Message.success({ content: `审批${actionText}成功` })
+          
+          // 立即更新选中阶段的状态（让用户立刻看到变化）
+          if (selectedStage.value && selectedStage.value.id === stageId) {
+            selectedStage.value = {
+              ...selectedStage.value,
+              status: action === 'approve' ? 'success' : 'failed'
+            }
+          }
+          
           // 刷新阶段数据
           await loadStages()
           await loadPipeline()
+          
+          // 同步更新选中阶段为最新数据
+          if (selectedStage.value) {
+            const updatedStage = pipelineStages.value.find(s => s.id === stageId)
+            if (updatedStage) {
+              selectedStage.value = updatedStage
+            }
+          }
+          
+          // 审批通过后自动触发部署
+          if (action === 'approve') {
+            // 找到下一个待执行的部署阶段
+            const deployStage = pipelineStages.value.find(
+              s => s.type === 'deploy' && (s.status === 'pending' || s.can_operate)
+            )
+            if (deployStage) {
+              Message.info({ content: '审批通过，正在自动启动部署...' })
+              // 自动触发部署
+              await handleDeployStage(deployStage.id)
+            }
+          }
         } else {
           throw new Error(response.msg)
         }
@@ -2902,6 +2935,45 @@ export default {
       if (tab) activeTab.value = tab
     }, { immediate: true })
 
+    // 自动选中审批阶段（从钉钉通知跳转过来时）
+    watch(() => pipelineStages.value, (stages) => {
+      if (route.query.auto_select === 'approval' && stages.length > 0) {
+        // 切换到完整视图模式，显示完整审批面板
+        stageViewMode.value = 'vertical'
+        
+        // 查找审批阶段（优先找 waiting 状态的）
+        const approvalStage = stages.find(s => s.type === 'approval' && s.status === 'waiting') 
+          || stages.find(s => s.type === 'approval')
+        if (approvalStage && (!selectedStage.value || selectedStage.value.id !== approvalStage.id)) {
+          selectedStage.value = approvalStage
+          stageDetailExpanded.value = true
+          highlightApproval.value = true  // 启用高亮动画
+          
+          // 滚动到审批阶段位置
+          setTimeout(() => {
+            // 先滚动到卡片
+            const approvalCard = document.querySelector('.stage-node.status-waiting')
+              || document.querySelector('.pipeline-stage.selected')
+            if (approvalCard) {
+              approvalCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+            // 然后滚动到详情面板
+            setTimeout(() => {
+              const detailPanel = document.querySelector('.stage-detail-panel')
+              if (detailPanel) {
+                detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+              }
+            }, 400)
+          }, 300)
+          
+          // 5秒后取消高亮效果
+          setTimeout(() => {
+            highlightApproval.value = false
+          }, 5000)
+        }
+      }
+    }, { immediate: true })
+
     onMounted(() => {
       loadPipeline()
     })
@@ -2981,6 +3053,7 @@ export default {
       cancelling,
       approvalDecision,
       approvalComment,
+      highlightApproval,
       copyLogs,
       downloadLogs,
       statusText,
@@ -5623,6 +5696,23 @@ export default {
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
+}
+
+/* 审批面板高亮脉冲动画（从钉钉跳转来时） */
+.approval-panel-enhanced.highlight-pulse {
+  animation: approval-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3);
+}
+
+@keyframes approval-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3);
+    border-color: #f59e0b;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.1), 0 4px 20px rgba(245, 158, 11, 0.4);
+    border-color: #d97706;
+  }
 }
 
 .approval-header {
