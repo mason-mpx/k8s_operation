@@ -25,7 +25,7 @@
       </div>
 
       <div class="action-buttons">
-        <button v-if="!batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">☑️ 批量操作</button>
+        <button v-if="canOperate && !batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">☑️ 批量操作</button>
         <button v-if="batchMode" class="btn btn-secondary" @click="exitBatchMode">✖️ 退出批量</button>
 
         <div class="view-toggle">
@@ -38,7 +38,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建有状态集</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建有状态集</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">{{ loading ? '加载中...' : '🔄 刷新' }}</button>
       </div>
     </div>
@@ -97,20 +97,20 @@
             <td>
               <div class="replicas-info">
                 <div class="replicas-control">
-                  <button class="replica-btn minus" @click="decreaseReplicas(sts)" :disabled="sts.desiredReplicas <= 0 || scalingMap[sts.name]" title="减少副本">−</button>
-                  <div v-if="inlineEdit.key === `replicas-${sts.name}`" class="replicas-edit-wrapper">
+                  <button v-if="canOperate" class="replica-btn minus" @click="decreaseReplicas(sts)" :disabled="sts.desiredReplicas <= 0 || scalingMap[sts.name]" title="减少副本">−</button>
+                  <div v-if="canOperate && inlineEdit.key === `replicas-${sts.name}`" class="replicas-edit-wrapper">
                     <input type="number" v-model="inlineEdit.value" class="replicas-input" min="0" @blur="saveInlineReplicas(sts)" @keyup.enter="saveInlineReplicas(sts)" @keyup.escape="cancelInlineEdit" placeholder="副本数" autofocus />
                     <span class="inline-hint-small">回车</span>
                   </div>
-                  <div v-else class="replicas-display clickable" :class="{ updating: scalingMap[sts.name] }" @click="startInlineReplicas(sts)" title="点击修改副本数">
+                  <div v-else class="replicas-display" :class="{ updating: scalingMap[sts.name], clickable: canOperate }" @click="canOperate && startInlineReplicas(sts)" :title="canOperate ? '点击修改副本数' : '只读模式'">
                     <span class="ready-replicas">{{ sts.readyReplicas }}</span>
                     <span class="replicas-sep">/</span>
                     <span class="desired-replicas">{{ sts.desiredReplicas }}</span>
                     <span v-if="scalingMap[sts.name]" class="scaling-indicator">⏳</span>
-                    <span class="edit-icon-small">✏️</span>
+                    <span v-if="canOperate" class="edit-icon-small">✏️</span>
                   </div>
-                  <button class="replica-btn plus" @click="increaseReplicas(sts)" :disabled="scalingMap[sts.name]" title="增加副本">+</button>
-                  <button class="replica-btn stop" @click="stopService(sts)" :disabled="sts.desiredReplicas === 0 || scalingMap[sts.name]" title="停服（副本数调为0）">⏸️</button>
+                  <button v-if="canOperate" class="replica-btn plus" @click="increaseReplicas(sts)" :disabled="scalingMap[sts.name]" title="增加副本">+</button>
+                  <button v-if="canOperate" class="replica-btn stop" @click="stopService(sts)" :disabled="sts.desiredReplicas === 0 || scalingMap[sts.name]" title="停服（副本数调为0）">⏸️</button>
                 </div>
                 <div class="replicas-bar">
                   <div class="replicas-fill" :style="{ width: `${(sts.readyReplicas / Math.max(sts.desiredReplicas, 1)) * 100}%` }"></div>
@@ -157,12 +157,12 @@
                       <span class="menu-icon">📜</span>
                       <span>版本记录</span>
                     </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" @click="restartStatefulset(sts)">
+                    <div v-if="canOperate" class="menu-divider"></div>
+                    <button v-if="canOperate" class="menu-item" @click="restartStatefulset(sts)">
                       <span class="menu-icon">🔄</span>
                       <span>重启</span>
                     </button>
-                    <button class="menu-item" @click="openUpdateImage(sts)">
+                    <button v-if="canOperate" class="menu-item" @click="openUpdateImage(sts)">
                       <span class="menu-icon">🔧</span>
                       <span>更新镜像</span>
                     </button>
@@ -179,8 +179,8 @@
                       <span class="menu-icon">📝</span>
                       <span>查看/编辑 YAML</span>
                     </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item danger" @click="deleteStatefulset(sts)">
+                    <div v-if="canOperate" class="menu-divider"></div>
+                    <button v-if="canOperate" class="menu-item danger" @click="deleteStatefulset(sts)">
                       <span class="menu-icon">🗑️</span>
                       <span>删除</span>
                     </button>
@@ -1331,6 +1331,15 @@ import namespaceApi from '@/api/cluster/config/namespace'
 import storageclassApi from '@/api/cluster/storage/storageclass'
 import { useClusterStore } from '@/stores/cluster'
 import { useResizableModal } from '@/composables/useResizableModal'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // ===== 获取认证头 =====
 const getAuthHeaders = () => {

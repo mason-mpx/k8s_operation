@@ -192,6 +192,7 @@ import ClusterSelector from '@/components/cluster/ClusterSelector.vue'
 import { checkSubjectAccess, batchCheckSubjectAccess } from '@/api/k8sRbac'
 import { getClusterList } from '@/api/cluster'
 import { getNamespaces } from '@/api/namespace'
+import permissionStore from '@/stores/permission'
 
 // 集群选择
 const clusters = ref([])
@@ -246,7 +247,11 @@ const loadClusters = async () => {
   try {
     const res = await getClusterList({ page: 1, limit: 100 })
     if (res.code === 0 && res.data?.list) {
-      clusters.value = res.data.list.map(c => ({ ...c, name: c.cluster_name || c.name }))
+      // 权限过滤：只显示用户有权限访问的集群
+      const allClusters = res.data.list
+      clusters.value = allClusters
+        .filter(c => permissionStore.state.isSuperAdmin || permissionStore.state.accessibleClusterIds.includes(c.id))
+        .map(c => ({ ...c, name: c.cluster_name || c.name }))
       if (clusters.value.length > 0 && !selectedClusterId.value) {
         selectedClusterId.value = clusters.value[0].id
       }
@@ -377,12 +382,13 @@ onMounted(() => { loadClusters() })
   gap: 20px;
 }
 
-/* 检查卡片 */
+/* 检查卡片 - 浅色主题 */
 .check-card {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .card-header {
@@ -390,8 +396,8 @@ onMounted(() => { loadClusters() })
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .step-number {
@@ -411,7 +417,7 @@ onMounted(() => { loadClusters() })
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #f3f4f6;
+  color: #1f2937;
 }
 
 .card-body {
@@ -427,11 +433,13 @@ onMounted(() => { loadClusters() })
 
 /* 结果卡片 */
 .result-card.allowed {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #ecfdf5, #ffffff);
 }
 
 .result-card.denied {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #fef2f2, #ffffff);
 }
 
 .result-display {
@@ -453,25 +461,25 @@ onMounted(() => { loadClusters() })
   margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
-  color: #f3f4f6;
+  color: #1f2937;
 }
 
 .result-summary {
   font-size: 14px;
-  color: #d1d5db;
+  color: #4b5563;
   margin: 0 0 12px;
 }
 
 .result-summary strong {
-  color: #a5b4fc;
+  color: #6366f1;
 }
 
 .result-reason {
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.2);
+  background: #f3f4f6;
   border-radius: 6px;
   font-size: 13px;
-  color: #9ca3af;
+  color: #6b7280;
   margin-bottom: 12px;
 }
 
@@ -482,7 +490,7 @@ onMounted(() => { loadClusters() })
 .matched-roles strong {
   display: block;
   font-size: 12px;
-  color: #9ca3af;
+  color: #6b7280;
   margin-bottom: 8px;
 }
 
@@ -511,8 +519,18 @@ onMounted(() => { loadClusters() })
 }
 
 .rbac-tag-danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.rbac-tag-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.rbac-tag-primary {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
 }
 
 .help-text {

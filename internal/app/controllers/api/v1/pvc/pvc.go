@@ -1,4 +1,4 @@
-﻿package pvc
+package pvc
 
 import (
 	"fmt"
@@ -316,6 +316,39 @@ func (ctl *KubePVCController) ApplyYaml(ctx *gin.Context) {
 		"name":      pvc.Name,
 		"message":   "YAML 应用成功",
 	})
+}
+
+// DetailEnhanced 获取增强的 PVC 详情（包含关联 PV 信息、绑定状态、事件）
+// @Summary 获取 PVC 增强详情
+// @Description 获取 PVC 的完整详情，包括绑定的 PV 信息、状态、事件等
+// @Tags K8s PVC 管理
+// @Produce json
+// @Param namespace query string true "命名空间"
+// @Param name query string true "PVC 名称"
+// @Success 200 {object} response.Response "成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
+// @Router /api/v1/k8s/pvc/detail-enhanced [get]
+func (c *KubePVCController) DetailEnhanced(ctx *gin.Context) {
+	param := requests.NewKubePVCDetailRequest()
+	r := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidKubePVCDetailRequest); !ok {
+		return
+	}
+
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+
+	detail, err := svc.KubePVCDetailEnhanced(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("service.KubePVCDetailEnhanced error", zap.Error(err))
+		return
+	}
+
+	r.Success(detail)
 }
 
 // convertPVCToYAML 将 PVC 对象转换为 YAML 字符串

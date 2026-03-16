@@ -59,7 +59,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -99,7 +99,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="openCreate">
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreate">
           创建Pod
         </button>
         <button class="btn btn-secondary" @click="refresh" :disabled="loading">
@@ -234,11 +234,11 @@
                     <span class="menu-icon">📡</span>
                     <span>查看事件</span>
                   </button>
-                  <button class="menu-item" title="更新镜像" @click="openPatchImage(pod)">
+                  <button v-if="canOperate" class="menu-item" title="更新镜像" @click="openPatchImage(pod)">
                     <span class="menu-icon">🔧</span>
                     <span>更新镜像</span>
                   </button>
-                  <button class="menu-item" title="驱逐Pod" @click="evictPod(pod)">
+                  <button v-if="canOperate" class="menu-item" title="驱逐Pod" @click="evictPod(pod)">
                     <span class="menu-icon">⚠️</span>
                     <span>驱逐Pod</span>
                   </button>
@@ -246,12 +246,12 @@
                     <span class="menu-icon">📝</span>
                     <span>查看/编辑YAML</span>
                   </button>
-                  <div class="menu-divider"></div>
-                  <button class="menu-item danger" title="优雅删除" @click="deletePod(pod, false)">
+                  <div v-if="canOperate" class="menu-divider"></div>
+                  <button v-if="canOperate" class="menu-item danger" title="优雅删除" @click="deletePod(pod, false)">
                     <span class="menu-icon">🗑️</span>
                     <span>优雅删除</span>
                   </button>
-                  <button class="menu-item danger" title="强制删除" @click="deletePod(pod, true)">
+                  <button v-if="canOperate" class="menu-item danger" title="强制删除" @click="deletePod(pod, true)">
                     <span class="menu-icon">💥</span>
                     <span>强制删除</span>
                   </button>
@@ -983,6 +983,17 @@ import { Message } from '@arco-design/web-vue'
 import { useFilteredNamespaces } from '@/composables/useFilteredNamespaces'
 import permissionStore from '@/stores/permission'
 
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
+
 // 获取认证 headers（与 http.js 拦截器逻辑一致）
 const getAuthHeaders = () => {
   const headers = {};
@@ -1088,6 +1099,16 @@ const statusFilter = ref('all');  // all, Running, Pending, Failed
 let searchDebounceTimer = null;
 const namespaceFilter = ref('');
 
+// 使用命名空间权限过滤 Hook
+const {
+  filteredNamespaces: namespaces,
+  selectedNamespace: namespaceFilterRef,
+  loadNamespaces: fetchNamespaces,
+  permissionHint: nsPermissionHint,
+  hasFullAccess: nsHasFullAccess,
+  loading: nsLoading
+} = useFilteredNamespaces({ autoLoad: false })
+
 // 同步 namespaceFilter 与权限过滤的 namespaceFilterRef
 watch(namespaceFilterRef, (val) => {
   namespaceFilter.value = val
@@ -1130,15 +1151,6 @@ watch(autoRefresh, (val) => {
   }
 });
 
-// 使用命名空间权限过滤 Hook
-const {
-  filteredNamespaces: namespaces,
-  selectedNamespace: namespaceFilterRef,
-  loadNamespaces: fetchNamespaces,
-  permissionHint: nsPermissionHint,
-  hasFullAccess: nsHasFullAccess,
-  loading: nsLoading
-} = useFilteredNamespaces({ autoLoad: false })
 const pods = ref([]);
 
 // 视图模式：table（表格） 或 card（卡片）

@@ -385,123 +385,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
-
-// 静态模拟数据
-const MOCK_TEMPLATES = [
-  {
-    id: 1,
-    name: 'Vue3 前端项目模板',
-    description: '适用于 Vue3 + Vite 前端项目的标准流水线',
-    type: 'frontend',
-    stages: [
-      { name: 'checkout', description: '拉取代码' },
-      { name: 'install', description: '安装依赖 (npm install)' },
-      { name: 'build', description: '构建应用 (npm run build)' },
-      { name: 'test', description: '运行测试 (npm run test)' },
-      { name: 'build-image', description: '构建 Docker 镜像' },
-      { name: 'deploy', description: '部署到 K8s' }
-    ],
-    defaultEnvVars: [
-      { name: 'NODE_ENV', value: 'production' },
-      { name: 'VITE_API_BASE', value: 'https://api.example.com' }
-    ],
-    defaultDeploymentConfig: {
-      replicas: 3,
-      strategy: 'rollingUpdate',
-      resources: {
-        limits: { cpu: '500m', memory: '512Mi' },
-        requests: { cpu: '200m', memory: '256Mi' }
-      }
-    },
-    createdAt: '2024-01-15 10:30:00',
-    updatedAt: '2024-02-01 14:20:00'
-  },
-  {
-    id: 2,
-    name: 'Go 微服务模板',
-    description: '适用于 Go 语言微服务的标准流水线',
-    type: 'backend',
-    stages: [
-      { name: 'checkout', description: '拉取代码' },
-      { name: 'test', description: '运行单元测试' },
-      { name: 'build', description: '编译 Go 二进制' },
-      { name: 'build-image', description: '构建 Docker 镜像' },
-      { name: 'push-image', description: '推送镜像到仓库' },
-      { name: 'deploy', description: '部署到 K8s' }
-    ],
-    defaultEnvVars: [
-      { name: 'GO_ENV', value: 'production' },
-      { name: 'CGO_ENABLED', value: '0' },
-      { name: 'GOOS', value: 'linux' }
-    ],
-    defaultDeploymentConfig: {
-      replicas: 5,
-      strategy: 'rollingUpdate',
-      resources: {
-        limits: { cpu: '1000m', memory: '1Gi' },
-        requests: { cpu: '500m', memory: '512Mi' }
-      }
-    },
-    createdAt: '2024-01-20 09:15:00',
-    updatedAt: '2024-02-05 16:45:00'
-  },
-  {
-    id: 3,
-    name: 'MySQL 数据库模板',
-    description: '适用于 MySQL 数据库迁移和初始化',
-    type: 'database',
-    stages: [
-      { name: 'checkout', description: '拉取代码' },
-      { name: 'validate', description: '验证 SQL 脚本' },
-      { name: 'backup', description: '备份现有数据库' },
-      { name: 'migrate', description: '执行数据库迁移' },
-      { name: 'verify', description: '验证迁移结果' }
-    ],
-    defaultEnvVars: [
-      { name: 'DB_HOST', value: 'mysql-service' },
-      { name: 'DB_PORT', value: '3306' },
-      { name: 'DB_NAME', value: 'mydb' }
-    ],
-    defaultDeploymentConfig: {
-      replicas: 1,
-      strategy: 'recreate',
-      resources: {
-        limits: { cpu: '200m', memory: '256Mi' },
-        requests: { cpu: '100m', memory: '128Mi' }
-      }
-    },
-    createdAt: '2024-02-01 11:00:00',
-    updatedAt: '2024-02-08 10:30:00'
-  },
-  {
-    id: 4,
-    name: 'Spring Boot 微服务模板',
-    description: '适用于 Spring Boot 微服务项目',
-    type: 'microservice',
-    stages: [
-      { name: 'checkout', description: '拉取代码' },
-      { name: 'test', description: '运行单元测试' },
-      { name: 'build', description: 'Maven 构建' },
-      { name: 'sonar', description: '代码质量分析' },
-      { name: 'build-image', description: '构建 Docker 镜像' },
-      { name: 'deploy', description: '部署到 K8s' }
-    ],
-    defaultEnvVars: [
-      { name: 'JAVA_OPTS', value: '-Xmx512m -Xms256m' },
-      { name: 'SPRING_PROFILES_ACTIVE', value: 'prod' }
-    ],
-    defaultDeploymentConfig: {
-      replicas: 4,
-      strategy: 'rollingUpdate',
-      resources: {
-        limits: { cpu: '2000m', memory: '2Gi' },
-        requests: { cpu: '1000m', memory: '1Gi' }
-      }
-    },
-    createdAt: '2024-02-03 14:00:00',
-    updatedAt: '2024-02-09 09:00:00'
-  }
-]
+import {
+  getPipelineTemplates,
+  getPipelineTemplateDetail,
+  createPipelineTemplate,
+  updatePipelineTemplate,
+  deletePipelineTemplate
+} from '@/api/cicd'
 
 const router = useRouter()
 
@@ -551,32 +441,39 @@ const templateForm = ref({
   }
 })
 
-// 获取模板列表
-// TODO: 后端尚未实现模板管理接口，当前使用静态 Mock 数据
-// 后端实现后请取消下方注释并删除 MOCK_TEMPLATES
+// 获取模板列表 - 调用真实后端接口
 const loadTemplates = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    // 模拟 API 调用延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const response = await getPipelineTemplates({
+      page: currentPage.value,
+      page_size: itemsPerPage.value,
+      keyword: searchQuery.value || undefined,
+      type: typeFilter.value || undefined
+    })
     
-    // 使用静态数据（后端待实现）
-    pipelineTemplates.value = MOCK_TEMPLATES
-    
-    // === 后端实现后启用以下代码 ===
-    // import { getPipelineTemplates } from '@/api/cicd'
-    // const response = await getPipelineTemplates()
-    // if (response.code === 0) {
-    //   pipelineTemplates.value = response.data || []
-    // } else {
-    //   throw new Error(response.msg || '获取模板列表失败')
-    // }
+    if (response.code === 0) {
+      // 转换后端数据格式为前端需要的格式
+      pipelineTemplates.value = (response.data?.list || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        type: item.type,
+        stages: item.stages || [],
+        defaultEnvVars: item.default_env_vars || [],
+        defaultDeploymentConfig: item.deploy_config || { replicas: 3, strategy: 'rollingUpdate' },
+        usageCount: item.usage_count || 0,
+        createdAt: item.created_at ? new Date(item.created_at * 1000).toISOString() : null,
+        updatedAt: item.modified_at ? new Date(item.modified_at * 1000).toISOString() : null
+      }))
+    } else {
+      throw new Error(response.msg || '获取模板列表失败')
+    }
   } catch (error) {
     console.error('加载模板失败:', error)
-    errorMsg.value = error.message || '获取模板列表失败，显示模拟数据'
-    // 出错时也显示模拟数据
-    pipelineTemplates.value = MOCK_TEMPLATES
+    errorMsg.value = error.message || '获取模板列表失败'
+    pipelineTemplates.value = []
   } finally {
     loading.value = false
   }
@@ -637,7 +534,7 @@ const handleEdit = (template) => {
   showEditModal.value = true
 }
 
-// 处理删除
+// 处理删除 - 调用真实后端接口
 const handleDelete = async (template) => {
   if (!confirm(`确定要删除模板「${template.name}」吗？此操作不可恢复！`)) {
     return
@@ -646,99 +543,70 @@ const handleDelete = async (template) => {
   try {
     Message.info({ content: `正在删除模板 #${template.id}...` })
     
-    // 模拟删除
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // 从本地移除
-    const index = pipelineTemplates.value.findIndex(t => t.id === template.id)
-    if (index !== -1) {
-      pipelineTemplates.value.splice(index, 1)
+    const response = await deletePipelineTemplate(template.id)
+    if (response.code === 0) {
+      Message.success({ content: '删除模板成功' })
+      loadTemplates()
+    } else {
+      throw new Error(response.msg || '删除失败')
     }
-    
-    Message.success({ content: '删除模板成功' })
-    
-    // 如果需要调用真实 API，取消下面注释
-    // const response = await deletePipelineTemplate(template.id)
-    // if (response.code === 0) {
-    //   Message.success({ content: '删除模板成功' })
-    //   loadTemplates()
-    // } else {
-    //   throw new Error(response.msg)
-    // }
   } catch (error) {
     console.error('删除模板失败:', error)
     Message.error({ content: error.message || '删除模板失败' })
   }
 }
 
-// 创建模板
+// 创建模板 - 调用真实后端接口
 const createTemplate = async () => {
   try {
     Message.info({ content: '正在创建模板...' })
     
-    // 模拟创建
-    await new Promise(resolve => setTimeout(resolve, 800))
+    const response = await createPipelineTemplate({
+      name: templateForm.value.name,
+      description: templateForm.value.description,
+      type: templateForm.value.type,
+      stages: templateForm.value.stages,
+      default_env_vars: templateForm.value.defaultEnvVars,
+      deploy_config: templateForm.value.defaultDeploymentConfig
+    })
     
-    // 添加到本地
-    const newTemplate = {
-      ...templateForm.value,
-      id: pipelineTemplates.value.length + 1,
-      createdAt: new Date().toLocaleString('zh-CN'),
-      updatedAt: new Date().toLocaleString('zh-CN')
+    if (response.code === 0) {
+      Message.success({ content: '创建模板成功' })
+      showCreateModal.value = false
+      resetForm()
+      loadTemplates()
+    } else {
+      throw new Error(response.msg || '创建失败')
     }
-    pipelineTemplates.value.push(newTemplate)
-    
-    Message.success({ content: '创建模板成功' })
-    showCreateModal.value = false
-    resetForm()
-    
-    // 如果需要调用真实 API，取消下面注释
-    // const response = await createPipelineTemplate(templateForm.value)
-    // if (response.code === 0) {
-    //   Message.success({ content: '创建模板成功' })
-    //   loadTemplates()
-    //   showCreateModal.value = false
-    //   resetForm()
-    // } else {
-    //   throw new Error(response.msg)
-    // }
   } catch (error) {
     console.error('创建模板失败:', error)
     Message.error({ content: error.message || '创建模板失败' })
   }
 }
 
-// 更新模板
+// 更新模板 - 调用真实后端接口
 const updateTemplate = async () => {
   try {
     Message.info({ content: '正在更新模板...' })
     
-    // 模拟更新
-    await new Promise(resolve => setTimeout(resolve, 800))
+    const response = await updatePipelineTemplate({
+      id: templateForm.value.id,
+      name: templateForm.value.name,
+      description: templateForm.value.description,
+      type: templateForm.value.type,
+      stages: templateForm.value.stages,
+      default_env_vars: templateForm.value.defaultEnvVars,
+      deploy_config: templateForm.value.defaultDeploymentConfig
+    })
     
-    // 更新本地数据
-    const index = pipelineTemplates.value.findIndex(t => t.id === templateForm.value.id)
-    if (index !== -1) {
-      pipelineTemplates.value[index] = {
-        ...templateForm.value,
-        updatedAt: new Date().toLocaleString('zh-CN')
-      }
+    if (response.code === 0) {
+      Message.success({ content: '更新模板成功' })
+      showEditModal.value = false
+      resetForm()
+      loadTemplates()
+    } else {
+      throw new Error(response.msg || '更新失败')
     }
-    
-    Message.success({ content: '更新模板成功' })
-    showEditModal.value = false
-    resetForm()
-    
-    // 如果需要调用真实 API，取消下面注释
-    // const response = await updatePipelineTemplate(templateForm.value.id, templateForm.value)
-    // if (response.code === 0) {
-    //   Message.success({ content: '更新模板成功' })
-    //   loadTemplates()
-    //   showEditModal.value = false
-    //   resetForm()
-    // } else {
-    //   throw new Error(response.msg)
-    // }
   } catch (error) {
     console.error('更新模板失败:', error)
     Message.error({ content: error.message || '更新模板失败' })

@@ -19,13 +19,13 @@
       </div>
 
       <div class="action-buttons">
-        <button v-if="!batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">
+        <button v-if="canOperate && !batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">
           ☑️ 批量操作
         </button>
-        <button v-if="batchMode" class="btn btn-secondary" @click="exitBatchMode">
+        <button v-if="canOperate && batchMode" class="btn btn-secondary" @click="exitBatchMode">
           ✖️ 退出批量
         </button>
-        <button class="btn btn-primary" @click="openCreateModal">+ 创建 Ingress</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreateModal">+ 创建 Ingress</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -95,7 +95,7 @@
             <td>
               <div class="action-icons">
                 <button class="icon-btn" title="查看 YAML" @click="viewYaml(ing)">📄</button>
-                <button class="icon-btn danger" title="删除" @click="confirmDelete(ing)">🗑️</button>
+                <button v-if="canOperate" class="icon-btn danger" title="删除" @click="confirmDelete(ing)">🗑️</button>
               </div>
             </td>
           </tr>
@@ -458,8 +458,20 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ingressApi from '@/api/cluster/networking/ingress'
 import namespaceApi from '@/api/cluster/config/namespace'
+import permissionStore from '@/stores/permission'
 
 const router = useRouter()
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // 状态
 const ingresses = ref([])

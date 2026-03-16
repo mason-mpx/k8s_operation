@@ -1,9 +1,9 @@
 -- =====================================================
 -- K8s Platform 完整数据库初始化脚本
--- 版本: 2.0.0
--- 日期: 2026-03-04
--- 说明: 一键创建数据库、所有表结构和初始数据
--- 使用: mysql -u root -p123456 < k8s_platform_full_init.sql
+-- 版本: 2.2.0
+-- 日期: 2026-03-15
+-- 说明: 一键创建数据库、所有表结构、视图和初始数据
+-- 使用: mysql -u root -p123456 --default-character-set=utf8mb4 -e "source k8s_platform_full_init.sql"
 -- =====================================================
 
 -- 创建数据库
@@ -442,7 +442,31 @@ CREATE TABLE IF NOT EXISTS `cicd_build` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD构建记录表';
 
 -- =====================================================
--- 17. 镜像仓库配置表
+-- 17. CI/CD - 流水线模板表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `cicd_pipeline_template` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` varchar(100) NOT NULL COMMENT '模板名称',
+  `description` varchar(500) DEFAULT '' COMMENT '模板描述',
+  `type` varchar(50) NOT NULL DEFAULT 'custom' COMMENT '模板类型: frontend/backend/microservice/database/custom',
+  `stages` json DEFAULT NULL COMMENT '阶段配置',
+  `default_env_vars` json DEFAULT NULL COMMENT '默认环境变量',
+  `deploy_config` json DEFAULT NULL COMMENT '默认部署配置',
+  `jenkins_template` text COMMENT 'Jenkinsfile模板',
+  `usage_count` bigint NOT NULL DEFAULT 0 COMMENT '使用次数',
+  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0,
+  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
+  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
+  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线模板表';
+
+-- =====================================================
+-- 18. 镜像仓库配置表
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `image_registry` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -469,7 +493,7 @@ CREATE TABLE IF NOT EXISTS `image_registry` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像仓库配置表';
 
 -- =====================================================
--- 18. 镜像清理策略表
+-- 19. 镜像清理策略表
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `image_cleanup_policy` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -495,7 +519,7 @@ CREATE TABLE IF NOT EXISTS `image_cleanup_policy` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像清理策略表';
 
 -- =====================================================
--- 19. 镜像清理日志表
+-- 20. 镜像清理日志表
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `image_cleanup_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -515,7 +539,7 @@ CREATE TABLE IF NOT EXISTS `image_cleanup_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像清理日志表';
 
 -- =====================================================
--- 20. 平台设置表
+-- 21. 平台设置表
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `platform_settings` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -530,6 +554,308 @@ CREATE TABLE IF NOT EXISTS `platform_settings` (
   PRIMARY KEY (`id`),
   KEY `idx_category_key` (`category`, `key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台设置表';
+
+-- =====================================================
+-- 22. IAM - 项目表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_project` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '项目ID',
+  `name` varchar(100) NOT NULL COMMENT '项目名称（唯一标识）',
+  `display_name` varchar(191) NOT NULL COMMENT '显示名称',
+  `description` varchar(500) DEFAULT '' COMMENT '描述',
+  `status` varchar(50) NOT NULL DEFAULT 'active' COMMENT '状态: active/archived/disabled',
+  `owner_id` bigint NOT NULL DEFAULT 0 COMMENT '项目负责人ID',
+  `default_cluster_id` bigint DEFAULT NULL COMMENT '默认集群ID',
+  `default_namespace` varchar(100) DEFAULT '' COMMENT '默认命名空间',
+  `allowed_clusters` json DEFAULT NULL COMMENT '允许的集群ID列表',
+  `allowed_namespaces` json DEFAULT NULL COMMENT '允许的命名空间列表（支持通配符）',
+  `labels` json DEFAULT NULL COMMENT '标签（键值对）',
+  `created_by` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+  `is_del` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_owner_id` (`owner_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目表';
+
+-- =====================================================
+-- 23. IAM - 项目成员关系表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_project_member` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `project_id` bigint NOT NULL COMMENT '项目ID',
+  `subject_type` varchar(50) NOT NULL COMMENT '主体类型: user/group',
+  `subject_id` bigint NOT NULL COMMENT '主体ID（用户ID或组ID）',
+  `role` varchar(50) NOT NULL DEFAULT 'viewer' COMMENT '项目角色: owner/admin/developer/viewer',
+  `joined_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '加入时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_project_subject` (`project_id`, `subject_type`, `subject_id`),
+  KEY `idx_subject` (`subject_type`, `subject_id`),
+  KEY `idx_project_id` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目成员关系表';
+
+-- =====================================================
+-- 24. IAM - 用户组表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_group` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户组ID',
+  `name` varchar(100) NOT NULL COMMENT '组名称（唯一标识）',
+  `display_name` varchar(191) NOT NULL COMMENT '显示名称',
+  `description` varchar(500) DEFAULT '' COMMENT '描述',
+  `type` varchar(50) NOT NULL DEFAULT 'custom' COMMENT '类型: system/custom',
+  `parent_id` bigint DEFAULT NULL COMMENT '父组ID（支持层级结构）',
+  `sort_order` int NOT NULL DEFAULT 0 COMMENT '排序顺序',
+  `created_by` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+  `is_del` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_parent_id` (`parent_id`),
+  KEY `idx_type` (`type`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户组表';
+
+-- =====================================================
+-- 25. IAM - 用户组成员关系表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_group_user` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `group_id` bigint NOT NULL COMMENT '用户组ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `role` varchar(50) NOT NULL DEFAULT 'member' COMMENT '组内角色: owner/admin/member',
+  `joined_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '加入时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_group_user` (`group_id`, `user_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_group_id` (`group_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户组成员关系表';
+
+-- =====================================================
+-- 26. IAM - 权限模板表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_role_template` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+  `name` varchar(100) NOT NULL COMMENT '模板名称（唯一标识）',
+  `display_name` varchar(191) NOT NULL COMMENT '显示名称',
+  `description` varchar(500) DEFAULT '' COMMENT '描述',
+  `type` varchar(50) NOT NULL COMMENT '模板类型: k8s/cicd/platform',
+  `builtin` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否内置模板',
+  `k8s_rules` json DEFAULT NULL COMMENT 'K8s RBAC规则 [{apiGroups, resources, verbs}]',
+  `k8s_cluster_scope` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否集群级别权限',
+  `cicd_actions` json DEFAULT NULL COMMENT 'CICD操作权限 ["view","run","approve","deploy","rollback","delete"]',
+  `platform_permissions` json DEFAULT NULL COMMENT '平台功能权限 ["cluster:manage","user:manage","audit:view"]',
+  `sort_order` int NOT NULL DEFAULT 0 COMMENT '排序顺序',
+  `created_by` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+  `is_del` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_builtin` (`builtin`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限模板表';
+
+-- =====================================================
+-- 27. IAM - 授权记录表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_grant` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '授权ID',
+  `subject_type` varchar(50) NOT NULL COMMENT '主体类型: user/group/project',
+  `subject_id` bigint NOT NULL COMMENT '主体ID',
+  `subject_name` varchar(191) DEFAULT '' COMMENT '主体名称（冗余）',
+  `scope_type` varchar(50) NOT NULL COMMENT '范围类型: cluster/namespace/cicd_project/cicd_pipeline',
+  `scope_id` bigint DEFAULT NULL COMMENT '范围ID（集群ID/项目ID/流水线ID）',
+  `scope_name` varchar(191) DEFAULT '' COMMENT '范围名称（冗余）',
+  `namespaces` json DEFAULT NULL COMMENT '命名空间列表（支持通配符如 ["default","app-*"]）',
+  `role_template_id` bigint NOT NULL COMMENT '权限模板ID',
+  `role_template_name` varchar(100) DEFAULT '' COMMENT '模板名称（冗余）',
+  `expire_at` bigint unsigned DEFAULT NULL COMMENT '过期时间（NULL 表示永不过期）',
+  `k8s_synced` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'K8s RBAC 是否已同步',
+  `k8s_role_name` varchar(191) DEFAULT '' COMMENT 'K8s Role/ClusterRole 名称',
+  `k8s_binding_name` varchar(191) DEFAULT '' COMMENT 'K8s RoleBinding/ClusterRoleBinding 名称',
+  `k8s_sync_error` varchar(500) DEFAULT '' COMMENT 'K8s 同步错误信息',
+  `k8s_synced_at` bigint unsigned DEFAULT NULL COMMENT 'K8s 同步时间',
+  `status` varchar(50) NOT NULL DEFAULT 'active' COMMENT '状态: active/expired/revoked',
+  `remark` varchar(500) DEFAULT '' COMMENT '备注',
+  `granted_by` bigint NOT NULL DEFAULT 0 COMMENT '授权人ID',
+  `revoked_by` bigint DEFAULT NULL COMMENT '撤销人ID',
+  `revoked_at` bigint unsigned DEFAULT NULL COMMENT '撤销时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_subject` (`subject_type`, `subject_id`),
+  KEY `idx_scope` (`scope_type`, `scope_id`),
+  KEY `idx_role_template` (`role_template_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_expire_at` (`expire_at`),
+  KEY `idx_granted_by` (`granted_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='授权记录表';
+
+-- =====================================================
+-- 28. IAM - 环境权限绑定表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_env_binding` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `subject_type` varchar(50) NOT NULL COMMENT '主体类型: user/group',
+  `subject_id` bigint NOT NULL COMMENT '主体ID',
+  `subject_name` varchar(191) DEFAULT '' COMMENT '主体名称',
+  `cluster_id` bigint NOT NULL COMMENT '集群ID',
+  `cluster_name` varchar(191) DEFAULT '' COMMENT '集群名称',
+  `env_type` varchar(50) DEFAULT '' COMMENT '环境类型',
+  `namespaces` json DEFAULT NULL COMMENT '命名空间列表',
+  `env_role` varchar(50) NOT NULL COMMENT '环境角色',
+  `custom_actions` json DEFAULT NULL COMMENT '自定义操作权限',
+  `max_env_level` int DEFAULT 1 COMMENT '最高环境级别',
+  `bypass_approval` tinyint(1) DEFAULT 0 COMMENT '是否跳过审批',
+  `k8s_synced` tinyint(1) DEFAULT 0 COMMENT 'K8s RBAC是否已同步',
+  `k8s_role_name` varchar(191) DEFAULT '' COMMENT 'K8s Role名称',
+  `k8s_binding_name` varchar(191) DEFAULT '' COMMENT 'K8s RoleBinding名称',
+  `k8s_sync_error` varchar(500) DEFAULT '' COMMENT 'K8s同步错误',
+  `k8s_synced_at` bigint unsigned DEFAULT NULL COMMENT 'K8s同步时间',
+  `expire_at` bigint unsigned DEFAULT NULL COMMENT '过期时间',
+  `status` varchar(50) DEFAULT 'active' COMMENT '状态: active/expired/revoked',
+  `remark` varchar(500) DEFAULT '' COMMENT '备注',
+  `granted_by` bigint DEFAULT 0 COMMENT '授权人ID',
+  `revoked_by` bigint DEFAULT NULL COMMENT '撤销人ID',
+  `revoked_at` bigint unsigned DEFAULT NULL COMMENT '撤销时间',
+  `created_at` bigint unsigned NOT NULL COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_subject` (`subject_type`, `subject_id`),
+  KEY `idx_cluster` (`cluster_id`),
+  KEY `idx_env_type` (`env_type`),
+  KEY `idx_env_role` (`env_role`),
+  KEY `idx_status` (`status`),
+  KEY `idx_k8s_synced` (`k8s_synced`),
+  KEY `idx_expire_at` (`expire_at`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='环境权限绑定表';
+
+-- =====================================================
+-- 29. IAM - 环境操作审计日志表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `iam_env_audit_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL COMMENT '操作用户ID',
+  `username` varchar(191) DEFAULT '' COMMENT '用户名',
+  `action` varchar(50) NOT NULL COMMENT '操作类型',
+  `resource_type` varchar(50) NOT NULL COMMENT '资源类型',
+  `resource_name` varchar(191) DEFAULT '' COMMENT '资源名称',
+  `cluster_id` bigint DEFAULT NULL COMMENT '集群ID',
+  `cluster_name` varchar(191) DEFAULT '' COMMENT '集群名称',
+  `env_type` varchar(50) DEFAULT '' COMMENT '环境类型',
+  `namespace` varchar(191) DEFAULT '' COMMENT '命名空间',
+  `success` tinyint(1) DEFAULT 1 COMMENT '是否成功',
+  `error_message` varchar(500) DEFAULT '' COMMENT '错误信息',
+  `client_ip` varchar(50) DEFAULT '' COMMENT '客户端IP',
+  `user_agent` varchar(500) DEFAULT '' COMMENT 'User-Agent',
+  `request_id` varchar(64) DEFAULT '' COMMENT '请求ID',
+  `detail` json DEFAULT NULL COMMENT '详情',
+  `created_at` bigint unsigned NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_env_type` (`env_type`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='环境操作审计日志表';
+
+-- =====================================================
+-- 30. 审计日志表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `audit_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+  `user_id` bigint NOT NULL COMMENT '操作用户ID',
+  `username` varchar(191) NOT NULL COMMENT '操作用户名',
+  `user_ip` varchar(50) DEFAULT '' COMMENT '用户IP',
+  `user_agent` varchar(500) DEFAULT '' COMMENT 'User-Agent',
+  `action` varchar(100) NOT NULL COMMENT '操作类型',
+  `action_display` varchar(191) DEFAULT '' COMMENT '操作显示名称',
+  `module` varchar(100) NOT NULL COMMENT '模块',
+  `target_type` varchar(100) DEFAULT '' COMMENT '目标类型',
+  `target_id` varchar(100) DEFAULT '' COMMENT '目标ID',
+  `target_name` varchar(191) DEFAULT '' COMMENT '目标名称',
+  `request_uri` varchar(500) DEFAULT '' COMMENT '请求URI',
+  `request_method` varchar(10) DEFAULT '' COMMENT '请求方法',
+  `request_body` text COMMENT '请求体',
+  `response_code` int DEFAULT NULL COMMENT '响应状态码',
+  `response_message` varchar(500) DEFAULT '' COMMENT '响应消息',
+  `detail` json DEFAULT NULL COMMENT '操作详情',
+  `extra` json DEFAULT NULL COMMENT '额外信息',
+  `cluster_id` bigint DEFAULT NULL COMMENT '关联集群ID',
+  `cluster_name` varchar(191) DEFAULT '' COMMENT '关联集群名称',
+  `namespace` varchar(100) DEFAULT '' COMMENT '关联命名空间',
+  `pipeline_id` bigint DEFAULT NULL COMMENT '关联流水线ID',
+  `pipeline_name` varchar(191) DEFAULT '' COMMENT '关联流水线名称',
+  `run_id` bigint DEFAULT NULL COMMENT '关联运行记录ID',
+  `project_id` bigint DEFAULT NULL COMMENT '关联项目ID',
+  `project_name` varchar(191) DEFAULT '' COMMENT '关联项目名称',
+  `status` varchar(50) NOT NULL DEFAULT 'success' COMMENT '操作状态: success/failed',
+  `error_message` varchar(1000) DEFAULT '' COMMENT '错误信息',
+  `duration_ms` int DEFAULT 0 COMMENT '操作耗时(ms)',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_module` (`module`),
+  KEY `idx_target` (`target_type`, `target_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_pipeline_id` (`pipeline_id`),
+  KEY `idx_project_id` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审计日志表';
+
+-- =====================================================
+-- 31. 视图 - 用户权限视图
+-- =====================================================
+CREATE OR REPLACE VIEW `v_user_permissions` AS
+SELECT 
+  g.user_id, g.subject_type, g.subject_id,
+  g.scope_type, g.scope_id, g.scope_name, g.namespaces,
+  g.role_template_id, rt.name AS role_template_name, rt.type AS role_type,
+  rt.k8s_rules, rt.cicd_actions, rt.platform_permissions,
+  g.expire_at, g.status
+FROM (
+  SELECT subject_id AS user_id, subject_type, subject_id, scope_type, scope_id, scope_name,
+         namespaces, role_template_id, expire_at, status
+  FROM iam_grant ig
+  WHERE ig.subject_type = 'user' AND ig.status = 'active' 
+    AND (ig.expire_at IS NULL OR ig.expire_at > UNIX_TIMESTAMP())
+  UNION ALL
+  SELECT igu.user_id, ig.subject_type, ig.subject_id, ig.scope_type, ig.scope_id, ig.scope_name,
+         ig.namespaces, ig.role_template_id, ig.expire_at, ig.status
+  FROM iam_grant ig
+  JOIN iam_group_user igu ON ig.subject_id = igu.group_id
+  WHERE ig.subject_type = 'group' AND ig.status = 'active'
+    AND (ig.expire_at IS NULL OR ig.expire_at > UNIX_TIMESTAMP())
+) g
+LEFT JOIN iam_role_template rt ON g.role_template_id = rt.id AND rt.is_del = 0;
+
+-- =====================================================
+-- 32. 视图 - 用户环境权限视图
+-- =====================================================
+CREATE OR REPLACE VIEW `v_user_env_permissions` AS
+SELECT 
+  eb.subject_id AS user_id, eb.subject_name AS username,
+  eb.cluster_id, eb.cluster_name, kc.env_type AS cluster_env_type, kc.env_level AS cluster_env_level,
+  kc.access_mode, eb.env_role, eb.max_env_level, eb.bypass_approval,
+  eb.namespaces, eb.status, eb.expire_at, eb.k8s_synced
+FROM iam_env_binding eb
+LEFT JOIN kube_cluster kc ON eb.cluster_id = kc.id
+WHERE eb.subject_type = 'user' AND eb.status = 'active'
+  AND (eb.expire_at IS NULL OR eb.expire_at > UNIX_TIMESTAMP())
+  AND kc.is_del = 0;
 
 -- =====================================================
 -- 添加缺少的字段 (兼容已有数据库)
@@ -666,6 +992,55 @@ INSERT IGNORE INTO `image_registry` (`name`, `type`, `url`, `description`, `is_d
 ('Docker Hub', 'docker', 'https://registry-1.docker.io', 'Docker Hub 官方仓库', 1, 'unknown', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
 
 -- =====================================================
+-- 初始化流水线模板数据
+-- =====================================================
+INSERT IGNORE INTO `cicd_pipeline_template` (`id`, `name`, `description`, `type`, `stages`, `default_env_vars`, `deploy_config`, `created_at`, `modified_at`) VALUES
+(
+  1,
+  'Vue3 前端应用模板',
+  '适用于 Vue3 + Vite 前端项目的标准流水线模板',
+  'frontend',
+  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "install", "description": "安装依赖 (npm install)", "order": 2}, {"name": "build", "description": "构建应用 (npm run build)", "order": 3}, {"name": "test", "description": "运行测试 (npm run test)", "order": 4}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 5}, {"name": "deploy", "description": "部署到 K8s", "order": 6}]',
+  '[{"name": "NODE_ENV", "value": "production"}, {"name": "VITE_API_BASE", "value": "https://api.example.com"}]',
+  '{"replicas": 3, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "200m", "memory": "256Mi"}}}',
+  UNIX_TIMESTAMP(),
+  UNIX_TIMESTAMP()
+),
+(
+  2,
+  'Go 微服务模板',
+  '适用于 Go 语言微服务的标准流水线模板',
+  'backend',
+  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "test", "description": "运行单元测试 (go test)", "order": 2}, {"name": "build", "description": "编译 Go 二进制", "order": 3}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 4}, {"name": "push", "description": "推送镜像到 Harbor", "order": 5}, {"name": "deploy", "description": "部署到 K8s", "order": 6}]',
+  '[{"name": "GO111MODULE", "value": "on"}, {"name": "CGO_ENABLED", "value": "0"}]',
+  '{"replicas": 2, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "1000m", "memory": "1024Mi"}, "requests": {"cpu": "500m", "memory": "512Mi"}}}',
+  UNIX_TIMESTAMP(),
+  UNIX_TIMESTAMP()
+),
+(
+  3,
+  'Java Spring Boot 模板',
+  '适用于 Java Spring Boot 项目的标准流水线模板',
+  'backend',
+  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "compile", "description": "Maven 编译 (mvn compile)", "order": 2}, {"name": "test", "description": "运行测试 (mvn test)", "order": 3}, {"name": "package", "description": "打包 (mvn package)", "order": 4}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 5}, {"name": "deploy", "description": "部署到 K8s", "order": 6}]',
+  '[{"name": "JAVA_HOME", "value": "/usr/lib/jvm/java-17"}, {"name": "MAVEN_OPTS", "value": "-Xmx1024m"}]',
+  '{"replicas": 2, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "2000m", "memory": "2048Mi"}, "requests": {"cpu": "1000m", "memory": "1024Mi"}}}',
+  UNIX_TIMESTAMP(),
+  UNIX_TIMESTAMP()
+),
+(
+  4,
+  'Python Flask 模板',
+  '适用于 Python Flask 项目的标准流水线模板',
+  'backend',
+  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "install", "description": "安装依赖 (pip install)", "order": 2}, {"name": "test", "description": "运行测试 (pytest)", "order": 3}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 4}, {"name": "deploy", "description": "部署到 K8s", "order": 5}]',
+  '[{"name": "PYTHON_VERSION", "value": "3.11"}, {"name": "PIP_INDEX_URL", "value": "https://pypi.tuna.tsinghua.edu.cn/simple"}]',
+  '{"replicas": 2, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "200m", "memory": "256Mi"}}}',
+  UNIX_TIMESTAMP(),
+  UNIX_TIMESTAMP()
+);
+
+-- =====================================================
 -- 完成
 -- =====================================================
 SELECT '=====================================================';
@@ -673,4 +1048,6 @@ SELECT 'K8s Platform 数据库初始化完成!';
 SELECT '=====================================================';
 SELECT CONCAT('表数量: ', COUNT(*)) as info FROM information_schema.tables WHERE table_schema = 'k8s-platform';
 SELECT '默认管理员账户: admin / admin123';
+SELECT '包含 30 张表 + 2 个视图: 用户表、集群表、RBAC表(4张)、CI/CD表(10张)、镜像表(3张)、IAM表(9张)、审计表';
+SELECT '包含 4 条流水线模板: Vue3/Go/Java/Python';
 SELECT '=====================================================';

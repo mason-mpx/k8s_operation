@@ -36,7 +36,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -56,7 +56,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="openCreateModal">创建 PVC</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreateModal">创建 PVC</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -117,9 +117,10 @@
               </span>
             </td>
             <td>
-              <div class="pvc-name">
+              <div class="pvc-name clickable" @click="openPVCDetail(pvc)">
                 <span class="icon">💾</span>
-                <span>{{ pvc.name }}</span>
+                <span class="name-text">{{ pvc.name }}</span>
+                <span class="detail-hint">🔍</span>
               </div>
             </td>
             <td>
@@ -138,13 +139,13 @@
             <td>{{ pvc.createdAt }}</td>
             <td>
               <div class="action-icons">
-                <button class="icon-btn primary" @click="editYaml(pvc)" title="编辑">
+                <button v-if="canOperate" class="icon-btn primary" @click="editYaml(pvc)" title="编辑">
                   ✏️
                 </button>
-                <button class="icon-btn expand" @click="openExpandModal(pvc)" title="扩容">
+                <button v-if="canOperate" class="icon-btn expand" @click="openExpandModal(pvc)" title="扩容">
                   🔼
                 </button>
-                <button class="icon-btn danger" @click="deleteSinglePVC(pvc)" title="删除">
+                <button v-if="canOperate" class="icon-btn danger" @click="deleteSinglePVC(pvc)" title="删除">
                   🗑️
                 </button>
                 
@@ -469,6 +470,192 @@
       </div>
     </div>
 
+    <!-- PVC 详情抽屉 -->
+    <div v-if="showDetailDrawer" class="detail-drawer-overlay" @click.self="closePVCDetail">
+      <div class="detail-drawer">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <span class="drawer-icon">💾</span>
+            <span>PVC 详情</span>
+            <span v-if="pvcDetail" class="drawer-name">{{ pvcDetail.name }}</span>
+          </div>
+          <button class="drawer-close" @click="closePVCDetail">&times;</button>
+        </div>
+        
+        <div class="drawer-body">
+          <div v-if="detailLoading" class="drawer-loading">
+            <div class="loading-spinner"></div>
+            <span>加载中...</span>
+          </div>
+          
+          <template v-else-if="pvcDetail">
+            <!-- 状态卡片 -->
+            <div class="detail-status-card" :class="pvcDetail.status_color">
+              <div class="status-main">
+                <span class="status-phase">{{ pvcDetail.phase }}</span>
+                <span class="status-message">{{ pvcDetail.status_message }}</span>
+              </div>
+            </div>
+
+            <!-- 基本信息 -->
+            <div class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">📋</span>
+                <span>基本信息</span>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="item-label">名称</span>
+                  <span class="item-value">{{ pvcDetail.name }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">命名空间</span>
+                  <span class="item-value">{{ pvcDetail.namespace }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">UID</span>
+                  <span class="item-value uid">{{ pvcDetail.uid }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">创建时间</span>
+                  <span class="item-value">{{ formatTimestamp(pvcDetail.created_at) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 存储信息 -->
+            <div class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">💾</span>
+                <span>存储信息</span>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="item-label">请求容量</span>
+                  <span class="item-value highlight">{{ pvcDetail.request_storage || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">实际容量</span>
+                  <span class="item-value highlight">{{ pvcDetail.actual_capacity || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">访问模式</span>
+                  <span class="item-value">
+                    <span v-for="mode in (pvcDetail.access_modes || [])" :key="mode" class="mode-tag">{{ mode }}</span>
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">卷模式</span>
+                  <span class="item-value">{{ pvcDetail.volume_mode || 'Filesystem' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">存储类</span>
+                  <span class="item-value">{{ pvcDetail.storage_class_name || '默认' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 绑定的 PV 信息 -->
+            <div v-if="pvcDetail.bound_pv" class="detail-section pv-section">
+              <div class="section-title">
+                <span class="section-icon">🔗</span>
+                <span>绑定的 PV</span>
+                <span class="bound-status success">已绑定</span>
+              </div>
+              <div class="pv-card">
+                <div class="pv-header">
+                  <span class="pv-name">{{ pvcDetail.bound_pv.name }}</span>
+                  <span class="pv-status" :class="pvcDetail.bound_pv.status?.toLowerCase()">{{ pvcDetail.bound_pv.status }}</span>
+                </div>
+                <div class="detail-grid">
+                  <div class="detail-item">
+                    <span class="item-label">容量</span>
+                    <span class="item-value">{{ pvcDetail.bound_pv.capacity }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="item-label">回收策略</span>
+                    <span class="item-value" :class="pvcDetail.bound_pv.reclaim_policy?.toLowerCase()">{{ pvcDetail.bound_pv.reclaim_policy }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="item-label">卷类型</span>
+                    <span class="item-value">{{ pvcDetail.bound_pv.volume_type }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="item-label">存储源</span>
+                    <span class="item-value source">{{ pvcDetail.bound_pv.volume_source }}</span>
+                  </div>
+                  <div v-if="pvcDetail.bound_pv.node_affinity" class="detail-item full-width">
+                    <span class="item-label">节点亲和性</span>
+                    <span class="item-value">{{ pvcDetail.bound_pv.node_affinity }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="detail-section pv-section">
+              <div class="section-title">
+                <span class="section-icon">🔗</span>
+                <span>绑定的 PV</span>
+                <span class="bound-status pending">未绑定</span>
+              </div>
+              <div class="empty-pv">
+                <span class="empty-icon">⚠️</span>
+                <span>PVC 尚未绑定到 PV，可能在等待合适的 PV 或动态供给</span>
+              </div>
+            </div>
+
+            <!-- 条件状态 -->
+            <div v-if="pvcDetail.conditions && pvcDetail.conditions.length > 0" class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">ℹ️</span>
+                <span>条件状态</span>
+              </div>
+              <div class="conditions-list">
+                <div v-for="cond in pvcDetail.conditions" :key="cond.type" class="condition-item">
+                  <span class="cond-type">{{ cond.type }}</span>
+                  <span class="cond-status" :class="cond.status?.toLowerCase()">{{ cond.status }}</span>
+                  <span v-if="cond.reason" class="cond-reason">{{ cond.reason }}</span>
+                  <span v-if="cond.message" class="cond-message">{{ cond.message }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 最近事件 -->
+            <div v-if="pvcDetail.recent_events && pvcDetail.recent_events.length > 0" class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">📜</span>
+                <span>最近事件</span>
+              </div>
+              <div class="events-list">
+                <div v-for="(ev, idx) in pvcDetail.recent_events" :key="idx" class="event-item" :class="ev.type?.toLowerCase()">
+                  <div class="event-header">
+                    <span class="event-type">{{ ev.type }}</span>
+                    <span class="event-reason">{{ ev.reason }}</span>
+                    <span class="event-count" v-if="ev.count > 1">x{{ ev.count }}</span>
+                  </div>
+                  <div class="event-message">{{ ev.message }}</div>
+                  <div class="event-time">{{ formatTimestamp(ev.last_seen) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 标签和注解 -->
+            <div v-if="pvcDetail.labels && Object.keys(pvcDetail.labels).length > 0" class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">🏷️</span>
+                <span>标签</span>
+              </div>
+              <div class="labels-container">
+                <span v-for="(val, key) in pvcDetail.labels" :key="key" class="label-tag">
+                  {{ key }}={{ val }}
+                </span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
     <!-- 批量删除预览（待补充）-->
   </div>
 </template>
@@ -481,6 +668,16 @@ import pvcApi from '@/api/cluster/storage/pvc'
 import namespaceApi from '@/api/cluster/config/namespace'
 import { useClusterStore } from '@/stores/cluster'
 import { useResizableModal } from '@/composables/useResizableModal'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // 获取认证头
 const getAuthHeaders = () => {
@@ -1073,6 +1270,51 @@ const calculateCapacityDiff = () => {
   } catch (e) {
     return '计算失败'
   }
+}
+
+// ==========================
+// PVC 详情抽屉功能
+// ==========================
+const showDetailDrawer = ref(false)
+const detailLoading = ref(false)
+const pvcDetail = ref(null)
+
+const openPVCDetail = async (pvc) => {
+  showDetailDrawer.value = true
+  detailLoading.value = true
+  pvcDetail.value = null
+  
+  try {
+    const { data } = await pvcApi.detailEnhanced({
+      namespace: pvc.namespace,
+      name: pvc.name
+    })
+    pvcDetail.value = data
+  } catch (error) {
+    console.error('获取 PVC 详情失败:', error)
+    Message.error({ content: '获取详情失败', duration: 2500 })
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+const closePVCDetail = () => {
+  showDetailDrawer.value = false
+  pvcDetail.value = null
+}
+
+// 格式化时间戳
+const formatTimestamp = (ts) => {
+  if (!ts || ts <= 0) return '-'
+  const d = new Date(ts * 1000)
+  return d.toLocaleString('zh-CN', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
 // ==========================
@@ -2040,5 +2282,485 @@ onUnmounted(() => {
   margin-right: 4px;
 }
 
+/* ==========================
+   PVC 名称点击样式
+   ========================== */
+.pvc-name.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pvc-name.clickable:hover {
+  color: #326ce5;
+}
+
+.pvc-name .name-text {
+  font-weight: 500;
+}
+
+.pvc-name .detail-hint {
+  margin-left: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 12px;
+}
+
+.pvc-name.clickable:hover .detail-hint {
+  opacity: 1;
+}
+
+/* ==========================
+   详情抽屉样式（大厂风格）
+   ========================== */
+.detail-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detail-drawer {
+  width: 560px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #fff;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #326ce5 0%, #1e4db7 100%);
+  color: #fff;
+}
+
+.drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.drawer-icon {
+  font-size: 24px;
+}
+
+.drawer-name {
+  font-weight: 400;
+  opacity: 0.9;
+  font-size: 14px;
+  padding: 2px 10px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.drawer-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.drawer-close:hover {
+  opacity: 1;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: #f7fafc;
+}
+
+.drawer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #718096;
+  gap: 16px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #326ce5;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 状态卡片 */
+.detail-status-card {
+  padding: 16px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.detail-status-card.success {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+}
+
+.detail-status-card.warning {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+}
+
+.detail-status-card.error {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+}
+
+.detail-status-card.default {
+  background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-phase {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.status-message {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 详情区块 */
+.detail-section {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.section-icon {
+  font-size: 18px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.item-label {
+  font-size: 12px;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.item-value {
+  font-size: 14px;
+  color: #2d3748;
+  word-break: break-all;
+}
+
+.item-value.highlight {
+  font-size: 18px;
+  font-weight: 600;
+  color: #326ce5;
+}
+
+.item-value.uid {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #718096;
+}
+
+.mode-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+/* PV 卡片 */
+.bound-status {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bound-status.success {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.bound-status.pending {
+  background: #feebc8;
+  color: #c05621;
+}
+
+.pv-card {
+  background: #f0f4f8;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.pv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #cbd5e0;
+}
+
+.pv-name {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 15px;
+}
+
+.pv-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pv-status.bound {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.pv-status.available {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.pv-status.released {
+  background: #feebc8;
+  color: #c05621;
+}
+
+.pv-status.failed {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.item-value.retain { color: #38a169; }
+.item-value.delete { color: #e53e3e; }
+.item-value.source {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #718096;
+}
+
+.empty-pv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: #fffbeb;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.empty-icon {
+  font-size: 20px;
+}
+
+/* 条件状态 */
+.conditions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.condition-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #f7fafc;
+  border-radius: 6px;
+}
+
+.cond-type {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.cond-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cond-status.true {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.cond-status.false {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.cond-reason, .cond-message {
+  font-size: 12px;
+  color: #718096;
+}
+
+/* 事件列表 */
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.event-item {
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.event-item.normal {
+  background: #f0fff4;
+  border-color: #48bb78;
+}
+
+.event-item.warning {
+  background: #fffaf0;
+  border-color: #ed8936;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.event-type {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.event-item.normal .event-type {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.event-item.warning .event-type {
+  background: #feebc8;
+  color: #c05621;
+}
+
+.event-reason {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.event-count {
+  font-size: 11px;
+  color: #718096;
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.event-message {
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.5;
+}
+
+.event-time {
+  font-size: 12px;
+  color: #a0aec0;
+  margin-top: 6px;
+}
+
+/* 标签 */
+.labels-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.label-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #edf2f7;
+  color: #4a5568;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
 
 </style>

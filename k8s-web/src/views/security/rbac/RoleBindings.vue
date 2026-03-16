@@ -299,6 +299,7 @@ import ClusterSelector from '@/components/cluster/ClusterSelector.vue'
 import { listRoleBindings, createRoleBinding as createBindingApi, deleteRoleBinding as deleteBindingApi, listRoles } from '@/api/k8sRbac'
 import { getClusterList } from '@/api/cluster'
 import { getNamespaces } from '@/api/namespace'
+import permissionStore from '@/stores/permission'
 
 // 数据状态
 const loading = ref(false)
@@ -338,7 +339,11 @@ const loadClusters = async () => {
   try {
     const res = await getClusterList({ page: 1, limit: 100 })
     if (res.code === 0 && res.data?.list) {
-      clusters.value = res.data.list.map(c => ({ ...c, name: c.cluster_name || c.name }))
+      // 权限过滤：只显示用户有权限访问的集群
+      const allClusters = res.data.list
+      clusters.value = allClusters
+        .filter(c => permissionStore.state.isSuperAdmin || permissionStore.state.accessibleClusterIds.includes(c.id))
+        .map(c => ({ ...c, name: c.cluster_name || c.name }))
       if (clusters.value.length > 0 && !selectedClusterId.value) {
         selectedClusterId.value = clusters.value[0].id
       }

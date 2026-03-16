@@ -1,4 +1,4 @@
-﻿package user
+package user
 
 import (
 	"github.com/gin-gonic/gin"
@@ -116,6 +116,8 @@ func (u *UserController) Update(ctx *gin.Context) {
 // @Produce json
 // @Security ApiKeyAuth
 // @Param username query string false "用户名" maxlength(100)
+// @Param role query string false "角色筛选"
+// @Param status query string false "状态筛选"
 // @Param page query int true "页码"
 // @Param limit query int true "每页数量"
 // @Success 200 {object} string "成功"
@@ -131,12 +133,12 @@ func (c *UserController) List(ctx *gin.Context) {
 	}
 
 	svc := services.NewServices()
-	users, err := svc.UserList(param)
+	users, total, err := svc.UserList(param)
 	if err != nil {
 		global.Logger.Error("获取用户列表失败,", zap.String("error", err.Error()))
 		resp.ToErrorResponse(errorcode.ErrorUserListFail)
 		return
 	}
 
-	resp.SuccessList(users, len(users))
+	resp.SuccessList(users, int(total))
 }

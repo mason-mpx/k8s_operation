@@ -160,7 +160,7 @@ func ValidClusterPermissionCreateRequest(data interface{}, ctx *gin.Context) map
 	rules := govalidator.MapData{
 		"user_id":    []string{"required"},
 		"cluster_id": []string{"required"},
-		"role_type":  []string{"required", "in:cluster_admin,developer,viewer"},
+		"role_type":  []string{"required", "in:cluster_admin,developer,viewer,custom,cicd_admin"},
 	}
 	messages := govalidator.MapData{
 		"user_id":    []string{"required:用户ID为必填项"},
@@ -190,7 +190,7 @@ func NewClusterPermissionUpdateRequest() *ClusterPermissionUpdateRequest {
 func ValidClusterPermissionUpdateRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
 		"id":        []string{"required"},
-		"role_type": []string{"required", "in:cluster_admin,developer,viewer"},
+		"role_type": []string{"required", "in:cluster_admin,developer,viewer,custom,cicd_admin"},
 	}
 	messages := govalidator.MapData{
 		"id":        []string{"required:权限ID为必填项"},
@@ -279,7 +279,7 @@ func NewBatchClusterPermissionRequest() *BatchClusterPermissionRequest {
 func ValidBatchClusterPermissionRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
 		"user_id":   []string{"required"},
-		"role_type": []string{"required", "in:cluster_admin,developer,viewer"},
+		"role_type": []string{"required", "in:cluster_admin,developer,viewer,custom,cicd_admin"},
 	}
 	messages := govalidator.MapData{
 		"user_id":   []string{"required:用户ID为必填项"},

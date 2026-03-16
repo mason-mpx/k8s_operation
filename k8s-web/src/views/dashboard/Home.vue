@@ -14,13 +14,13 @@
       </div>
     </div>
 
-    <!-- 集群概览卡片 -->
-    <div class="cluster-overview">
+    <!-- 集群概览卡片 - 仅有集群权限时显示 -->
+    <div v-if="hasClusterAccess" class="cluster-overview">
       <div class="section-title">
         <h2>🖥️ 集群概览</h2>
       </div>
       <div class="stats-grid">
-        <div class="stat-card cluster-card">
+        <div v-if="canView('clusters')" class="stat-card cluster-card">
           <div class="stat-icon">🏛️</div>
           <div class="stat-content">
             <div class="stat-label">集群数量</div>
@@ -32,7 +32,7 @@
           </div>
         </div>
 
-        <div class="stat-card node-card">
+        <div v-if="canView('nodes')" class="stat-card node-card">
           <div class="stat-icon">💻</div>
           <div class="stat-content">
             <div class="stat-label">节点总数</div>
@@ -44,7 +44,7 @@
           </div>
         </div>
 
-        <div class="stat-card pod-card">
+        <div v-if="canView('pods')" class="stat-card pod-card">
           <div class="stat-icon">📦</div>
           <div class="stat-content">
             <div class="stat-label">Pod 总数</div>
@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <div class="stat-card namespace-card">
+        <div v-if="canView('namespaces')" class="stat-card namespace-card">
           <div class="stat-icon">📁</div>
           <div class="stat-content">
             <div class="stat-label">命名空间</div>
@@ -71,13 +71,17 @@
       </div>
     </div>
 
-    <!-- 工作负载统计 -->
-    <div class="workload-section">
+    <!-- 工作负载统计 - 仅有集群权限时显示 -->
+    <div v-if="hasClusterAccess && hasAnyWorkloadPermission" class="workload-section">
       <div class="section-title">
         <h2>🚀 工作负载统计</h2>
       </div>
       <div class="workload-grid">
-        <div class="workload-card" @click="navigateTo('/c/default/workloads/deployments')">
+        <div 
+          v-if="canView('deployments')"
+          class="workload-card" 
+          @click="handleNavigate('/c/default/workloads/deployments')"
+        >
           <div class="workload-icon deployment">🚀</div>
           <div class="workload-info">
             <div class="workload-name">Deployments</div>
@@ -85,7 +89,11 @@
           </div>
         </div>
 
-        <div class="workload-card" @click="navigateTo('/c/default/workloads/statefulsets')">
+        <div 
+          v-if="canView('statefulsets')"
+          class="workload-card" 
+          @click="handleNavigate('/c/default/workloads/statefulsets')"
+        >
           <div class="workload-icon statefulset">📊</div>
           <div class="workload-info">
             <div class="workload-name">StatefulSets</div>
@@ -93,7 +101,11 @@
           </div>
         </div>
 
-        <div class="workload-card" @click="navigateTo('/c/default/workloads/daemonsets')">
+        <div 
+          v-if="canView('daemonsets')"
+          class="workload-card" 
+          @click="handleNavigate('/c/default/workloads/daemonsets')"
+        >
           <div class="workload-icon daemonset">🔄</div>
           <div class="workload-info">
             <div class="workload-name">DaemonSets</div>
@@ -101,7 +113,11 @@
           </div>
         </div>
 
-        <div class="workload-card" @click="navigateTo('/c/default/workloads/jobs')">
+        <div 
+          v-if="canView('jobs')"
+          class="workload-card" 
+          @click="handleNavigate('/c/default/workloads/jobs')"
+        >
           <div class="workload-icon job">⚙️</div>
           <div class="workload-info">
             <div class="workload-name">Jobs</div>
@@ -109,7 +125,11 @@
           </div>
         </div>
 
-        <div class="workload-card" @click="navigateTo('/c/default/workloads/cronjobs')">
+        <div 
+          v-if="canView('cronjobs')"
+          class="workload-card" 
+          @click="handleNavigate('/c/default/workloads/cronjobs')"
+        >
           <div class="workload-icon cronjob">⏰</div>
           <div class="workload-info">
             <div class="workload-name">CronJobs</div>
@@ -119,15 +139,19 @@
       </div>
     </div>
 
-    <!-- 网络与存储 -->
-    <div class="resource-section">
+    <!-- 网络与存储 - 仅有集群权限时显示 -->
+    <div v-if="hasClusterAccess && hasAnyNetworkOrStoragePermission" class="resource-section">
       <div class="section-row">
         <div class="resource-group">
           <div class="section-title">
             <h2>🌐 网络资源</h2>
           </div>
           <div class="resource-list">
-            <div class="resource-item" @click="navigateTo('/c/default/networking/services')">
+            <div 
+              v-if="canView('services')"
+              class="resource-item" 
+              @click="handleNavigate('/c/default/networking/services')"
+            >
               <div class="resource-icon">🔌</div>
               <div class="resource-info">
                 <div class="resource-name">Services</div>
@@ -136,7 +160,11 @@
               <div class="resource-arrow">›</div>
             </div>
 
-            <div class="resource-item" @click="navigateTo('/c/default/networking/ingresses')">
+            <div 
+              v-if="canView('ingress')"
+              class="resource-item" 
+              @click="handleNavigate('/c/default/networking/ingresses')"
+            >
               <div class="resource-icon">🌍</div>
               <div class="resource-info">
                 <div class="resource-name">Ingresses</div>
@@ -152,7 +180,11 @@
             <h2>💾 存储资源</h2>
           </div>
           <div class="resource-list">
-            <div class="resource-item" @click="navigateTo('/c/default/storage/persistentvolumes')">
+            <div 
+              v-if="canView('pv')"
+              class="resource-item" 
+              @click="handleNavigate('/c/default/storage/persistentvolumes')"
+            >
               <div class="resource-icon">💿</div>
               <div class="resource-info">
                 <div class="resource-name">PersistentVolumes</div>
@@ -161,7 +193,11 @@
               <div class="resource-arrow">›</div>
             </div>
 
-            <div class="resource-item" @click="navigateTo('/c/default/storage/persistentvolumeclaims')">
+            <div 
+              v-if="canView('pvc')"
+              class="resource-item" 
+              @click="handleNavigate('/c/default/storage/persistentvolumeclaims')"
+            >
               <div class="resource-icon">📝</div>
               <div class="resource-info">
                 <div class="resource-name">PVCs</div>
@@ -170,7 +206,11 @@
               <div class="resource-arrow">›</div>
             </div>
 
-            <div class="resource-item" @click="navigateTo('/c/default/storage/storageclasses')">
+            <div 
+              v-if="canView('storageclasses')"
+              class="resource-item" 
+              @click="handleNavigate('/c/default/storage/storageclasses')"
+            >
               <div class="resource-icon">📦</div>
               <div class="resource-info">
                 <div class="resource-name">StorageClasses</div>
@@ -183,13 +223,17 @@
       </div>
     </div>
 
-    <!-- 配置资源 -->
-    <div class="config-section">
+    <!-- 配置资源 - 仅有集群权限时显示 -->
+    <div v-if="hasClusterAccess && hasAnyConfigPermission" class="config-section">
       <div class="section-title">
         <h2>⚙️ 配置资源</h2>
       </div>
       <div class="config-grid">
-        <div class="config-card" @click="navigateTo('/c/default/config/configmaps')">
+        <div 
+          v-if="canView('configmaps')"
+          class="config-card" 
+          @click="handleNavigate('/c/default/config/configmaps')"
+        >
           <div class="config-icon">🗂️</div>
           <div class="config-info">
             <div class="config-name">ConfigMaps</div>
@@ -197,7 +241,11 @@
           </div>
         </div>
 
-        <div class="config-card" @click="navigateTo('/c/default/config/secrets')">
+        <div 
+          v-if="canView('secrets')"
+          class="config-card" 
+          @click="handleNavigate('/c/default/config/secrets')"
+        >
           <div class="config-icon">🔐</div>
           <div class="config-info">
             <div class="config-name">Secrets</div>
@@ -213,27 +261,51 @@
         <h2>🔗 快速链接</h2>
       </div>
       <div class="quick-links-grid">
-        <a class="quick-link" @click="navigateTo('/clusters')">
+        <a 
+          v-if="canView('clusters')"
+          class="quick-link" 
+          @click="handleNavigate('/clusters')"
+        >
           <div class="link-icon">🏛️</div>
           <div class="link-text">集群管理</div>
         </a>
-        <a class="quick-link" @click="navigateTo('/c/default/nodes')">
+        <a 
+          v-if="canView('nodes')"
+          class="quick-link" 
+          @click="handleNavigate('/c/default/nodes')"
+        >
           <div class="link-icon">💻</div>
           <div class="link-text">节点管理</div>
         </a>
-        <a class="quick-link" @click="navigateTo('/c/default/namespaces')">
+        <a 
+          v-if="canView('namespaces')"
+          class="quick-link" 
+          @click="handleNavigate('/c/default/namespaces')"
+        >
           <div class="link-icon">📁</div>
           <div class="link-text">命名空间</div>
         </a>
-        <a class="quick-link" @click="navigateTo('/cicd/pipelines')">
+        <a 
+          v-if="canView('pipelines')"
+          class="quick-link" 
+          @click="handleNavigate('/cicd/pipelines')"
+        >
           <div class="link-icon">🚀</div>
           <div class="link-text">CI/CD 流水线</div>
         </a>
-        <a class="quick-link" @click="navigateTo('/images/repositories')">
+        <a 
+          v-if="canView('repositories')"
+          class="quick-link" 
+          @click="handleNavigate('/images/repositories')"
+        >
           <div class="link-icon">📷</div>
           <div class="link-text">镜像仓库</div>
         </a>
-        <a class="quick-link" @click="navigateTo('/users')">
+        <a 
+          v-if="canView('users')"
+          class="quick-link" 
+          @click="handleNavigate('/users')"
+        >
           <div class="link-icon">👥</div>
           <div class="link-text">用户管理</div>
         </a>
@@ -247,6 +319,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { useClusterStore } from '@/stores/cluster'
+import permissionStore from '@/stores/permission'
 
 // 导入 API
 import { getClusterList } from '@/api/cluster'
@@ -268,6 +341,157 @@ import namespaceApi from '@/api/cluster/config/namespace'
 
 const router = useRouter()
 const clusterStore = useClusterStore()
+
+/**
+ * 基于实际授权的资源权限配置
+ * 参考 Rancher/Kuboard/KubeSphere 权限模型
+ * 
+ * 角色权限层级：
+ * - cluster_admin: 集群完整权限，可查看所有资源
+ * - developer: 开发者权限，可查看常用工作负载、服务、配置
+ * - viewer: 只读权限，仅查看基础资源
+ * - cicd_admin: CI/CD管理员，可查看部署相关资源
+ */
+const ROLE_RESOURCE_MAP = {
+  // 集群管理员 - 所有资源
+  cluster_admin: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pv', 'pvc', 'storageclasses',
+    'configmaps', 'secrets', 'namespaces', 'nodes', 'clusters'
+  ],
+  // 开发者 - 常用资源（劅除节点、存储类等集群级资源）
+  developer: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pvc', 'configmaps', 'secrets',
+    'namespaces', 'clusters', 'pipelines'
+  ],
+  // 只读 - 可查看所有资源（与 cluster_admin 相同，但无操作权限）
+  viewer: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pv', 'pvc', 'storageclasses',
+    'configmaps', 'secrets', 'namespaces', 'nodes', 'clusters'
+  ],
+  // CI/CD管理员 - 部署相关
+  cicd_admin: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pvc', 'configmaps', 'secrets',
+    'namespaces', 'clusters', 'pipelines'
+  ]
+}
+
+// 平台级管理员可查看的额外资源
+const PLATFORM_ADMIN_RESOURCES = ['repositories', 'users']
+
+/**
+ * 判断是否有任何集群访问权限
+ */
+const hasClusterAccess = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  // 检查是否有任何集群权限
+  const clusterPerms = permissionStore.state.clusterPermissions
+  return Object.keys(clusterPerms).length > 0
+})
+
+/**
+ * 获取用户的最高角色类型
+ */
+const userHighestRole = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return 'super_admin'
+  
+  const roleTypes = permissionStore.roleTypes.value
+  
+  // 角色优先级：super_admin > platform_admin > cluster_admin > cicd_admin > developer > viewer
+  if (roleTypes.includes('super_admin')) return 'super_admin'
+  if (roleTypes.includes('platform_admin')) return 'platform_admin'
+  if (roleTypes.includes('cluster_admin')) return 'cluster_admin'
+  if (roleTypes.includes('cicd_admin')) return 'cicd_admin'
+  if (roleTypes.includes('developer')) return 'developer'
+  if (roleTypes.includes('viewer')) return 'viewer'
+  
+  return null
+})
+
+/**
+ * 获取用户可查看的资源列表
+ */
+const userAccessibleResources = computed(() => {
+  if (permissionStore.state.isSuperAdmin) {
+    // 超级管理员可查看所有资源
+    return [
+      ...ROLE_RESOURCE_MAP.cluster_admin,
+      ...PLATFORM_ADMIN_RESOURCES,
+      'pipelines'
+    ]
+  }
+  
+  const role = userHighestRole.value
+  if (!role) return []
+  
+  // platform_admin 等同于 cluster_admin + 平台资源
+  if (role === 'platform_admin') {
+    return [
+      ...ROLE_RESOURCE_MAP.cluster_admin,
+      ...PLATFORM_ADMIN_RESOURCES,
+      'pipelines'
+    ]
+  }
+  
+  return ROLE_RESOURCE_MAP[role] || []
+})
+
+/**
+ * 检查是否有权限查看资源（基于实际授权）
+ */
+const canView = (resource) => {
+  // 超级管理员全部可见
+  if (permissionStore.state.isSuperAdmin) return true
+  
+  // 集群相关资源需要检查是否有集群权限
+  const clusterResources = [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pv', 'pvc', 'storageclasses',
+    'configmaps', 'secrets', 'namespaces', 'nodes', 'clusters'
+  ]
+  
+  if (clusterResources.includes(resource)) {
+    // 没有任何集群权限则不显示
+    if (!hasClusterAccess.value) return false
+  }
+  
+  // 检查资源是否在用户可访问列表中
+  return userAccessibleResources.value.includes(resource)
+}
+
+/**
+ * 检查是否有任何工作负载权限
+ */
+const hasAnyWorkloadPermission = computed(() => {
+  const workloads = ['deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs']
+  return workloads.some(r => canView(r))
+})
+
+/**
+ * 检查是否有任何网络或存储权限
+ */
+const hasAnyNetworkOrStoragePermission = computed(() => {
+  const resources = ['services', 'ingress', 'pv', 'pvc', 'storageclasses']
+  return resources.some(r => canView(r))
+})
+
+/**
+ * 检查是否有任何配置资源权限
+ */
+const hasAnyConfigPermission = computed(() => {
+  const configs = ['configmaps', 'secrets']
+  return configs.some(r => canView(r))
+})
+
+/**
+ * 导航处理
+ */
+const handleNavigate = (path) => {
+  router.push(path)
+}
 
 // 用户名
 const username = computed(() => {
@@ -362,10 +586,15 @@ const ensureDefaultCluster = async () => {
     // 获取集群列表
     const res = await getClusterList({ page: 1, limit: 100 })
     if (res.code === 0 && res.data) {
-      const clusters = res.data.list || []
+      const allClusters = res.data.list || []
+      
+      // 权限过滤：只显示用户有权限访问的集群
+      const clusters = allClusters.filter(c => 
+        permissionStore.state.isSuperAdmin ||
+        permissionStore.state.accessibleClusterIds.includes(c.id)
+      )
       
       if (clusters.length === 0) {
-        Message.warning({ content: '暂无可用集群，请先添加集群' })
         return false
       }
       
@@ -429,7 +658,12 @@ const loadClusterStats = async () => {
   try {
     const res = await getClusterList({ page: 1, limit: 1000 })
     if (res.code === 0 && res.data) {
-      const clusters = res.data.list || []
+      const allClusters = res.data.list || []
+      // 权限过滤：只统计用户有权限访问的集群
+      const clusters = allClusters.filter(c => 
+        permissionStore.state.isSuperAdmin ||
+        permissionStore.state.accessibleClusterIds.includes(c.id)
+      )
       clusterStats.value.total = clusters.length
       // status: 0=正常, 1=异常, 2=待检测
       clusterStats.value.active = clusters.filter(c => Number(c.status) === 0).length
@@ -437,7 +671,7 @@ const loadClusterStats = async () => {
     }
   } catch (error) {
     console.error('加载集群数据失败:', error)
-    clusterStats.value = { total: 3, active: 2, inactive: 1 }
+    clusterStats.value = { total: 0, active: 0, inactive: 0 }
   }
 }
 

@@ -10,8 +10,12 @@ import (
 )
 
 type User struct {
-	Username string `json:"username" description:"用户名"`
-	Password string `json:"-" description:"密码"`
+	Username string `json:"username" gorm:"column:username" description:"用户名"`
+	Password string `json:"-" gorm:"column:password" description:"密码"`
+	Role     string `json:"role" gorm:"column:role;default:user" description:"角色"`
+	Email    string `json:"email" gorm:"column:email" description:"邮箱"`
+	Phone    string `json:"phone" gorm:"column:phone" description:"手机号"`
+	Status   int8   `json:"status" gorm:"column:status;default:1" description:"状态:1激活,0禁用"`
 	*Base
 }
 
@@ -105,18 +109,8 @@ func (u *User) Update(db *gorm.DB, values interface{}) error {
 	return nil // 更新成功
 }
 
-// List 是User结构体的方法，用于查询用户列表
-// 参数:
-//
-//	db: 数据库连接对象
-//	page: 页码，从1开始
-//	limit: 每页记录数
-//
-// 返回值:
-//
-//	[]*User: 用户列表
-//	error: 错误信息
-func (u *User) List(db *gorm.DB, page, limit int) ([]*User, error) {
+// List 是 User 结构体的方法，用于查询用户列表
+func (u *User) List(db *gorm.DB, role, status string, page, limit int) ([]*User, int64, error) {
 	// 校验页码，最小为1
 	if page < 1 {
 		page = 1
@@ -124,26 +118,30 @@ func (u *User) List(db *gorm.DB, page, limit int) ([]*User, error) {
 	// 校验每页记录数，限制在1-1000之间，默认为20
 	if limit <= 0 || limit > 1000 {
 		limit = 20
-	} // 上限防止一次拉太多
-
-	var users []*User
-
-	// 1) 统一构建查询条件
-	q := db.Model(&User{}).Where("is_del = 0") // 只查询未删除的用户
-	if u.Username != "" {
-		q = q.Where("username = ?", u.Username) // 如果指定了用户名，则添加用户名条件
 	}
 
-	// 2) 排序 + 分页 + 一次性查询
-	// 计算分页偏移量，(当前页码-1)每页条数
-	offset := (page - 1) * limit // 计算偏移量
-	// 执行数据库查询：
-	// 1. 按id降序排序
-	// 2. 设置查询偏移量
-	// 3. 限制返回记录数
-	// 4. 将结果存入users变量
-	// 如果查询过程中发生错误，则返回错误信息
+	var users []*User
+	var total int64
 
+	// 统一构建查询条件
+	q := db.Model(&User{}).Where("is_del = 0")
+	if u.Username != "" {
+		q = q.Where("username LIKE ?", "%"+u.Username+"%")
+	}
+	if role != "" {
+		q = q.Where("role = ?", role)
+	}
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+
+	// 统计总数
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * limit
 	global.Logger.Info("分页参数",
 		zap.Int("page", page),
 		zap.Int("limit", limit),
@@ -151,10 +149,9 @@ func (u *User) List(db *gorm.DB, page, limit int) ([]*User, error) {
 	)
 
 	if err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
-		return nil, err // 返回空结果和错误信息
+		return nil, 0, err
 	}
-	// 查询成功，返回用户列表和nil错误
-	return users, nil
+	return users, total, nil
 }
 
 func (u *User) GetByName(db *gorm.DB) (*User, error) {

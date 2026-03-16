@@ -33,7 +33,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button
-          v-if="!batchMode"
+          v-if="canOperate && !batchMode"
           class="btn btn-batch"
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -41,7 +41,7 @@
           ☑️ 批量操作
         </button>
         <button
-          v-if="batchMode"
+          v-if="canOperate && batchMode"
           class="btn btn-secondary"
           @click="exitBatchMode"
         >
@@ -73,7 +73,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建CronJob</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建CronJob</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -233,24 +233,26 @@
                       <span class="menu-icon">📝</span>
                       <span>查看/编辑 YAML</span>
                     </button>
-                    <div class="menu-divider"></div>
-                    <button v-if="!cj.suspend" class="menu-item" @click="suspendCronJob(cj, true)">
-                      <span class="menu-icon">⏸️</span>
-                      <span>暂停</span>
-                    </button>
-                    <button v-else class="menu-item" @click="suspendCronJob(cj, false)">
-                      <span class="menu-icon">▶️</span>
-                      <span>恢复</span>
-                    </button>
-                    <button class="menu-item" @click="triggerCronJob(cj)">
-                      <span class="menu-icon">🚀</span>
-                      <span>手动触发</span>
-                    </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item danger" @click="confirmDelete(cj)">
-                      <span class="menu-icon">🗑️</span>
-                      <span>删除</span>
-                    </button>
+                    <template v-if="canOperate">
+                      <div class="menu-divider"></div>
+                      <button v-if="!cj.suspend" class="menu-item" @click="suspendCronJob(cj, true)">
+                        <span class="menu-icon">⏸️</span>
+                        <span>暂停</span>
+                      </button>
+                      <button v-else class="menu-item" @click="suspendCronJob(cj, false)">
+                        <span class="menu-icon">▶️</span>
+                        <span>恢复</span>
+                      </button>
+                      <button class="menu-item" @click="triggerCronJob(cj)">
+                        <span class="menu-icon">🚀</span>
+                        <span>手动触发</span>
+                      </button>
+                      <div class="menu-divider"></div>
+                      <button class="menu-item danger" @click="confirmDelete(cj)">
+                        <span class="menu-icon">🗑️</span>
+                        <span>删除</span>
+                      </button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -322,23 +324,25 @@
         </div>
 
         <div class="card-footer">
-          <button
-            v-if="!cj.suspend"
-            @click="suspendCronJob(cj, true)"
-            class="card-btn warning"
-          >
-            ⏸️ 暂停
-          </button>
-          <button
-            v-else
-            @click="suspendCronJob(cj, false)"
-            class="card-btn success"
-          >
-            ▶️ 恢复
-          </button>
+          <template v-if="canOperate">
+            <button
+              v-if="!cj.suspend"
+              @click="suspendCronJob(cj, true)"
+              class="card-btn warning"
+            >
+              ⏸️ 暂停
+            </button>
+            <button
+              v-else
+              @click="suspendCronJob(cj, false)"
+              class="card-btn success"
+            >
+              ▶️ 恢复
+            </button>
+          </template>
           <button @click="viewDetail(cj)" class="card-btn primary">📋 详情</button>
           <button @click="viewYaml(cj)" class="card-btn">📝 YAML</button>
-          <button @click="confirmDelete(cj)" class="card-btn danger">🗑️ 删除</button>
+          <button v-if="canOperate" @click="confirmDelete(cj)" class="card-btn danger">🗑️ 删除</button>
         </div>
       </div>
 
@@ -1028,6 +1032,18 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import Pagination from '@/components/Pagination.vue'
 import cronjobsApi from '@/api/cluster/workloads/cronjobs'
 import namespaceApi from '@/api/cluster/config/namespace'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // ==================== 状态管理 ====================
 const loading = ref(false)

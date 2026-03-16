@@ -108,6 +108,7 @@ import { Message } from '@arco-design/web-vue'
 import { getK8sEvents } from '@/api/k8sRbac'
 import { getClusterList } from '@/api/cluster'
 import { getNamespaces } from '@/api/namespace'
+import permissionStore from '@/stores/permission'
 
 // 数据状态
 const loading = ref(false)
@@ -136,13 +137,17 @@ const loadClusters = async () => {
   try {
     const res = await getClusterList({ page: 1, limit: 100 })
     if (res.code === 0 && res.data?.list) {
-      clusters.value = res.data.list
+      // 权限过滤：只显示用户有权限访问的集群
+      const allClusters = res.data.list
+      clusters.value = allClusters.filter(c => 
+        permissionStore.state.isSuperAdmin ||
+        permissionStore.state.accessibleClusterIds.includes(c.id)
+      )
       if (clusters.value.length > 0 && !selectedClusterId.value) {
         selectedClusterId.value = clusters.value[0].id
       }
     } else {
       console.warn('集群列表返回异常:', res)
-      Message.warning({ content: '暂无可用集群，请先在集群管理中添加集群' })
     }
   } catch (error) {
     console.error('加载集群列表失败:', error)

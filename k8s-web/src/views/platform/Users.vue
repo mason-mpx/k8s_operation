@@ -136,6 +136,22 @@
             </td>
             <td>{{ formatDate(user.created_at) }}</td>
             <td class="actions">
+              <button 
+                v-if="user.status === 1" 
+                class="btn btn-sm btn-secondary" 
+                @click="handleToggleStatus(user)" 
+                title="禁用账号"
+              >
+                🚫
+              </button>
+              <button 
+                v-else 
+                class="btn btn-sm btn-success" 
+                @click="handleToggleStatus(user)" 
+                title="激活账号"
+              >
+                ✅
+              </button>
               <button class="btn btn-sm btn-warning" @click="handleEdit(user)" title="编辑">
                 ✏️
               </button>
@@ -317,8 +333,8 @@ const userForm = ref({
   status: 1
 })
 
-// 监听分页变化
-watch([currentPage, itemsPerPage], () => {
+// 监听分页和筛选变化
+watch([currentPage, itemsPerPage, roleFilter, statusFilter], () => {
   refreshList()
 })
 
@@ -420,10 +436,20 @@ const refreshList = async () => {
   errorMsg.value = ''
 
   try {
+    // 处理状态筛选值
+    let statusValue = ''
+    if (statusFilter.value === 'active') {
+      statusValue = '1'
+    } else if (statusFilter.value === 'inactive') {
+      statusValue = '0'
+    }
+
     const res = await getUserList({
       page: currentPage.value,
       limit: itemsPerPage.value,
-      username: searchQuery.value
+      username: searchQuery.value,
+      role: roleFilter.value,
+      status: statusValue
     })
     
     // http拦截器返回格式: { code: 0, msg: "OK", data: { list: [...], total: n } }

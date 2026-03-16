@@ -1628,6 +1628,61 @@ definitions:
         description: -> tls.key
         type: string
     type: object
+  requests.TemplateCreateRequest:
+    properties:
+      default_env_vars:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+      deploy_config:
+        additionalProperties: {}
+        type: object
+      description:
+        type: string
+      jenkins_template:
+        type: string
+      name:
+        type: string
+      stages:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+      type:
+        type: string
+    type: object
+  requests.TemplateIDRequest:
+    properties:
+      id:
+        type: integer
+    type: object
+  requests.TemplateUpdateRequest:
+    properties:
+      default_env_vars:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+      deploy_config:
+        additionalProperties: {}
+        type: object
+      description:
+        type: string
+      id:
+        type: integer
+      jenkins_template:
+        type: string
+      name:
+        type: string
+      stages:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+      type:
+        type: string
+    type: object
   requests.UserCreateRequest:
     properties:
       password:
@@ -1652,6 +1707,10 @@ definitions:
         type: integer
       password:
         type: string
+      role:
+        type: string
+      status:
+        type: integer
       username:
         type: string
     type: object
@@ -3941,6 +4000,166 @@ paths:
       summary: 回滚部署到指定版本
       tags:
       - CICD-Stage
+  /api/v1/k8s/cicd/template/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新的流水线模板，可用于快速创建流水线
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.TemplateCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回 template_id
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建流水线模板
+      tags:
+      - CICD Template
+  /api/v1/k8s/cicd/template/delete:
+    post:
+      consumes:
+      - application/json
+      description: 软删除模板
+      parameters:
+      - description: 删除参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.TemplateIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除流水线模板
+      tags:
+      - CICD Template
+  /api/v1/k8s/cicd/template/detail:
+    get:
+      description: 获取模板的完整配置信息
+      parameters:
+      - description: 模板ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回模板详情
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取流水线模板详情
+      tags:
+      - CICD Template
+  /api/v1/k8s/cicd/template/list:
+    get:
+      description: 分页查询模板列表，支持关键字和类型筛选
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认10
+        in: query
+        name: page_size
+        type: integer
+      - description: 关键字（名称/描述）
+        in: query
+        name: keyword
+        type: string
+      - description: 类型筛选（frontend/backend/microservice/database/custom）
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回列表和总数
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取流水线模板列表
+      tags:
+      - CICD Template
+  /api/v1/k8s/cicd/template/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新模板配置信息
+      parameters:
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.TemplateUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新流水线模板
+      tags:
+      - CICD Template
   /api/v1/k8s/cluster/create:
     post:
       description: 创建K8s集群
@@ -7917,6 +8136,40 @@ paths:
       summary: 获取 PersistentVolume 详情
       tags:
       - K8s PV 管理
+  /api/v1/k8s/pv/detail-enhanced:
+    get:
+      description: 获取 PV 的完整详情，包括关联的 PVC 信息、存储后端信息、事件等
+      parameters:
+      - description: PV 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 资源不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 PV 增强详情
+      tags:
+      - K8s PV 管理
   /api/v1/k8s/pv/expand:
     post:
       consumes:
@@ -8215,6 +8468,45 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取 PersistentVolumeClaim 详情
+      tags:
+      - K8s PVC 管理
+  /api/v1/k8s/pvc/detail-enhanced:
+    get:
+      description: 获取 PVC 的完整详情，包括绑定的 PV 信息、状态、事件等
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: PVC 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 资源不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 PVC 增强详情
       tags:
       - K8s PVC 管理
   /api/v1/k8s/pvc/list:
@@ -10671,6 +10963,14 @@ paths:
         in: query
         maxLength: 100
         name: username
+        type: string
+      - description: 角色筛选
+        in: query
+        name: role
+        type: string
+      - description: 状态筛选
+        in: query
+        name: status
         type: string
       - description: 页码
         in: query

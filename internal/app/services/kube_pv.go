@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8soperation/global"
 	"k8soperation/internal/app/requests"
 	"k8soperation/pkg/k8s/pv"
@@ -50,6 +51,130 @@ func (s *Services) KubePVDetail(ctx context.Context, cli *K8sClients, param *req
 	}
 
 	return pvDetail, nil
+}
+
+// KubePVDetailEnhanced 获取增强的 PV 详情（包含关联 PVC 信息和事件）
+func (s *Services) KubePVDetailEnhanced(ctx context.Context, cli *K8sClients, param *requests.KubePVDetailRequest) (*requests.PVDetailEnhanced, error) {
+	// 1. 获取 PV 详情
+	pvObj, err := pv.GetPVDetail(ctx, cli.Kube, param.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 构建增强响应
+	result := &requests.PVDetailEnhanced{
+		Name:             pvObj.Name,
+		UID:              string(pvObj.UID),
+		CreatedAt:        pvObj.CreationTimestamp.Unix(),
+		Labels:           pvObj.Labels,
+		Annotations:      pvObj.Annotations,
+		Phase:            string(pvObj.Status.Phase),
+		StorageClassName: pvObj.Spec.StorageClassName,
+		ReclaimPolicy:    string(pvObj.Spec.PersistentVolumeReclaimPolicy),
+	}
+
+	// 3. 设置状态信息
+	switch pvObj.Status.Phase {
+	case corev1.VolumeAvailable:
+		result.StatusMessage = "可用，尚未绑定到 PVC"
+		result.StatusColor = "success"
+	case corev1.VolumeBound:
+		result.StatusMessage = "已绑定到 PVC"
+		result.StatusColor = "success"
+	case corev1.VolumeReleased:
+		result.StatusMessage = "已释放，PVC 已删除"
+		result.StatusColor = "warning"
+	case corev1.VolumeFailed:
+		result.StatusMessage = "回收失败"
+		result.StatusColor = "error"
+	default:
+		result.StatusMessage = string(pvObj.Status.Phase)
+		result.StatusColor = "default"
+	}
+
+	// 4. 设置存储信息
+	if cap := pvObj.Spec.Capacity[corev1.ResourceStorage]; !cap.IsZero() {
+		result.Capacity = cap.String()
+	}
+
+	// 访问模式
+	for _, mode := range pvObj.Spec.AccessModes {
+		result.AccessModes = append(result.AccessModes, string(mode))
+	}
+
+	// 卷模式
+	if pvObj.Spec.VolumeMode != nil {
+		result.VolumeMode = string(*pvObj.Spec.VolumeMode)
+	} else {
+		result.VolumeMode = "Filesystem"
+	}
+
+	// 5. 卷类型和源
+	result.VolumeType, result.VolumeSource = getPVVolumeTypeAndSource(pvObj)
+
+	// 6. 节点亲和性
+	if pvObj.Spec.NodeAffinity != nil && pvObj.Spec.NodeAffinity.Required != nil {
+		result.NodeAffinity = formatNodeAffinity(pvObj.Spec.NodeAffinity.Required)
+	}
+
+	// 7. 获取关联的 PVC 信息
+	if pvObj.Spec.ClaimRef != nil {
+		pvcObj, err := cli.Kube.CoreV1().PersistentVolumeClaims(pvObj.Spec.ClaimRef.Namespace).Get(ctx, pvObj.Spec.ClaimRef.Name, metav1.GetOptions{})
+		if err == nil {
+			result.BoundPVC = &requests.BoundPVCInfo{
+				Name:      pvcObj.Name,
+				Namespace: pvcObj.Namespace,
+				Status:    string(pvcObj.Status.Phase),
+				CreatedAt: pvcObj.CreationTimestamp.Unix(),
+			}
+			
+			// 请求容量
+			if req := pvcObj.Spec.Resources.Requests[corev1.ResourceStorage]; !req.IsZero() {
+				result.BoundPVC.RequestStorage = req.String()
+			}
+			
+			// 访问模式
+			for _, mode := range pvcObj.Spec.AccessModes {
+				result.BoundPVC.AccessModes = append(result.BoundPVC.AccessModes, string(mode))
+			}
+			
+			// 存储类
+			if pvcObj.Spec.StorageClassName != nil {
+				result.BoundPVC.StorageClassName = *pvcObj.Spec.StorageClassName
+			}
+		} else {
+			// PVC 不存在，但有引用（可能已删除）
+			result.BoundPVC = &requests.BoundPVCInfo{
+				Name:      pvObj.Spec.ClaimRef.Name,
+				Namespace: pvObj.Spec.ClaimRef.Namespace,
+				Status:    "不存在（可能已删除）",
+			}
+		}
+	}
+
+	// 8. 获取最近事件（PV 事件在默认命名空间）
+	events, _ := cli.Kube.CoreV1().Events("").List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s,involvedObject.kind=PersistentVolume", param.Name),
+		Limit:         5,
+	})
+	if events != nil {
+		for _, ev := range events.Items {
+			result.RecentEvents = append(result.RecentEvents, requests.StorageEvent{
+				Type:      ev.Type,
+				Reason:    ev.Reason,
+				Message:   ev.Message,
+				Count:     ev.Count,
+				FirstSeen: ev.FirstTimestamp.Unix(),
+				LastSeen:  ev.LastTimestamp.Unix(),
+			})
+		}
+	}
+
+	// 9. 其他状态信息
+	result.Reason = pvObj.Status.Reason
+	result.Message = pvObj.Status.Message
+
+	return result, nil
 }
 
 func (s *Services) KubePVDelete(ctx context.Context, cli *K8sClients, param *requests.KubePVDeleteRequest) error {

@@ -52,10 +52,47 @@ export {
 } from './platform/pipeline'
 
 /**
- * 获取流水线模板列表（TODO: 后端需实现）
+ * 获取流水线模板列表
+ * @param {Object} params - 查询参数
+ * @param {number} params.page - 页码
+ * @param {number} params.page_size - 每页数量
+ * @param {string} params.keyword - 搜索关键字
+ * @param {string} params.type - 类型筛选
  */
-export const getPipelineTemplates = () => {
-  return Promise.resolve({ code: 0, msg: 'success', data: [] })
+export const getPipelineTemplates = (params = {}) => {
+  return http.get(`${API_BASE}/k8s/cicd/template/list`, { params })
+}
+
+/**
+ * 获取流水线模板详情
+ * @param {number} id - 模板ID
+ */
+export const getPipelineTemplateDetail = (id) => {
+  return http.get(`${API_BASE}/k8s/cicd/template/detail`, { params: { id } })
+}
+
+/**
+ * 创建流水线模板
+ * @param {Object} data - 创建参数
+ */
+export const createPipelineTemplate = (data) => {
+  return http.post(`${API_BASE}/k8s/cicd/template/create`, data)
+}
+
+/**
+ * 更新流水线模板
+ * @param {Object} data - 更新参数
+ */
+export const updatePipelineTemplate = (data) => {
+  return http.post(`${API_BASE}/k8s/cicd/template/update`, data)
+}
+
+/**
+ * 删除流水线模板
+ * @param {number} id - 模板ID
+ */
+export const deletePipelineTemplate = (id) => {
+  return http.post(`${API_BASE}/k8s/cicd/template/delete`, { id })
 }
 
 // 部署到K8s（兼容旧接口）
