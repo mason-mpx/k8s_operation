@@ -8,25 +8,49 @@ import Dashboard from '@/views/dashboard/Dashboard.vue'
 
 /**
  * 路由权限配置
- * roles: 允许访问的角色列表
+ * 角色分类:
+ *   - super_admin: 超级管理员，全部权限
+ *   - platform_admin: 平台管理员，平台级管理
+ *   - cluster_admin: 集群管理员，集群级管理
+ *   - cicd_admin: CI/CD 管理员
+ *   - developer: 开发人员
+ *   - viewer: 只读用户
  */
 const routePermissions = {
-  // 平台管理
-  '/platform/health': ['super_admin', 'platform_admin'],
+  // ==================== 平台管理 ====================
+  '/platform/health': ['super_admin', 'platform_admin', 'cluster_admin'],
   '/platform/settings': ['super_admin', 'platform_admin'],
+  '/platform/appstore': ['super_admin', 'platform_admin', 'cluster_admin'],
   
-  // 安全管理
+  // ==================== 用户与权限管理 ====================
   '/users': ['super_admin', 'platform_admin'],
   '/rbac': ['super_admin', 'platform_admin'],
   '/user-permissions': ['super_admin', 'platform_admin'],
-  '/security/audit': ['super_admin', 'platform_admin'],
   
-  // CI/CD
+  // ==================== 安全审计 ====================
+  '/security/audit': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  '/security/rbac/permission-check': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
+  
+  // ==================== CI/CD 流水线 ====================
   '/cicd/templates': ['super_admin', 'platform_admin'],
+  '/cicd/pipelines': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
+  '/cicd/pipelines/create': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
+  '/cicd/releases': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
+  '/cicd/approvals': ['super_admin', 'platform_admin', 'cicd_admin'],
   
-  // 镜像管理
+  // ==================== 镜像管理 ====================
   '/images/repositories': ['super_admin', 'platform_admin'],
-  '/images/cleanup': ['super_admin', 'platform_admin']
+  '/images/browse': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer', 'viewer'],
+  '/images/cleanup': ['super_admin', 'platform_admin'],
+  
+  // ==================== 环境管理 ====================
+  '/environments': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  
+  // ==================== 集群管理 ====================
+  '/clusters': ['super_admin', 'platform_admin', 'cluster_admin', 'cicd_admin', 'developer', 'viewer']
 }
 
 const router = createRouter({
@@ -135,6 +159,11 @@ const router = createRouter({
     {
       path: '/:pathMatch(.*)*',
       component: () => import('@/views/error/NotFound.vue'),
+    },
+    // 403 权限拒绝页面
+    {
+      path: '/forbidden',
+      component: () => import('@/views/error/Forbidden.vue'),
     }
   ],
 })
@@ -178,9 +207,15 @@ router.beforeEach(async (to, from, next) => {
     const hasPermission = routeRoles.some(role => userRoles.includes(role))
     
     if (!hasPermission) {
-      // 无权限时跳转到 403 页面或首页
-      console.warn(`[权限拒绝] 访问 ${to.path} 需要角色: ${routeRoles.join(', ')}`)
-      next({ path: '/dashboard', query: { forbidden: 'true' } })
+      // 无权限时跳转到 403 页面
+      next({ 
+        path: '/forbidden', 
+        query: { 
+          type: 'role',
+          path: to.path,
+          role: routeRoles.join(', ')
+        } 
+      })
       return
     }
   }
@@ -191,8 +226,14 @@ router.beforeEach(async (to, from, next) => {
     if (clusterId && !permissionStore.state.isSuperAdmin) {
       const canAccess = permissionStore.canAccessCluster(clusterId, 'view')
       if (!canAccess) {
-        console.warn(`[权限拒绝] 无权访问集群 ${clusterId}`)
-        next({ path: '/clusters', query: { forbidden: 'cluster' } })
+        next({ 
+          path: '/forbidden', 
+          query: { 
+            type: 'cluster',
+            path: to.path,
+            clusterId: clusterId
+          } 
+        })
         return
       }
     }

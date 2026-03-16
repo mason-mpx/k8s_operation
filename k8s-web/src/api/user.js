@@ -12,7 +12,9 @@ export function getUserList(params) {
     params: {
       page: params.page || 1,
       limit: params.limit || 10,
-      username: params.username || ''
+      username: params.username || '',
+      role: params.role || '',
+      status: params.status !== undefined ? params.status : ''
     }
   })
 }

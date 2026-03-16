@@ -37,7 +37,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -77,7 +77,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建部署</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建部署</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -158,6 +158,7 @@
                 <!-- 副本数 +/- 控制 -->
                 <div class="replicas-control">
                   <button 
+                    v-if="canOperate"
                     class="replica-btn minus" 
                     @click="decreaseReplicas(deployment)"
                     :disabled="deployment.desiredReplicas <= 0 || scalingMap[deployment.name]"
@@ -165,7 +166,7 @@
                   >−</button>
                   
                   <!-- 内联编辑副本数 -->
-                  <div v-if="inlineEdit.key === `replicas-${deployment.name}`" class="replicas-edit-wrapper">
+                  <div v-if="canOperate && inlineEdit.key === `replicas-${deployment.name}`" class="replicas-edit-wrapper">
                     <input 
                       type="number" 
                       v-model="inlineEdit.value" 
@@ -180,19 +181,20 @@
                     <span class="inline-hint-small">回车</span>
                   </div>
                   
-                  <!-- 显示副本数（可点击编辑） -->
-                  <div v-else class="replicas-display clickable" 
-                       :class="{ updating: scalingMap[deployment.name] }"
-                       @click="startInlineReplicas(deployment)"
-                       title="点击修改副本数">
+                  <!-- 显示副本数（可点击编辑 - 仅有操作权限时） -->
+                  <div v-else class="replicas-display" 
+                       :class="{ updating: scalingMap[deployment.name], clickable: canOperate }"
+                       @click="canOperate && startInlineReplicas(deployment)"
+                       :title="canOperate ? '点击修改副本数' : '只读模式'">
                     <span class="ready-replicas">{{ deployment.readyReplicas }}</span>
                     <span class="replicas-sep">/</span>
                     <span class="desired-replicas">{{ deployment.desiredReplicas }}</span>
                     <span v-if="scalingMap[deployment.name]" class="scaling-indicator">⏳</span>
-                    <span class="edit-icon-small">✏️</span>
+                    <span v-if="canOperate" class="edit-icon-small">✏️</span>
                   </div>
                   
                   <button 
+                    v-if="canOperate"
                     class="replica-btn plus" 
                     @click="increaseReplicas(deployment)"
                     :disabled="scalingMap[deployment.name]"
@@ -200,6 +202,7 @@
                   >+</button>
                   <!-- 停服按钮 -->
                   <button 
+                    v-if="canOperate"
                     class="replica-btn stop" 
                     @click="stopService(deployment)"
                     :disabled="deployment.desiredReplicas === 0 || scalingMap[deployment.name]"
@@ -213,7 +216,7 @@
             </td>
             <td>
               <!-- 内联编辑镜像 -->
-              <div class="inline-edit-wrapper" v-if="inlineEdit.key === `image-${deployment.name}`">
+              <div class="inline-edit-wrapper" v-if="canOperate && inlineEdit.key === `image-${deployment.name}`">
                 <input 
                   type="text" 
                   v-model="inlineEdit.value" 
@@ -226,9 +229,9 @@
                 />
                 <span class="inline-hint">按 Enter 保存</span>
               </div>
-              <div v-else class="image-text clickable" :title="deployment.image" @click="startInlineImage(deployment)">
+              <div v-else class="image-text" :class="{ clickable: canOperate }" :title="deployment.image" @click="canOperate && startInlineImage(deployment)">
                 <span class="image-name">{{ deployment.image || '-' }}</span>
-                <span class="edit-icon">✏️</span>
+                <span v-if="canOperate" class="edit-icon">✏️</span>
               </div>
             </td>
             <td>
@@ -265,16 +268,16 @@
                       <span class="menu-icon">📜</span>
                       <span>版本记录</span>
                     </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" @click="restartDeployment(deployment)">
+                    <div v-if="canOperate" class="menu-divider"></div>
+                    <button v-if="canOperate" class="menu-item" @click="restartDeployment(deployment)">
                       <span class="menu-icon">🔄</span>
                       <span>重启</span>
                     </button>
-                    <button class="menu-item" @click="openUpdateImage(deployment)">
+                    <button v-if="canOperate" class="menu-item" @click="openUpdateImage(deployment)">
                       <span class="menu-icon">🔧</span>
                       <span>更新镜像</span>
                     </button>
-                    <button class="menu-item" @click="openRollback(deployment)">
+                    <button v-if="canOperate" class="menu-item" @click="openRollback(deployment)">
                       <span class="menu-icon">⏪</span>
                       <span>回滚</span>
                     </button>
@@ -295,8 +298,8 @@
                       <span class="menu-icon">📝</span>
                       <span>查看/编辑 YAML</span>
                     </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item danger" @click="deleteDeployment(deployment)">
+                    <div v-if="canOperate" class="menu-divider"></div>
+                    <button v-if="canOperate" class="menu-item danger" @click="deleteDeployment(deployment)">
                       <span class="menu-icon">🗑️</span>
                       <span>删除</span>
                     </button>
@@ -2442,6 +2445,18 @@ import serviceApi from '@/api/cluster/networking/service'
 import namespaceApi from '@/api/cluster/config/namespace'
 import { useClusterStore } from '@/stores/cluster'
 import { useResizableModal } from '@/composables/useResizableModal'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // ===== 获取认证头（复用 http.js 逻辑） =====
 const getAuthHeaders = () => {

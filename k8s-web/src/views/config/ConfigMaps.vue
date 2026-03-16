@@ -25,7 +25,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button
-          v-if="!batchMode"
+          v-if="canOperate && !batchMode"
           class="btn btn-batch"
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -65,7 +65,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建 ConfigMap</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建 ConfigMap</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -151,8 +151,8 @@
             <div class="action-btns">
               <button class="btn-icon" @click="viewDetail(cm)" title="查看详情">ℹ️</button>
               <button class="btn-icon" @click="viewYaml(cm)" title="查看 YAML">📝</button>
-              <button class="btn-icon" @click="editConfigMap(cm)" title="编辑">✏️</button>
-              <button class="btn-icon danger" @click="confirmDelete(cm)" title="删除">🗑️</button>
+              <button v-if="canOperate" class="btn-icon" @click="editConfigMap(cm)" title="编辑">✏️</button>
+              <button v-if="canOperate" class="btn-icon danger" @click="confirmDelete(cm)" title="删除">🗑️</button>
             </div>
           </td>
         </tr>
@@ -202,8 +202,8 @@
         </div>
         <div class="card-footer">
           <button class="btn-card" @click="viewDetail(cm)">查看详情</button>
-          <button class="btn-card" @click="editConfigMap(cm)">编辑</button>
-          <button class="btn-card danger" @click="confirmDelete(cm)">删除</button>
+          <button v-if="canOperate" class="btn-card" @click="editConfigMap(cm)">编辑</button>
+          <button v-if="canOperate" class="btn-card danger" @click="confirmDelete(cm)">删除</button>
         </div>
       </div>
     </div>
@@ -716,6 +716,18 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import configmapApi from '@/api/cluster/config/configmap'
 import namespaceApi from '@/api/cluster/config/namespace'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // ==================== 状态管理 ====================
 const loading = ref(false)

@@ -137,6 +137,70 @@ func ValidKubePVCDetailRequest(data interface{}, _ *gin.Context) map[string][]st
 	})
 }
 
+// PVCDetailEnhanced 增强的 PVC 详情响应（包含关联 PV 信息）
+type PVCDetailEnhanced struct {
+	// 基本信息
+	Name              string            `json:"name"`
+	Namespace         string            `json:"namespace"`
+	UID               string            `json:"uid"`
+	CreatedAt         int64             `json:"created_at"`
+	Labels            map[string]string `json:"labels,omitempty"`
+	Annotations       map[string]string `json:"annotations,omitempty"`
+	
+	// 状态信息
+	Phase             string `json:"phase"`              // Pending/Bound/Lost
+	StatusMessage     string `json:"status_message"`     // 状态描述
+	StatusColor       string `json:"status_color"`       // success/warning/error
+	
+	// 存储信息
+	RequestStorage    string   `json:"request_storage"`    // 请求容量
+	ActualCapacity    string   `json:"actual_capacity"`    // 实际容量
+	AccessModes       []string `json:"access_modes"`
+	VolumeMode        string   `json:"volume_mode"`        // Filesystem/Block
+	StorageClassName  string   `json:"storage_class_name"`
+	
+	// 绑定的 PV 信息
+	BoundPV           *BoundPVInfo `json:"bound_pv,omitempty"`
+	
+	// 条件状态
+	Conditions        []PVCCondition `json:"conditions,omitempty"`
+	
+	// 事件摘要
+	RecentEvents      []StorageEvent `json:"recent_events,omitempty"`
+}
+
+// BoundPVInfo 绑定的 PV 信息
+type BoundPVInfo struct {
+	Name              string `json:"name"`
+	Capacity          string `json:"capacity"`
+	ReclaimPolicy     string `json:"reclaim_policy"`      // Retain/Delete/Recycle
+	StorageClassName  string `json:"storage_class_name"`
+	VolumeType        string `json:"volume_type"`         // NFS/HostPath/Local/CSI...
+	VolumeSource      string `json:"volume_source"`       // 具体存储后端信息
+	Status            string `json:"status"`              // Available/Bound/Released/Failed
+	CreatedAt         int64  `json:"created_at"`
+	NodeAffinity      string `json:"node_affinity,omitempty"` // 节点亲和性
+}
+
+// PVCCondition PVC 条件状态
+type PVCCondition struct {
+	Type               string `json:"type"`
+	Status             string `json:"status"`
+	LastTransitionTime int64  `json:"last_transition_time"`
+	Reason             string `json:"reason,omitempty"`
+	Message            string `json:"message,omitempty"`
+}
+
+// StorageEvent 存储事件
+type StorageEvent struct {
+	Type      string `json:"type"`       // Normal/Warning
+	Reason    string `json:"reason"`
+	Message   string `json:"message"`
+	Count     int32  `json:"count"`
+	FirstSeen int64  `json:"first_seen"`
+	LastSeen  int64  `json:"last_seen"`
+}
+
 func NewKubePVCDeleteRequest() *KubePVCDeleteRequest { return &KubePVCDeleteRequest{} }
 
 type KubePVCDeleteRequest struct {

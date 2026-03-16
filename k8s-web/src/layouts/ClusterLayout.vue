@@ -20,90 +20,111 @@
       <aside class="cluster-menu">
         <div class="menu-title">基础</div>
         <a
+          v-if="canView('nodes')"
           class="menu-item"
           :class="{ active: isActive(`/c/${clusterId}/nodes`) }"
           @click="go('nodes')"
         >🖥️ 节点</a>
         <a
+          v-if="canView('namespaces')"
           class="menu-item"
           :class="{ active: isActive(`/c/${clusterId}/namespaces`) }"
           @click="go('namespaces')"
         >📦 命名空间</a>
 
-        <div class="menu-title">工作负载</div>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/workloads/pods`) }"
-          @click="go('workloads/pods')"
-        >🧬 Pods</a>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/workloads/deployments`) }"
-          @click="go('workloads/deployments')"
-        >📌 Deployments</a>
+        <template v-if="canViewGroup('workloads')">
+          <div class="menu-title">工作负载</div>
+          <a
+            v-if="canView('pods')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/workloads/pods`) }"
+            @click="go('workloads/pods')"
+          >🧬 Pods</a>
+          <a
+            v-if="canView('deployments')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/workloads/deployments`) }"
+            @click="go('workloads/deployments')"
+          >📌 Deployments</a>
+          <a 
+            v-if="canView('statefulsets')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/workloads/statefulsets`) }"
+            @click="go('workloads/statefulsets')"
+          >📦 StatefulSets</a>
+          <a 
+            v-if="canView('daemonsets')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/workloads/daemonsets`) }"
+            @click="go('workloads/daemonsets')"
+          >🛰️ DaemonSets</a>
+          <a 
+            v-if="canView('jobs')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/workloads/jobs`) }"
+            @click="go('workloads/jobs')"
+          >🧰 Jobs</a>
+          <a 
+            v-if="canView('cronjobs')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/workloads/cronjobs`) }"
+            @click="go('workloads/cronjobs')"
+          >⏰ CronJobs</a>
+        </template>
 
-        <!-- ✅ 新增 -->
-        <a class="menu-item"
-           :class="{ active: isActive(`/c/${clusterId}/workloads/statefulsets`) }"
-           @click="go('workloads/statefulsets')"
-        >📦 StatefulSets</a>
+        <template v-if="canViewGroup('config')">
+          <div class="menu-title">配置</div>
+          <a
+            v-if="canView('configmaps')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/config/configmaps`) }"
+            @click="go('config/configmaps')"
+          >🧾 ConfigMaps</a>
+          <a
+            v-if="canView('secrets')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/config/secrets`) }"
+            @click="go('config/secrets')"
+          >🔐 Secrets</a>
+        </template>
 
-        <a class="menu-item"
-           :class="{ active: isActive(`/c/${clusterId}/workloads/daemonsets`) }"
-           @click="go('workloads/daemonsets')"
-        >🛰️ DaemonSets</a>
+        <template v-if="canViewGroup('storage')">
+          <div class="menu-title">存储</div>
+          <a
+            v-if="canView('storageclasses')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/storage/storageclasses`) }"
+            @click="go('storage/storageclasses')"
+          >💾 StorageClasses</a>
+          <a
+            v-if="canView('pv')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/storage/persistentvolumes`) }"
+            @click="go('storage/persistentvolumes')"
+          >💾 PV</a>
+          <a
+            v-if="canView('pvc')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/storage/persistentvolumeclaims`) }"
+            @click="go('storage/persistentvolumeclaims')"
+          >💾 PVC</a>
+        </template>
 
-        <a class="menu-item"
-           :class="{ active: isActive(`/c/${clusterId}/workloads/jobs`) }"
-           @click="go('workloads/jobs')"
-        >🧰 Jobs</a>
-
-        <a class="menu-item"
-           :class="{ active: isActive(`/c/${clusterId}/workloads/cronjobs`) }"
-           @click="go('workloads/cronjobs')"
-        >⏰ CronJobs</a>
-
-        <div class="menu-title">配置</div>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/config/configmaps`) }"
-          @click="go('config/configmaps')"
-        >🧾 ConfigMaps</a>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/config/secrets`) }"
-          @click="go('config/secrets')"
-        >🔐 Secrets</a>
-        <div class="menu-title">存储</div>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/storage/storageclasses`) }"
-          @click="go('storage/storageclasses')"
-        >💾 StorageClasses</a>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/storage/persistentvolumes`) }"
-          @click="go('storage/persistentvolumes')"
-        >💾 PV</a>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/storage/persistentvolumeclaims`) }"
-          @click="go('storage/persistentvolumeclaims')"
-        >💾 PVC</a>
-
-        <div class="menu-title">网络</div>
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/networking/services`) }"
-          @click="go('networking/services')"
-        >🌐 Services</a>
-
-        <!-- ✅ 关键修复：路由里是 networking/ingresses（复数） -->
-        <a
-          class="menu-item"
-          :class="{ active: isActive(`/c/${clusterId}/networking/ingresses`) }"
-          @click="go('networking/ingresses')"
-        >🚪 Ingress</a>
+        <template v-if="canViewGroup('networking')">
+          <div class="menu-title">网络</div>
+          <a
+            v-if="canView('services')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/networking/services`) }"
+            @click="go('networking/services')"
+          >🌐 Services</a>
+          <a
+            v-if="canView('ingress')"
+            class="menu-item"
+            :class="{ active: isActive(`/c/${clusterId}/networking/ingresses`) }"
+            @click="go('networking/ingresses')"
+          >🚪 Ingress</a>
+        </template>
       </aside>
 
       <!-- 资源页内容 -->
@@ -118,10 +139,106 @@
 import {computed, watchEffect} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useClusterStore} from '@/stores/cluster'
+import permissionStore from '@/stores/permission'
 
 const route = useRoute()
 const router = useRouter()
 const clusterStore = useClusterStore()
+
+/**
+ * 基于实际授权的集群资源权限配置
+ * 参考 Rancher/Kuboard/KubeSphere 权限模型
+ * 
+ * 角色权限层级：
+ * - cluster_admin: 集群完整权限，可查看所有资源
+ * - developer: 开发者权限，可查看常用工作负载、服务、配置
+ * - viewer: 只读权限，仅查看基础资源
+ * - cicd_admin: CI/CD管理员，可查看部署相关资源
+ */
+const ROLE_RESOURCE_MAP = {
+  // 集群管理员 - 所有资源
+  cluster_admin: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pv', 'pvc', 'storageclasses',
+    'configmaps', 'secrets', 'namespaces', 'nodes'
+  ],
+  // 开发者 - 常用资源（劅除节点、存储类等集群级资源）
+  developer: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pvc', 'configmaps', 'secrets', 'namespaces'
+  ],
+  // 只读 - 可查看所有资源（与 cluster_admin 相同，但无操作权限）
+  viewer: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pv', 'pvc', 'storageclasses',
+    'configmaps', 'secrets', 'namespaces', 'nodes'
+  ],
+  // CI/CD管理员 - 部署相关
+  cicd_admin: [
+    'pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs',
+    'services', 'ingress', 'pvc', 'configmaps', 'secrets', 'namespaces'
+  ]
+}
+
+// 资源分组
+const resourceGroups = {
+  workloads: ['pods', 'deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs'],
+  config: ['configmaps', 'secrets'],
+  storage: ['storageclasses', 'pv', 'pvc'],
+  networking: ['services', 'ingress']
+}
+
+/**
+ * 获取用户的最高角色类型
+ */
+const userHighestRole = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return 'super_admin'
+  
+  const roleTypes = permissionStore.roleTypes.value
+  
+  // 角色优先级
+  if (roleTypes.includes('super_admin')) return 'super_admin'
+  if (roleTypes.includes('platform_admin')) return 'platform_admin'
+  if (roleTypes.includes('cluster_admin')) return 'cluster_admin'
+  if (roleTypes.includes('cicd_admin')) return 'cicd_admin'
+  if (roleTypes.includes('developer')) return 'developer'
+  if (roleTypes.includes('viewer')) return 'viewer'
+  
+  return null
+})
+
+/**
+ * 获取用户可查看的资源列表
+ */
+const userAccessibleResources = computed(() => {
+  const role = userHighestRole.value
+  if (!role) return []
+  
+  // super_admin/platform_admin 等同于 cluster_admin
+  if (role === 'super_admin' || role === 'platform_admin') {
+    return ROLE_RESOURCE_MAP.cluster_admin
+  }
+  
+  return ROLE_RESOURCE_MAP[role] || []
+})
+
+/**
+ * 检查是否有权限查看资源（基于实际授权）
+ */
+const canView = (resource) => {
+  if (permissionStore.state.isSuperAdmin) return true
+  return userAccessibleResources.value.includes(resource)
+}
+
+/**
+ * 检查是否有权限查看资源分组（分组中至少有一个资源可见）
+ */
+const canViewGroup = (group) => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const resources = resourceGroups[group]
+  if (!resources) return true
+  return resources.some(r => canView(r))
+}
 
 // 1) 路由参数 clusterId（数字）
 const clusterId = computed(() => Number(route.params.clusterId))

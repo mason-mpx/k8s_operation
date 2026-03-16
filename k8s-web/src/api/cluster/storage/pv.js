@@ -57,6 +57,15 @@ const pvApi = {
   },
 
   /**
+   * PersistentVolume 增强详情（包含关联 PVC 信息、事件等）
+   * @param {Object} params
+   * @param {string} params.name - PV 名称
+   */
+  detailEnhanced(params) {
+    return http.get(`${K8S_BASE}/pv/detail-enhanced`, { params })
+  },
+
+  /**
    * 删除 PersistentVolume
    * @param {Object} params
    * @param {string} params.name - PV 名称

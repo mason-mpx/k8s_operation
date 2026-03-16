@@ -85,7 +85,9 @@ func VaildUserCreateRequest(data interface{}, ctx *gin.Context) map[string][]str
 type UserUpdateRequest struct {
 	ID       uint32 `json:"id" form:"id" valid:"id"`
 	Username string `json:"username" form:"username" valid:"username"`
-	Password string `json:"password" form:"password" valid:"password"`
+	Password string `json:"password,omitempty" form:"password"`
+	Role     string `json:"role,omitempty" form:"role"`
+	Status   int8   `json:"status" form:"status"`
 }
 
 func NewUserUpdateRequest() *UserUpdateRequest {
@@ -101,7 +103,6 @@ func ValidUserUpdateRequest(data interface{}, ctx *gin.Context) map[string][]str
 			"required",
 			fmt.Sprintf("not_exists:user,username,except_id=%d", req.ID),
 		},
-		"password": []string{"required", "min:6"},
 	}
 
 	messages := govalidator.MapData{
@@ -109,13 +110,15 @@ func ValidUserUpdateRequest(data interface{}, ctx *gin.Context) map[string][]str
 			"required: 用户名为必填字段,字段为 username",
 			"not_exists: 用户名已存在",
 		},
-		"password": []string{
-			"required: 密码为必填字段,字段为 password",
-			"min: 密码长度需大于 6",
-		},
 		"id": []string{
 			"required: 用户ID是必填项, 字段为 id",
 		},
+	}
+
+	// 如果提供了密码，则验证密码长度
+	if req.Password != "" {
+		rules["password"] = []string{"min:6"}
+		messages["password"] = []string{"min: 密码长度需大于 6"}
 	}
 
 	return valid.ValidateOptions(data, rules, messages)
@@ -123,6 +126,8 @@ func ValidUserUpdateRequest(data interface{}, ctx *gin.Context) map[string][]str
 
 type UserListRequest struct {
 	Username string `json:"username,omitempty" form:"username"`
+	Role     string `json:"role,omitempty" form:"role" description:"角色筛选"`
+	Status   string `json:"status,omitempty" form:"status" description:"状态筛选"`
 	Page     int    `json:"page,omitempty" form:"page" valid:"page" description:"页码"`
 	Limit    int    `json:"limit,omitempty" form:"limit" valid:"limit" description:"每页数量"`
 }

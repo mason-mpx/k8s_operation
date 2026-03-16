@@ -28,6 +28,17 @@ export default {
   },
 
   /**
+   * 获取 PVC 增强详情（包含关联 PV 信息、事件等）
+   */
+  detailEnhanced(params) {
+    return request({
+      url: `${K8S_BASE}/pvc/detail-enhanced`,
+      method: 'get',
+      params
+    })
+  },
+
+  /**
    * 创建 PVC（表单模式）
    */
   create(data) {

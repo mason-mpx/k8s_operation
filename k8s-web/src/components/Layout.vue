@@ -211,28 +211,46 @@ const handleLogout = async () => {
 
 /**
  * 菜单权限配置
- * roles: 允许访问的角色列表，'*' 表示所有角色
+ * 角色分类:
+ *   - super_admin: 超级管理员，全部权限
+ *   - platform_admin: 平台管理员
+ *   - cluster_admin: 集群管理员
+ *   - cicd_admin: CI/CD 管理员
+ *   - developer: 开发人员
+ *   - viewer: 只读用户
  */
 const menuPermissions = {
-  // 平台管理
-  '/platform/health': ['super_admin', 'platform_admin'],
+  // ==================== 平台管理 ====================
+  '/clusters': ['super_admin', 'platform_admin', 'cluster_admin', 'cicd_admin', 'developer', 'viewer'],
+  '/platform/health': ['super_admin', 'platform_admin', 'cluster_admin'],
   '/platform/settings': ['super_admin', 'platform_admin'],
+  '/platform/appstore': ['super_admin', 'platform_admin', 'cluster_admin'],
   
-  // 安全管理
+  // ==================== 用户与权限管理 ====================
   '/users': ['super_admin', 'platform_admin'],
-    '/user-permissions': ['super_admin', 'platform_admin'],
+  '/user-permissions': ['super_admin', 'platform_admin'],
   '/rbac': ['super_admin', 'platform_admin'],
-  '/security/audit': ['super_admin', 'platform_admin'],
-  '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin'],
   
-  // CI/CD
+  // ==================== 安全审计 ====================
+  '/security/audit': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
+  '/security/rbac/permission-check': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
+  
+  // ==================== CI/CD 流水线 ====================
+  '/cicd/pipelines': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
+  '/cicd/releases': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
   '/cicd/templates': ['super_admin', 'platform_admin'],
+  '/cicd/approvals': ['super_admin', 'platform_admin', 'cicd_admin'],
   
-  // 镜像管理
+  // ==================== 镜像管理 ====================
   '/images/repositories': ['super_admin', 'platform_admin'],
-  '/images/cleanup': ['super_admin', 'platform_admin']
+  '/images/browse': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer', 'viewer'],
+  '/images/cleanup': ['super_admin', 'platform_admin'],
+  
+  // ==================== 环境管理 ====================
+  '/environments': ['super_admin', 'platform_admin', 'cluster_admin', 'developer']
 }
 
 /**
@@ -306,12 +324,13 @@ const menuGroupsConfig = reactive([
   {
     name: 'CI/CD',
     icon: '⚡',
-    count: 3,
+    count: 4,
     collapsed: true,
     match: ['/cicd'],
     items: [
       { path: '/cicd/pipelines', label: '流水线管理' },
       { path: '/cicd/releases', label: '发布管理' },
+      { path: '/cicd/approvals', label: '审批管理' },
       { path: '/cicd/templates', label: '流水线模板' },
     ],
   },

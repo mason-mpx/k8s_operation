@@ -31,7 +31,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -71,7 +71,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建 PV</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建 PV</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -161,7 +161,7 @@
                 <button class="action-btn icon-only" @click="viewYaml(pv)" title="查看YAML">
                   📝
                 </button>
-                <button class="action-btn icon-only danger" @click="confirmDelete(pv)" title="删除">
+                <button v-if="canOperate" class="action-btn icon-only danger" @click="confirmDelete(pv)" title="删除">
                   🗑️
                 </button>
                 
@@ -184,7 +184,7 @@
                       <span>下载 YAML</span>
                     </button>
                     <button 
-                      v-if="pv.reclaimPolicy !== 'Retain'"
+                      v-if="canOperate && pv.reclaimPolicy !== 'Retain'"
                       class="menu-item" 
                       @click="changeReclaimPolicy(pv)"
                     >
@@ -548,58 +548,216 @@
       </div>
     </div>
 
-    <!-- 详情模态框 -->
-    <div v-if="showDetailModal" class="modal-overlay" @click="showDetailModal = false">
-      <div class="modal-content large" @click.stop>
-        <div class="modal-header">
-          <h2>PV 详情 - {{ selectedPV?.name }}</h2>
-          <button class="close-btn" @click="showDetailModal = false">&times;</button>
+    <!-- PV 详情抽屉（大厂风格） -->
+    <div v-if="showDetailModal" class="detail-drawer-overlay" @click.self="showDetailModal = false">
+      <div class="detail-drawer">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <span class="drawer-icon">💾</span>
+            <span>PV 详情</span>
+            <span v-if="selectedPV" class="drawer-name">{{ selectedPV.name }}</span>
+          </div>
+          <button class="drawer-close" @click="showDetailModal = false">&times;</button>
         </div>
-        <div class="modal-body">
-          <div class="detail-section">
-            <h3>基本信息</h3>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="label">名称:</span>
-                <span class="value">{{ selectedPV?.name }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">状态:</span>
-                <span class="status-indicator" :class="getStatusClass(selectedPV?.status)">
-                  {{ selectedPV?.status }}
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="label">容量:</span>
-                <span class="value">{{ selectedPV?.capacity }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">访问模式:</span>
-                <span class="value">{{ selectedPV?.accessModes }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">回收策略:</span>
-                <span class="reclaim-badge" :class="getReclaimClass(selectedPV?.reclaimPolicy)">
-                  {{ selectedPV?.reclaimPolicy }}
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="label">StorageClass:</span>
-                <span class="value">{{ selectedPV?.storageClassName || '-' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">绑定的 PVC:</span>
-                <span class="value">{{ selectedPV?.claimRef || '-' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">创建时间:</span>
-                <span class="value">{{ selectedPV?.createdAt }}</span>
+        
+        <div class="drawer-body">
+          <div v-if="detailLoading" class="drawer-loading">
+            <div class="loading-spinner"></div>
+            <span>加载中...</span>
+          </div>
+          
+          <template v-else-if="pvEnhancedDetail">
+            <!-- 状态卡片 -->
+            <div class="detail-status-card" :class="pvEnhancedDetail.status_color">
+              <div class="status-main">
+                <span class="status-phase">{{ pvEnhancedDetail.phase }}</span>
+                <span class="status-message">{{ pvEnhancedDetail.status_message }}</span>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showDetailModal = false">关闭</button>
+
+            <!-- 基本信息 -->
+            <div class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">📋</span>
+                <span>基本信息</span>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="item-label">名称</span>
+                  <span class="item-value">{{ pvEnhancedDetail.name }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">UID</span>
+                  <span class="item-value uid">{{ pvEnhancedDetail.uid }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">创建时间</span>
+                  <span class="item-value">{{ formatTimestamp(pvEnhancedDetail.created_at) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 存储信息 -->
+            <div class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">💾</span>
+                <span>存储信息</span>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="item-label">容量</span>
+                  <span class="item-value highlight">{{ pvEnhancedDetail.capacity || '-' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">回收策略</span>
+                  <span class="item-value" :class="pvEnhancedDetail.reclaim_policy?.toLowerCase()">{{ pvEnhancedDetail.reclaim_policy }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">访问模式</span>
+                  <span class="item-value">
+                    <span v-for="mode in (pvEnhancedDetail.access_modes || [])" :key="mode" class="mode-tag">{{ mode }}</span>
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">卷模式</span>
+                  <span class="item-value">{{ pvEnhancedDetail.volume_mode || 'Filesystem' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">存储类</span>
+                  <span class="item-value">{{ pvEnhancedDetail.storage_class_name || '默认' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 存储后端 -->
+            <div class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">🖥️</span>
+                <span>存储后端</span>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="item-label">卷类型</span>
+                  <span class="item-value">{{ pvEnhancedDetail.volume_type }}</span>
+                </div>
+                <div class="detail-item full-width">
+                  <span class="item-label">存储源</span>
+                  <span class="item-value source">{{ pvEnhancedDetail.volume_source }}</span>
+                </div>
+                <div v-if="pvEnhancedDetail.node_affinity" class="detail-item full-width">
+                  <span class="item-label">节点亲和性</span>
+                  <span class="item-value">{{ pvEnhancedDetail.node_affinity }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 绑定的 PVC 信息 -->
+            <div v-if="pvEnhancedDetail.bound_pvc" class="detail-section pvc-section">
+              <div class="section-title">
+                <span class="section-icon">🔗</span>
+                <span>绑定的 PVC</span>
+                <span class="bound-status success">已绑定</span>
+              </div>
+              <div class="pvc-card">
+                <div class="pvc-header">
+                  <span class="pvc-name">{{ pvEnhancedDetail.bound_pvc.namespace }}/{{ pvEnhancedDetail.bound_pvc.name }}</span>
+                  <span class="pvc-status" :class="pvEnhancedDetail.bound_pvc.status?.toLowerCase()">{{ pvEnhancedDetail.bound_pvc.status }}</span>
+                </div>
+                <div class="detail-grid">
+                  <div class="detail-item">
+                    <span class="item-label">请求容量</span>
+                    <span class="item-value">{{ pvEnhancedDetail.bound_pvc.request_storage }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="item-label">访问模式</span>
+                    <span class="item-value">
+                      <span v-for="mode in (pvEnhancedDetail.bound_pvc.access_modes || [])" :key="mode" class="mode-tag-sm">{{ mode }}</span>
+                    </span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="item-label">存储类</span>
+                    <span class="item-value">{{ pvEnhancedDetail.bound_pvc.storage_class_name || '-' }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="item-label">创建时间</span>
+                    <span class="item-value">{{ formatTimestamp(pvEnhancedDetail.bound_pvc.created_at) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="detail-section pvc-section">
+              <div class="section-title">
+                <span class="section-icon">🔗</span>
+                <span>绑定的 PVC</span>
+                <span class="bound-status available">未绑定</span>
+              </div>
+              <div class="empty-pvc">
+                <span class="empty-icon">ℹ️</span>
+                <span>PV 当前未绑定到任何 PVC，可用于新的 PVC 绑定</span>
+              </div>
+            </div>
+
+            <!-- 最近事件 -->
+            <div v-if="pvEnhancedDetail.recent_events && pvEnhancedDetail.recent_events.length > 0" class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">📜</span>
+                <span>最近事件</span>
+              </div>
+              <div class="events-list">
+                <div v-for="(ev, idx) in pvEnhancedDetail.recent_events" :key="idx" class="event-item" :class="ev.type?.toLowerCase()">
+                  <div class="event-header">
+                    <span class="event-type">{{ ev.type }}</span>
+                    <span class="event-reason">{{ ev.reason }}</span>
+                    <span class="event-count" v-if="ev.count > 1">x{{ ev.count }}</span>
+                  </div>
+                  <div class="event-message">{{ ev.message }}</div>
+                  <div class="event-time">{{ formatTimestamp(ev.last_seen) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 标签 -->
+            <div v-if="pvEnhancedDetail.labels && Object.keys(pvEnhancedDetail.labels).length > 0" class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">🏷️</span>
+                <span>标签</span>
+              </div>
+              <div class="labels-container">
+                <span v-for="(val, key) in pvEnhancedDetail.labels" :key="key" class="label-tag">
+                  {{ key }}={{ val }}
+                </span>
+              </div>
+            </div>
+          </template>
+          
+          <!-- 加载失败时显示基础信息 -->
+          <template v-else-if="selectedPV && !detailLoading">
+            <div class="detail-section">
+              <div class="section-title">
+                <span class="section-icon">📋</span>
+                <span>基本信息</span>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="item-label">名称</span>
+                  <span class="item-value">{{ selectedPV.name }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">状态</span>
+                  <span class="item-value">{{ selectedPV.status }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">容量</span>
+                  <span class="item-value">{{ selectedPV.capacity }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="item-label">回收策略</span>
+                  <span class="item-value">{{ selectedPV.reclaimPolicy }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -662,6 +820,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import pvApi from '@/api/cluster/storage/pv'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // =============== 状态管理 ===============
 const pvs = ref([])
@@ -698,6 +866,10 @@ const showDeleteModal = ref(false)
 const showBatchDeleteModal = ref(false)
 const creating = ref(false)
 const yamlSaving = ref(false)
+
+// PV 增强详情
+const detailLoading = ref(false)
+const pvEnhancedDetail = ref(null)
 
 // 创建相关
 const createMode = ref('form')
@@ -1103,9 +1275,22 @@ const resetCreateForm = () => {
   createYamlError.value = ''
 }
 
-const viewDetail = (pv) => {
+const viewDetail = async (pv) => {
   selectedPV.value = pv
   showDetailModal.value = true
+  detailLoading.value = true
+  pvEnhancedDetail.value = null
+  
+  try {
+    const res = await pvApi.detailEnhanced({ name: pv.name })
+    if (res.code === 0) {
+      pvEnhancedDetail.value = res.data
+    }
+  } catch (error) {
+    console.error('获取 PV 详情失败:', error)
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 const viewYaml = async (pv) => {
@@ -1226,6 +1411,20 @@ const getReclaimClass = (policy) => {
     'Recycle': 'recycle'
   }
   return map[policy] || ''
+}
+
+// 格式化时间戳
+const formatTimestamp = (ts) => {
+  if (!ts || ts <= 0) return '-'
+  const d = new Date(ts * 1000)
+  return d.toLocaleString('zh-CN', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
 // =============== 自动刷新 ===============
@@ -2450,5 +2649,392 @@ onUnmounted(() => {
   .detail-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================
+   PV 详情抽屉样式（大厂风格）
+   ========================== */
+.detail-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detail-drawer {
+  width: 560px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #fff;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #326ce5 0%, #1e4db7 100%);
+  color: #fff;
+}
+
+.drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.drawer-icon {
+  font-size: 24px;
+}
+
+.drawer-name {
+  font-weight: 400;
+  opacity: 0.9;
+  font-size: 14px;
+  padding: 2px 10px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.drawer-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.drawer-close:hover {
+  opacity: 1;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: #f7fafc;
+}
+
+.drawer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #718096;
+  gap: 16px;
+}
+
+/* 状态卡片 */
+.detail-status-card {
+  padding: 16px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.detail-status-card.success {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+}
+
+.detail-status-card.warning {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+}
+
+.detail-status-card.error {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+}
+
+.detail-status-card.default {
+  background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-phase {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.status-message {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 详情区块 */
+.detail-section {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.section-icon {
+  font-size: 18px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.item-label {
+  font-size: 12px;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.item-value {
+  font-size: 14px;
+  color: #2d3748;
+  word-break: break-all;
+}
+
+.item-value.highlight {
+  font-size: 18px;
+  font-weight: 600;
+  color: #326ce5;
+}
+
+.item-value.uid {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #718096;
+}
+
+.item-value.retain { color: #38a169; }
+.item-value.delete { color: #e53e3e; }
+.item-value.source {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #718096;
+}
+
+.mode-tag, .mode-tag-sm {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+.mode-tag-sm {
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+/* PVC 卡片 */
+.bound-status {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bound-status.success {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.bound-status.available {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.pvc-card {
+  background: #f0f4f8;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.pvc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #cbd5e0;
+}
+
+.pvc-name {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 15px;
+}
+
+.pvc-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pvc-status.bound {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.pvc-status.pending {
+  background: #feebc8;
+  color: #c05621;
+}
+
+.empty-pvc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: #ebf8ff;
+  border-radius: 8px;
+  color: #2b6cb0;
+  font-size: 14px;
+}
+
+.empty-icon {
+  font-size: 20px;
+}
+
+/* 事件列表 */
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.event-item {
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.event-item.normal {
+  background: #f0fff4;
+  border-color: #48bb78;
+}
+
+.event-item.warning {
+  background: #fffaf0;
+  border-color: #ed8936;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.event-type {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.event-item.normal .event-type {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.event-item.warning .event-type {
+  background: #feebc8;
+  color: #c05621;
+}
+
+.event-reason {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.event-count {
+  font-size: 11px;
+  color: #718096;
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.event-message {
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.5;
+}
+
+.event-time {
+  font-size: 12px;
+  color: #a0aec0;
+  margin-top: 6px;
+}
+
+/* 标签 */
+.labels-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.label-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #edf2f7;
+  color: #4a5568;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
 }
 </style>

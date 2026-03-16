@@ -34,7 +34,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -42,7 +42,7 @@
           ☑️ 批量操作
         </button>
         <button 
-          v-if="batchMode" 
+          v-if="canOperate && batchMode" 
           class="btn btn-secondary" 
           @click="exitBatchMode"
         >
@@ -74,7 +74,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建Job</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建Job</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -236,7 +236,7 @@
                   📋
                 </button>
                 <button 
-                  v-if="job.status !== 'Complete'"
+                  v-if="canOperate && job.status !== 'Complete'"
                   class="action-btn icon-only"
                   @click="restartJob(job)"
                   title="重启Job"
@@ -260,20 +260,22 @@
                       <span class="menu-icon">📝</span>
                       <span>查看YAML</span>
                     </button>
-                    <button class="menu-item" @click="suspendJob(job)" v-if="job.status !== 'Complete' && job.status !== 'Failed'">
-                      <span class="menu-icon">⏸️</span>
-                      <span>{{ job.suspend ? '恢复' : '暂停' }}</span>
-                    </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" @click="restartJob(job)">
-                      <span class="menu-icon">🔄</span>
-                      <span>重新运行</span>
-                    </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item danger" @click="deleteJob(job)">
-                      <span class="menu-icon">🗑️</span>
-                      <span>删除</span>
-                    </button>
+                    <template v-if="canOperate">
+                      <button class="menu-item" @click="suspendJob(job)" v-if="job.status !== 'Complete' && job.status !== 'Failed'">
+                        <span class="menu-icon">⏸️</span>
+                        <span>{{ job.suspend ? '恢复' : '暂停' }}</span>
+                      </button>
+                      <div class="menu-divider"></div>
+                      <button class="menu-item" @click="restartJob(job)">
+                        <span class="menu-icon">🔄</span>
+                        <span>重新运行</span>
+                      </button>
+                      <div class="menu-divider"></div>
+                      <button class="menu-item danger" @click="deleteJob(job)">
+                        <span class="menu-icon">🗑️</span>
+                        <span>删除</span>
+                      </button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -356,8 +358,8 @@
 
         <div class="card-footer">
           <button class="card-btn primary" @click="viewJobDetail(job)">📋 详情</button>
-          <button class="card-btn" @click="restartJob(job)">🔄 重启</button>
-          <button class="card-btn danger" @click="deleteJob(job)">🗑️ 删除</button>
+          <button v-if="canOperate" class="card-btn" @click="restartJob(job)">🔄 重启</button>
+          <button v-if="canOperate" class="card-btn danger" @click="deleteJob(job)">🗑️ 删除</button>
         </div>
       </div>
 
@@ -1268,6 +1270,18 @@ import Pagination from '@/components/Pagination.vue'
 import jobsApi from '@/api/cluster/workloads/jobs'
 import namespacesApi from '@/api/cluster/namespaces'
 import namespaceApi from '@/api/cluster/config/namespace'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // =========================
 // 状态管理

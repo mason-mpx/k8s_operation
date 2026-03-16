@@ -24,7 +24,7 @@
       </div>
 
       <div class="action-buttons">
-        <button v-if="!batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">☑️ 批量操作</button>
+        <button v-if="canOperate && !batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">☑️ 批量操作</button>
         <button v-if="batchMode" class="btn btn-secondary" @click="exitBatchMode">✖️ 退出批量</button>
 
         <div class="view-toggle">
@@ -37,7 +37,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建 DaemonSet</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建 DaemonSet</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">{{ loading ? '加载中...' : '🔄 刷新' }}</button>
       </div>
     </div>
@@ -103,9 +103,9 @@
               </div>
             </td>
             <td>
-              <div class="image-text clickable" @click="startInlineImage(ds)" title="点击修改镜像">
+              <div class="image-text" :class="{ clickable: canOperate }" @click="canOperate && startInlineImage(ds)" :title="canOperate ? '点击修改镜像' : ds.image">
                 <span class="image-name">{{ ds.image || '-' }}</span>
-                <span class="edit-icon">✏️</span>
+                <span v-if="canOperate" class="edit-icon">✏️</span>
               </div>
             </td>
             <td>
@@ -123,16 +123,16 @@
                   <div v-if="showMoreOptions && selectedDaemonset === ds" class="more-menu" :style="menuStyle">
                     <button class="menu-item" @click="viewDaemonsetLogs(ds)"><span class="menu-icon">📄</span><span>查看日志</span></button>
                     <button class="menu-item" @click="viewHistory(ds)"><span class="menu-icon">📜</span><span>版本记录</span></button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" @click="restartDaemonset(ds)"><span class="menu-icon">🔄</span><span>重启</span></button>
-                    <button class="menu-item" @click="openUpdateImage(ds)"><span class="menu-icon">🔧</span><span>更新镜像</span></button>
-                    <button class="menu-item" @click="openRollback(ds)"><span class="menu-icon">⏪</span><span>回滚</span></button>
+                    <div v-if="canOperate" class="menu-divider"></div>
+                    <button v-if="canOperate" class="menu-item" @click="restartDaemonset(ds)"><span class="menu-icon">🔄</span><span>重启</span></button>
+                    <button v-if="canOperate" class="menu-item" @click="openUpdateImage(ds)"><span class="menu-icon">🔧</span><span>更新镜像</span></button>
+                    <button v-if="canOperate" class="menu-item" @click="openRollback(ds)"><span class="menu-icon">⏪</span><span>回滚</span></button>
                     <div class="menu-divider"></div>
                     <button class="menu-item" @click="viewDaemonset(ds)"><span class="menu-icon">📋</span><span>查看详情</span></button>
                     <button class="menu-item" @click="openEvents(ds)"><span class="menu-icon">📡</span><span>查看事件</span></button>
                     <button class="menu-item" @click="openYamlPreview(ds)"><span class="menu-icon">📝</span><span>查看/编辑 YAML</span></button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item danger" @click="deleteDaemonset(ds)"><span class="menu-icon">🗑️</span><span>删除</span></button>
+                    <div v-if="canOperate" class="menu-divider"></div>
+                    <button v-if="canOperate" class="menu-item danger" @click="deleteDaemonset(ds)"><span class="menu-icon">🗑️</span><span>删除</span></button>
                   </div>
                 </div>
               </div>
@@ -182,9 +182,9 @@
             </div>
             <div class="card-section">
               <div class="section-label">镜像</div>
-              <div class="image-text clickable" @click="startInlineImage(ds)" title="点击修改镜像">
+              <div class="image-text" :class="{ clickable: canOperate }" @click="canOperate && startInlineImage(ds)" :title="canOperate ? '点击修改镜像' : ds.image">
                 <span class="image-name">{{ ds.image || '-' }}</span>
-                <span class="edit-icon">✏️</span>
+                <span v-if="canOperate" class="edit-icon">✏️</span>
               </div>
             </div>
             <div class="card-section">
@@ -209,7 +209,7 @@
             <button class="card-action-btn" @click="viewDaemonsetLogs(ds)" title="查看日志">📄 日志</button>
             <button class="card-action-btn" @click="viewHistory(ds)" title="版本记录">📜 版本</button>
             <button class="card-action-btn" @click="openYamlPreview(ds)" title="查看/编辑 YAML">📝 YAML</button>
-            <button class="card-action-btn danger" @click="deleteDaemonset(ds)" title="删除">🗑️ 删除</button>
+            <button v-if="canOperate" class="card-action-btn danger" @click="deleteDaemonset(ds)" title="删除">🗑️ 删除</button>
           </div>
         </div>
       </div>
@@ -832,6 +832,27 @@ import daemonsetsApi from '@/api/cluster/workloads/daemonsets'
 import podsApi from '@/api/cluster/workloads/pods'
 import namespaceApi from '@/api/cluster/config/namespace'
 import { useClusterStore } from '@/stores/cluster'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // ===== 获取认证头 =====
 const getAuthHeaders = () => {

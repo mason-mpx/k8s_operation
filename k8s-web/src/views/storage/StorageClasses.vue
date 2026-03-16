@@ -11,7 +11,7 @@
       </div>
 
       <div class="action-buttons">
-        <button v-if="!batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">
+        <button v-if="canOperate && !batchMode" class="btn btn-batch" @click="enterBatchMode" title="进入批量操作模式">
           ☑️ 批量操作
         </button>
         <button v-if="batchMode" class="btn btn-secondary" @click="exitBatchMode">
@@ -23,7 +23,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="openCreateModal">创建 StorageClass</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreateModal">创建 StorageClass</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -114,7 +114,7 @@
                       <span>下载 YAML</span>
                     </button>
                     <div class="menu-divider"></div>
-                    <button class="menu-item danger" @click="deleteItem(sc)">
+                    <button v-if="canOperate" class="menu-item danger" @click="deleteItem(sc)">
                       <span class="menu-icon">🗑️</span>
                       <span>删除</span>
                     </button>
@@ -385,6 +385,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import storageclassesApi from '@/api/cluster/storage/storageclasses'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // =============== 状态管理 ===============
 const storageClasses = ref([])

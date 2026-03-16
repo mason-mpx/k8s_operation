@@ -124,9 +124,19 @@ const state = reactive({
 
 /**
  * 获取用户的角色类型列表
+ * 包含平台角色和集群权限中的角色类型
  */
 const roleTypes = computed(() => {
-  return state.roles.map(r => r.role_type || r.name)
+  // 平台角色
+  const platformRoles = state.roles.map(r => r.role_type || r.name)
+  
+  // 集群权限中的角色类型
+  const clusterRoles = Object.values(state.clusterPermissions)
+    .map(p => p.role_type)
+    .filter(Boolean)
+  
+  // 合并去重
+  return [...new Set([...platformRoles, ...clusterRoles])]
 })
 
 /**

@@ -34,7 +34,7 @@
       <div class="action-buttons">
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -74,7 +74,7 @@
           <span>自动刷新</span>
           <span v-if="autoRefresh" class="refresh-indicator">●</span>
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建Secret</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建Secret</button>
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '加载中...' : '🔄 刷新' }}
         </button>
@@ -186,7 +186,7 @@
                 <button class="action-btn icon-only" @click="viewYaml(secret)" title="查看YAML">
                   📝
                 </button>
-                <button class="action-btn icon-only danger" @click="confirmDelete(secret)" title="删除">
+                <button v-if="canOperate" class="action-btn icon-only danger" @click="confirmDelete(secret)" title="删除">
                   🗑️
                 </button>
               </div>
@@ -203,7 +203,7 @@
         <div class="empty-icon">🔍</div>
         <p class="empty-title">暂无Secret数据</p>
         <p class="empty-desc">当前筛选条件下没有找到Secret，试试调整筛选条件或创建新的Secret</p>
-        <button class="btn btn-primary" @click="showCreateModal = true" style="margin-top: 16px;">
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true" style="margin-top: 16px;">
           创建第一个Secret
         </button>
       </div>
@@ -255,7 +255,7 @@
         <div class="card-footer">
           <button class="card-btn primary" @click="viewSecret(secret)">📋 详情</button>
           <button class="card-btn" @click="decodeSecret(secret)">🔓 解码</button>
-          <button class="card-btn danger" @click="confirmDelete(secret)">🗑️ 删除</button>
+          <button v-if="canOperate" class="card-btn danger" @click="confirmDelete(secret)">🗑️ 删除</button>
         </div>
       </div>
 
@@ -267,7 +267,7 @@
         <div class="empty-icon">🔍</div>
         <p class="empty-title">暂无Secret数据</p>
         <p class="empty-desc">当前筛选条件下没有找到Secret，试试调整筛选条件或创建新的Secret</p>
-        <button class="btn btn-primary" @click="showCreateModal = true" style="margin-top: 16px;">
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true" style="margin-top: 16px;">
           创建第一个Secret
         </button>
       </div>
@@ -730,6 +730,18 @@ stringData:
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import secretApi from '@/api/cluster/config/secret'
 import namespaceApi from '@/api/cluster/config/namespace'
+import permissionStore from '@/stores/permission'
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 其他角色有操作权限
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+})
 
 // ==================== 状态管理 ====================
 const loading = ref(false)

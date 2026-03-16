@@ -813,6 +813,7 @@ import deploymentsApi from '@/api/cluster/workloads/deployments'
 import statefulsetsApi from '@/api/cluster/workloads/statefulsets'
 import daemonsetsApi from '@/api/cluster/workloads/daemonsets'
 import { useClusterStore } from '@/stores/cluster'
+import permissionStore from '@/stores/permission'
 
 export default {
   name: 'PipelineCreate',
@@ -1197,7 +1198,12 @@ export default {
       try {
         const res = await getClusterList({ page: 1, limit: 100 })
         if (res.code === 0 && res.data) {
-          clusters.value = res.data.list || []
+          // 权限过滤：只显示用户有权限访问的集群
+          const list = res.data.list || []
+          clusters.value = list.filter(c => 
+            permissionStore.state.isSuperAdmin ||
+            permissionStore.state.accessibleClusterIds.includes(c.id)
+          )
         }
       } catch (error) {
         console.error('加载集群失败:', error)

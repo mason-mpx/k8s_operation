@@ -1,4 +1,4 @@
-﻿package auth
+package auth
 
 import (
 	"encoding/json"
@@ -59,6 +59,13 @@ func (u *AuthController) Login(ctx *gin.Context) {
 	if user == nil {
 		global.Logger.Error("用户登录失败,用户不存在")
 		response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
+		return
+	}
+
+	// 用户已被禁用
+	if user.Status == 0 {
+		global.Logger.Error("用户登录失败,账号已禁用", zap.String("username", user.Username))
+		response.ToErrorResponse(errorcode.ErrorUserDisabled)
 		return
 	}
 

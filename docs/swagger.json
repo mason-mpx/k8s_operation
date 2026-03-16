@@ -2865,6 +2865,244 @@
                 }
             }
         },
+        "/api/v1/k8s/cicd/template/create": {
+            "post": {
+                "description": "创建新的流水线模板，可用于快速创建流水线",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Template"
+                ],
+                "summary": "创建流水线模板",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.TemplateCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回 template_id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/template/delete": {
+            "post": {
+                "description": "软删除模板",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Template"
+                ],
+                "summary": "删除流水线模板",
+                "parameters": [
+                    {
+                        "description": "删除参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.TemplateIDRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/template/detail": {
+            "get": {
+                "description": "获取模板的完整配置信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Template"
+                ],
+                "summary": "获取流水线模板详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回模板详情",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/template/list": {
+            "get": {
+                "description": "分页查询模板列表，支持关键字和类型筛选",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Template"
+                ],
+                "summary": "获取流水线模板列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认10",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键字（名称/描述）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型筛选（frontend/backend/microservice/database/custom）",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回列表和总数",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/template/update": {
+            "post": {
+                "description": "更新模板配置信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Template"
+                ],
+                "summary": "更新流水线模板",
+                "parameters": [
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.TemplateUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cluster/create": {
             "post": {
                 "security": [
@@ -8788,6 +9026,56 @@
                 }
             }
         },
+        "/api/v1/k8s/pv/detail-enhanced": {
+            "get": {
+                "description": "获取 PV 的完整详情，包括关联的 PVC 信息、存储后端信息、事件等",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s PV 管理"
+                ],
+                "summary": "获取 PV 增强详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "PV 名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/pv/expand": {
             "post": {
                 "description": "扩大 PersistentVolume 容量（只能扩大不能缩小）",
@@ -9213,6 +9501,63 @@
                     },
                     "400": {
                         "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "资源不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/pvc/detail-enhanced": {
+            "get": {
+                "description": "获取 PVC 的完整详情，包括绑定的 PV 信息、状态、事件等",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s PVC 管理"
+                ],
+                "summary": "获取 PVC 增强详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "PVC 名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -12990,6 +13335,18 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "角色筛选",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "页码",
                         "name": "page",
@@ -15463,6 +15820,87 @@
                 }
             }
         },
+        "requests.TemplateCreateRequest": {
+            "type": "object",
+            "properties": {
+                "default_env_vars": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "deploy_config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "description": {
+                    "type": "string"
+                },
+                "jenkins_template": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "requests.TemplateIDRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "requests.TemplateUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "default_env_vars": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "deploy_config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "jenkins_template": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "requests.UserCreateRequest": {
             "type": "object",
             "properties": {
@@ -15499,6 +15937,12 @@
                 },
                 "password": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 },
                 "username": {
                     "type": "string"

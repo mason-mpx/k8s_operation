@@ -37,7 +37,7 @@ func (d *Dao) UserDelete(id uint32) error {
 }
 
 // UserUpdate 更新用户（密码使用 bcrypt 加密存储）
-func (d *Dao) UserUpdate(id uint32, name, password string) error {
+func (d *Dao) UserUpdate(id uint32, name, password, role string, status int8) error {
 	nowTime := uint32(time.Now().Unix())
 	user := models.User{
 		Base: &models.Base{
@@ -48,6 +48,7 @@ func (d *Dao) UserUpdate(id uint32, name, password string) error {
 	values := map[string]interface{}{
 		"username":    name,
 		"modified_at": nowTime,
+		"status":      status,
 	}
 
 	// 如果提供了新密码，则加密存储
@@ -59,15 +60,19 @@ func (d *Dao) UserUpdate(id uint32, name, password string) error {
 		values["password"] = hashedPassword
 	}
 
+	// 如果提供了角色，则更新
+	if role != "" {
+		values["role"] = role
+	}
+
 	return user.Update(d.db, values)
 }
 
-func (d *Dao) UserList(username string, page, limit int) ([]*models.User, error) {
+func (d *Dao) UserList(username, role, status string, page, limit int) ([]*models.User, int64, error) {
 	user := models.User{
 		Username: username,
 	}
-
-	return user.List(d.db, page, limit)
+	return user.List(d.db, role, status, page, limit)
 }
 
 // UserGetByName 根据用户名获取用户信息

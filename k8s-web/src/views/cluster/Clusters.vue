@@ -361,6 +361,7 @@ import {Message} from '@arco-design/web-vue'
 import {useRouter} from 'vue-router'
 import Pagination from '@/components/Pagination.vue'
 import {useClusterStore} from '@/stores/cluster'
+import permissionStore from '@/stores/permission'
 
 import {
   createCluster,
@@ -482,6 +483,11 @@ const filteredClusters = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
 
   return clusters.value.filter((c) => {
+    // 权限过滤：只显示用户有权限访问的集群
+    const hasPermission = permissionStore.state.isSuperAdmin ||
+      permissionStore.state.accessibleClusterIds.includes(c.id)
+    if (!hasPermission) return false
+
     const hitName = !q || String(c.cluster_name || '').toLowerCase().includes(q)
 
     const s = Number(c.status)

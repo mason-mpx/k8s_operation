@@ -18,6 +18,7 @@ func (r *KubePersistentVolumeRouter) Inject(router *gin.RouterGroup) {
 		router.POST("/create", pv.Create)               // 创建 PV
 		router.GET("/list", pv.List)                     // 获取 PV 列表
 		router.GET("/detail", pv.Detail)                 // 获取 PV 详情
+		router.GET("/detail-enhanced", pv.DetailEnhanced) // 获取增强 PV 详情（含关联 PVC、事件）
 		router.DELETE("/delete", pv.Delete)              // 删除 PV
 		router.PATCH("/reclaim", pv.Reclaim)             // 修改回收策略
 		router.POST("/expand", pv.Expand)                // PV 扩容

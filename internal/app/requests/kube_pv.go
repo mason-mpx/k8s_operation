@@ -124,6 +124,56 @@ func ValidKubePVDetailRequest(data interface{}, _ *gin.Context) map[string][]str
 	})
 }
 
+// PVDetailEnhanced 增强的 PV 详情响应（包含关联 PVC 信息）
+type PVDetailEnhanced struct {
+	// 基本信息
+	Name              string            `json:"name"`
+	UID               string            `json:"uid"`
+	CreatedAt         int64             `json:"created_at"`
+	Labels            map[string]string `json:"labels,omitempty"`
+	Annotations       map[string]string `json:"annotations,omitempty"`
+	
+	// 状态信息
+	Phase             string `json:"phase"`              // Available/Bound/Released/Failed
+	StatusMessage     string `json:"status_message"`     // 状态描述
+	StatusColor       string `json:"status_color"`       // success/warning/error
+	
+	// 存储信息
+	Capacity          string   `json:"capacity"`
+	AccessModes       []string `json:"access_modes"`
+	VolumeMode        string   `json:"volume_mode"`        // Filesystem/Block
+	StorageClassName  string   `json:"storage_class_name"`
+	ReclaimPolicy     string   `json:"reclaim_policy"`     // Retain/Delete/Recycle
+	
+	// 存储后端
+	VolumeType        string `json:"volume_type"`         // NFS/HostPath/Local/CSI...
+	VolumeSource      string `json:"volume_source"`       // 具体存储后端信息
+	
+	// 节点亲和性
+	NodeAffinity      string `json:"node_affinity,omitempty"`
+	
+	// 关联的 PVC 信息
+	BoundPVC          *BoundPVCInfo `json:"bound_pvc,omitempty"`
+	
+	// 条件状态
+	Reason            string `json:"reason,omitempty"`
+	Message           string `json:"message,omitempty"`
+	
+	// 事件摘要
+	RecentEvents      []StorageEvent `json:"recent_events,omitempty"`
+}
+
+// BoundPVCInfo 绑定的 PVC 信息
+type BoundPVCInfo struct {
+	Name              string   `json:"name"`
+	Namespace         string   `json:"namespace"`
+	RequestStorage    string   `json:"request_storage"`
+	AccessModes       []string `json:"access_modes"`
+	StorageClassName  string   `json:"storage_class_name"`
+	Status            string   `json:"status"`              // Pending/Bound/Lost
+	CreatedAt         int64    `json:"created_at"`
+}
+
 func NewKubePVDeleteRequest() *KubePVDeleteRequest { return &KubePVDeleteRequest{} }
 
 type KubePVDeleteRequest struct {

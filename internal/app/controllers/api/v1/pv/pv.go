@@ -1,4 +1,4 @@
-﻿package pv
+package pv
 
 import (
 	"fmt"
@@ -139,6 +139,38 @@ func (c *KubePVController) Detail(ctx *gin.Context) {
 		"status":           pvDetail.Status.Phase,
 		"created_at":       pvDetail.CreationTimestamp,
 	})
+}
+
+// DetailEnhanced 获取增强的 PV 详情（包含关联 PVC 信息、事件等）
+// @Summary 获取 PV 增强详情
+// @Description 获取 PV 的完整详情，包括关联的 PVC 信息、存储后端信息、事件等
+// @Tags K8s PV 管理
+// @Produce json
+// @Param name query string true "PV 名称"
+// @Success 200 {object} response.Response "成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 404 {object} map[string]interface{} "资源不存在"
+// @Failure 500 {object} map[string]interface{} "内部错误"
+// @Router /api/v1/k8s/pv/detail-enhanced [get]
+func (c *KubePVController) DetailEnhanced(ctx *gin.Context) {
+	param := requests.NewKubePVDetailRequest()
+	r := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidKubePVDetailRequest); !ok {
+		return
+	}
+
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+
+	detail, err := svc.KubePVDetailEnhanced(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("service.KubePVDetailEnhanced error", zap.Error(err))
+		return
+	}
+
+	r.Success(detail)
 }
 
 // @Summary 删除 PersistentVolume

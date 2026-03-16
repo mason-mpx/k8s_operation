@@ -7,6 +7,7 @@ var (
 	ErrorUserListFail         *Error
 	ErrorUserNotFound         *Error
 	ErrorUserPasswordNotMatch *Error
+	ErrorUserDisabled         *Error
 )
 
 func registerUser() {
@@ -17,4 +18,5 @@ func registerUser() {
 
 	ErrorUserNotFound = NewError(200005, "用户名不存在")
 	ErrorUserPasswordNotMatch = NewError(200006, "两次密码不一致")
+	ErrorUserDisabled = NewError(200007, "账号已禁用，请联系管理员")
 }

@@ -12,6 +12,7 @@ type CicdRouter struct {
 	environmentCtrl *cicd.EnvironmentController
 	approvalCtrl    *cicd.ApprovalController
 	stageCtrl       *cicd.StageController
+	templateCtrl    *cicd.TemplateController
 }
 
 func NewCicdRouter() *CicdRouter {
@@ -22,6 +23,7 @@ func NewCicdRouter() *CicdRouter {
 		environmentCtrl: cicd.NewEnvironmentController(),
 		approvalCtrl:    cicd.NewApprovalController(),
 		stageCtrl:       cicd.NewStageController(),
+		templateCtrl:    cicd.NewTemplateController(),
 	}
 }
 
@@ -102,5 +104,16 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		stage.POST("/rollback", r.stageCtrl.RollbackDeploy) // 回滚到指定版本
 		stage.GET("/history", r.stageCtrl.GetDeployHistory) // 获取历史版本列表
 		// callback 已移至 cicd_callback_router.go（公开接口，跳过JWT）
+	}
+
+	// ==================== 流水线模板 ====================
+	// /api/v1/k8s/cicd/template/...
+	template := rg.Group("/template")
+	{
+		template.GET("/list", r.templateCtrl.List)       // 获取模板列表
+		template.GET("/detail", r.templateCtrl.Detail)   // 获取模板详情
+		template.POST("/create", r.templateCtrl.Create)  // 创建模板
+		template.POST("/update", r.templateCtrl.Update)  // 更新模板
+		template.POST("/delete", r.templateCtrl.Delete)  // 删除模板
 	}
 }

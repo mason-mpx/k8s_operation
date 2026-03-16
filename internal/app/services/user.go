@@ -17,11 +17,11 @@ func (s *Services) UserDelete(param *requests.CommonIdRequest) error {
 
 // UserUpdate 更新用户
 func (s *Services) UserUpdate(param *requests.UserUpdateRequest) error {
-	return s.dao.UserUpdate(param.ID, param.Username, param.Password)
+	return s.dao.UserUpdate(param.ID, param.Username, param.Password, param.Role, param.Status)
 }
 
-func (s *Services) UserList(param *requests.UserListRequest) ([]*models.User, error) {
-	return s.dao.UserList(param.Username, param.Page, param.Limit)
+func (s *Services) UserList(param *requests.UserListRequest) ([]*models.User, int64, error) {
+	return s.dao.UserList(param.Username, param.Role, param.Status, param.Page, param.Limit)
 }
 
 // MigrateUserPassword 将用户密码迁移到 bcrypt 格式

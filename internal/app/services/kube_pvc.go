@@ -69,6 +69,174 @@ func (s *Services) KubePVCDetail(ctx context.Context, cli *K8sClients, param *re
 	return pvcDetail, nil
 }
 
+// KubePVCDetailEnhanced 获取增强的 PVC 详情（包含绑定的 PV 信息和事件）
+func (s *Services) KubePVCDetailEnhanced(ctx context.Context, cli *K8sClients, param *requests.KubePVCDetailRequest) (*requests.PVCDetailEnhanced, error) {
+	// 1. 获取 PVC 详情
+	pvcObj, err := pvc.GetPVCDetail(ctx, cli.Kube, param.Namespace, param.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 构建增强响应
+	result := &requests.PVCDetailEnhanced{
+		Name:             pvcObj.Name,
+		Namespace:        pvcObj.Namespace,
+		UID:              string(pvcObj.UID),
+		CreatedAt:        pvcObj.CreationTimestamp.Unix(),
+		Labels:           pvcObj.Labels,
+		Annotations:      pvcObj.Annotations,
+		Phase:            string(pvcObj.Status.Phase),
+		StorageClassName: func() string {
+			if pvcObj.Spec.StorageClassName != nil {
+				return *pvcObj.Spec.StorageClassName
+			}
+			return ""
+		}(),
+	}
+
+	// 3. 设置状态信息
+	switch pvcObj.Status.Phase {
+	case corev1.ClaimBound:
+		result.StatusMessage = "已成功绑定到 PV"
+		result.StatusColor = "success"
+	case corev1.ClaimPending:
+		result.StatusMessage = "等待绑定 PV"
+		result.StatusColor = "warning"
+	case corev1.ClaimLost:
+		result.StatusMessage = "PV 已丢失"
+		result.StatusColor = "error"
+	default:
+		result.StatusMessage = string(pvcObj.Status.Phase)
+		result.StatusColor = "default"
+	}
+
+	// 4. 设置存储信息
+	if req := pvcObj.Spec.Resources.Requests[corev1.ResourceStorage]; !req.IsZero() {
+		result.RequestStorage = req.String()
+	}
+	if cap := pvcObj.Status.Capacity[corev1.ResourceStorage]; !cap.IsZero() {
+		result.ActualCapacity = cap.String()
+	}
+
+	// 访问模式
+	for _, mode := range pvcObj.Spec.AccessModes {
+		result.AccessModes = append(result.AccessModes, string(mode))
+	}
+
+	// 卷模式
+	if pvcObj.Spec.VolumeMode != nil {
+		result.VolumeMode = string(*pvcObj.Spec.VolumeMode)
+	} else {
+		result.VolumeMode = "Filesystem"
+	}
+
+	// 5. 获取绑定的 PV 信息
+	if pvcObj.Spec.VolumeName != "" {
+		pvObj, err := cli.Kube.CoreV1().PersistentVolumes().Get(ctx, pvcObj.Spec.VolumeName, metav1.GetOptions{})
+		if err == nil {
+			result.BoundPV = &requests.BoundPVInfo{
+				Name:             pvObj.Name,
+				ReclaimPolicy:    string(pvObj.Spec.PersistentVolumeReclaimPolicy),
+				Status:           string(pvObj.Status.Phase),
+				CreatedAt:        pvObj.CreationTimestamp.Unix(),
+				StorageClassName: pvObj.Spec.StorageClassName,
+			}
+			
+			// 容量
+			if cap := pvObj.Spec.Capacity[corev1.ResourceStorage]; !cap.IsZero() {
+				result.BoundPV.Capacity = cap.String()
+			}
+			
+			// 卷类型和源
+			result.BoundPV.VolumeType, result.BoundPV.VolumeSource = getPVVolumeTypeAndSource(pvObj)
+			
+			// 节点亲和性
+			if pvObj.Spec.NodeAffinity != nil && pvObj.Spec.NodeAffinity.Required != nil {
+				result.BoundPV.NodeAffinity = formatNodeAffinity(pvObj.Spec.NodeAffinity.Required)
+			}
+		}
+	}
+
+	// 6. 获取条件状态
+	for _, cond := range pvcObj.Status.Conditions {
+		result.Conditions = append(result.Conditions, requests.PVCCondition{
+			Type:               string(cond.Type),
+			Status:             string(cond.Status),
+			LastTransitionTime: cond.LastTransitionTime.Unix(),
+			Reason:             cond.Reason,
+			Message:            cond.Message,
+		})
+	}
+
+	// 7. 获取最近事件（最多 5 条）
+	events, _ := cli.Kube.CoreV1().Events(param.Namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s,involvedObject.kind=PersistentVolumeClaim", param.Name),
+		Limit:         5,
+	})
+	if events != nil {
+		for _, ev := range events.Items {
+			result.RecentEvents = append(result.RecentEvents, requests.StorageEvent{
+				Type:      ev.Type,
+				Reason:    ev.Reason,
+				Message:   ev.Message,
+				Count:     ev.Count,
+				FirstSeen: ev.FirstTimestamp.Unix(),
+				LastSeen:  ev.LastTimestamp.Unix(),
+			})
+		}
+	}
+
+	return result, nil
+}
+
+// getPVVolumeTypeAndSource 获取 PV 的卷类型和源信息
+func getPVVolumeTypeAndSource(pv *corev1.PersistentVolume) (volumeType, volumeSource string) {
+	spec := pv.Spec
+	switch {
+	case spec.HostPath != nil:
+		return "HostPath", spec.HostPath.Path
+	case spec.NFS != nil:
+		return "NFS", fmt.Sprintf("%s:%s", spec.NFS.Server, spec.NFS.Path)
+	case spec.Local != nil:
+		return "Local", spec.Local.Path
+	case spec.CSI != nil:
+		return "CSI", spec.CSI.Driver
+	case spec.AWSElasticBlockStore != nil:
+		return "AWSElasticBlockStore", spec.AWSElasticBlockStore.VolumeID
+	case spec.GCEPersistentDisk != nil:
+		return "GCEPersistentDisk", spec.GCEPersistentDisk.PDName
+	case spec.AzureDisk != nil:
+		return "AzureDisk", spec.AzureDisk.DiskName
+	case spec.CephFS != nil:
+		return "CephFS", fmt.Sprintf("%v", spec.CephFS.Monitors)
+	case spec.RBD != nil:
+		return "RBD", spec.RBD.RBDImage
+	case spec.ISCSI != nil:
+		return "iSCSI", spec.ISCSI.TargetPortal
+	case spec.FC != nil:
+		return "FC", fmt.Sprintf("%v", spec.FC.TargetWWNs)
+	default:
+		return "Unknown", "-"
+	}
+}
+
+// formatNodeAffinity 格式化节点亲和性
+func formatNodeAffinity(req *corev1.NodeSelector) string {
+	if req == nil || len(req.NodeSelectorTerms) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, term := range req.NodeSelectorTerms {
+		for _, expr := range term.MatchExpressions {
+			parts = append(parts, fmt.Sprintf("%s %s %v", expr.Key, expr.Operator, expr.Values))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0] // 返回第一个
+}
+
 func (s *Services) KubePVCDelete(ctx context.Context, cli *K8sClients, param *requests.KubePVCDeleteRequest) error {
 	if err := pvc.DeletePersistentVolumeClaim(ctx, cli.Kube, param.Namespace, param.Name); err != nil {
 		if apierrors.IsNotFound(err) {
