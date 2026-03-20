@@ -1805,6 +1805,23 @@ definitions:
     - name
     - registry_id
     type: object
+  services.ClusterConnectivityResult:
+    properties:
+      checked_at:
+        type: string
+      cluster_id:
+        type: integer
+      cluster_name:
+        type: string
+      connected:
+        type: boolean
+      error:
+        type: string
+      latency:
+        type: string
+      version:
+        type: string
+    type: object
   services.ClusterDetail:
     properties:
       connectable:
@@ -10357,6 +10374,32 @@ paths:
                   $ref: '#/definitions/services.FullPlatformHealth'
               type: object
       summary: 获取平台健康状态
+      tags:
+      - Platform
+  /api/v1/platform/health/cluster/{cluster_id}/connectivity:
+    get:
+      consumes:
+      - application/json
+      description: 检查指定集群的连通性状态
+      parameters:
+      - description: 集群ID
+        in: path
+        name: cluster_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/services.ClusterConnectivityResult'
+              type: object
+      summary: 检查集群连通性
       tags:
       - Platform
   /api/v1/platform/health/component/{component}:

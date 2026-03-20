@@ -820,20 +820,24 @@ export const getK8sClusterDetail = async (id) => {
 }
 
 export const checkClusterConnectivity = async (id) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        code: 0,
-        msg: '检查集群连通性成功',
-        data: {
-          id: id,
-          connected: true,
-          latency: 45,
-          lastChecked: new Date().toISOString()
-        }
-      })
-    }, 1000)
-  })
+  // 调用真实后端API检测集群连通性
+  const http = (await import('@/api/http')).default
+  try {
+    const res = await http.get(`/api/v1/platform/health/cluster/${id}/connectivity`)
+    return res
+  } catch (err) {
+    return {
+      code: -1,
+      msg: err.message || '网络请求失败',
+      data: {
+        cluster_id: id,
+        connected: false,
+        latency: '-',
+        error: err.message,
+        checked_at: new Date().toISOString()
+      }
+    }
+  }
 }
 
 // 部署相关API

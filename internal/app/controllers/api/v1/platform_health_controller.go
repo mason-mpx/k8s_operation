@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"strconv"
+
 	"k8soperation/global"
 	"k8soperation/internal/app/services"
 	"k8soperation/internal/errorcode"
@@ -94,4 +96,37 @@ func (c *PlatformHealthController) Ping(ctx *gin.Context) {
 		"status":  "ok",
 		"message": "pong",
 	})
+}
+
+// CheckClusterConnectivity 检查单个集群连通性
+// @Summary 检查集群连通性
+// @Description 检查指定集群的连通性状态
+// @Tags Platform
+// @Accept json
+// @Produce json
+// @Param cluster_id path int true "集群ID"
+// @Success 200 {object} response.Response{data=services.ClusterConnectivityResult}
+// @Router /api/v1/platform/health/cluster/{cluster_id}/connectivity [get]
+func (c *PlatformHealthController) CheckClusterConnectivity(ctx *gin.Context) {
+	resp := response.NewResponse(ctx)
+
+	clusterIDStr := ctx.Param("cluster_id")
+	if clusterIDStr == "" {
+		resp.ToErrorResponse(errorcode.InvalidParams)
+		return
+	}
+
+	clusterID, err := strconv.ParseInt(clusterIDStr, 10, 64)
+	if err != nil || clusterID <= 0 {
+		resp.ToErrorResponse(errorcode.InvalidParams)
+		return
+	}
+
+	result, err := c.service.CheckClusterConnectivity(ctx.Request.Context(), clusterID)
+	if err != nil {
+		global.Logger.Error("检查集群连通性失败", zap.Int64("cluster_id", clusterID), zap.Error(err))
+		resp.ToErrorResponse(errorcode.ServerError)
+		return
+	}
+	resp.Success(result)
 }

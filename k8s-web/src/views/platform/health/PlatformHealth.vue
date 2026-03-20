@@ -128,7 +128,11 @@
                 <span class="summary-item" v-if="cluster.connectable">
                   <span class="item-icon">🚀</span> {{ cluster.workloads?.deployments?.total || 0 }} Deployments
                 </span>
-                <span class="latency-badge" v-if="cluster.latency && cluster.latency !== '-'">{{ cluster.latency }}</span>
+                <span class="latency-badge" :class="{ 'latency-timeout': cluster.latency === 'timeout' }" v-if="cluster.latency && cluster.latency !== '-'">{{ cluster.latency === 'timeout' ? '⬛ 超时' : cluster.latency }}</span>
+                <!-- 单独检测按钮 -->
+                <button class="check-btn" @click.stop="checkSingleCluster(cluster.id)" :disabled="checkingCluster === cluster.id" :title="'检测集群 ' + cluster.name + ' 连通性'">
+                  <span :class="{ 'spinning': checkingCluster === cluster.id }">{{ checkingCluster === cluster.id ? '↻' : '📶' }}</span>
+                </button>
               </div>
               <span class="expand-icon">{{ expandedClusters.includes(cluster.id) ? '▼' : '▶' }}</span>
             </div>
@@ -136,7 +140,11 @@
             <!-- 展开详情 -->
             <div class="cluster-details" v-show="expandedClusters.includes(cluster.id)">
               <div v-if="!cluster.connectable" class="connect-error">
-                <span class="error-icon">⚠️</span> 无法连接到此集群
+                <span class="error-icon">⚠️</span> 
+                {{ cluster.latency === 'timeout' ? '集群连接超时（>30s），请检查集群状态' : '无法连接到此集群' }}
+                <button class="retry-connectivity-btn" @click.stop="checkSingleCluster(cluster.id)" :disabled="checkingCluster === cluster.id">
+                  {{ checkingCluster === cluster.id ? '检测中...' : '重新检测' }}
+                </button>
               </div>
               <template v-else>
                 <div class="detail-grid">
@@ -347,6 +355,7 @@ const lastUpdate = ref(null)
 const autoRefresh = ref(true)
 const selectedCluster = ref('all')
 const expandedClusters = ref([])
+const checkingCluster = ref(null) // 当前正在检测的集群ID
 let refreshTimer = null
 
 // 计算属性
@@ -387,8 +396,14 @@ const healthyComponents = computed(() => health.value?.components?.filter(c => c
 const loadHealth = async () => {
   loading.value = true
   error.value = null
+  
+  // 创建30秒超时控制
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
+  
   try {
-    const res = await http.get('/api/v1/platform/health')
+    const res = await http.get('/api/v1/platform/health', { signal: controller.signal })
+    clearTimeout(timeoutId)
     if (res.code === 0 && res.data) {
       health.value = res.data
       lastUpdate.value = new Date()
@@ -396,8 +411,14 @@ const loadHealth = async () => {
       throw new Error(res.msg || '获取数据失败')
     }
   } catch (err) {
-    error.value = err.message || '网络请求失败'
-    Message.error({ content: '获取健康状态失败: ' + err.message })
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError' || err.message?.includes('timeout')) {
+      error.value = '请求超时，请检查集群连接状态'
+      Message.error({ content: '健康检查超时（>30s），集群可能异常' })
+    } else {
+      error.value = err.message || '网络请求失败'
+      Message.error({ content: '获取健康状态失败: ' + err.message })
+    }
   } finally {
     loading.value = false
   }
@@ -422,8 +443,45 @@ const toggleCluster = (id) => {
   else expandedClusters.value.push(id)
 }
 
+// 单独检测某个集群的连通性
+const checkSingleCluster = async (clusterId) => {
+  if (checkingCluster.value) return
+  checkingCluster.value = clusterId
+  
+  try {
+    const res = await http.get(`/api/v1/platform/health/cluster/${clusterId}/connectivity`)
+    if (res.code === 0 && res.data) {
+      const result = res.data
+      // 更新对应集群的状态
+      const clusterIdx = health.value?.cluster_details?.findIndex(c => c.id === clusterId)
+      if (clusterIdx >= 0 && health.value?.cluster_details) {
+        const cluster = health.value.cluster_details[clusterIdx]
+        cluster.connectable = result.connected
+        cluster.latency = result.latency || '-'
+        cluster.status = result.connected ? 'online' : 'error'
+        
+        // 重新计算集群汇总
+        const details = health.value.cluster_details
+        health.value.clusters = {
+          total: details.length,
+          online: details.filter(d => d.connectable && d.status === 'online').length,
+          offline: details.filter(d => !d.connectable && d.status !== 'error').length,
+          abnormal: details.filter(d => d.status === 'error' || d.latency === 'timeout').length
+        }
+      }
+      Message.success({ content: `集群 ${result.cluster_name || clusterId} ${result.connected ? '连接正常' : '连接失败'}，延迟: ${result.latency}` })
+    } else {
+      Message.error({ content: res.msg || '检测失败' })
+    }
+  } catch (err) {
+    Message.error({ content: '检测集群连通性失败: ' + (err.message || '网络错误') })
+  } finally {
+    checkingCluster.value = null
+  }
+}
+
 const getClusterIcon = (c) => c.status === 'online' ? '🟢' : c.status === 'error' ? '🔴' : '🟡'
-const getStatusLabel = (s) => ({ online: '在线', offline: '离线', error: '连接失败' }[s] || s)
+const getStatusLabel = (s) => ({ online: '在线', offline: '离线', error: '连接失败', timeout: '超时' }[s] || s)
 const getClusterStatusClass = (c) => ({ 'cluster-online': c.status === 'online', 'cluster-offline': c.status !== 'online' })
 const getUsageClass = (u) => (u >= 90 ? 'usage-critical' : u >= 70 ? 'usage-warning' : 'usage-normal')
 const getWorkloadBadgeClass = (w) => !w ? 'badge-ok' : w.failed > 0 ? 'badge-danger' : w.running < w.total ? 'badge-warning' : 'badge-ok'
@@ -530,10 +588,18 @@ onUnmounted(() => stopAutoRefresh())
 .summary-item { display: flex; align-items: center; gap: 4px; color: #64748b; font-size: 13px; }
 .item-icon { font-size: 14px; }
 .latency-badge { padding: 2px 8px; background: #e0f2fe; color: #0284c7; border-radius: 8px; font-size: 11px; font-weight: 500; }
+.latency-badge.latency-timeout { background: #fee2e2; color: #dc2626; }
 .expand-icon { color: #94a3b8; font-size: 12px; }
 .cluster-details { padding: 20px; background: white; border-top: 1px solid #e2e8f0; }
-.connect-error { display: flex; align-items: center; gap: 8px; color: #ef4444; padding: 16px; background: #fef2f2; border-radius: 8px; }
+.connect-error { display: flex; align-items: center; gap: 8px; color: #ef4444; padding: 16px; background: #fef2f2; border-radius: 8px; flex-wrap: wrap; }
 .error-icon { font-size: 20px; }
+/* 集群连通性检测按钮 */
+.check-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: #e0f2fe; border: 1px solid #7dd3fc; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; margin-left: 8px; }
+.check-btn:hover:not(:disabled) { background: #bae6fd; border-color: #38bdf8; transform: scale(1.1); }
+.check-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.retry-connectivity-btn { margin-left: auto; padding: 6px 14px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.retry-connectivity-btn:hover:not(:disabled) { background: #2563eb; }
+.retry-connectivity-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .detail-card { background: #f8fafc; border-radius: 10px; padding: 16px; }
 .detail-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }

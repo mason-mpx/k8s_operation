@@ -12364,6 +12364,50 @@
                 }
             }
         },
+        "/api/v1/platform/health/cluster/{cluster_id}/connectivity": {
+            "get": {
+                "description": "检查指定集群的连通性状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Platform"
+                ],
+                "summary": "检查集群连通性",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "集群ID",
+                        "name": "cluster_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/services.ClusterConnectivityResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/platform/health/component/{component}": {
             "get": {
                 "description": "检查指定组件的健康状态",
@@ -16076,6 +16120,32 @@
                     "type": "string"
                 },
                 "tag_pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ClusterConnectivityResult": {
+            "type": "object",
+            "properties": {
+                "checked_at": {
+                    "type": "string"
+                },
+                "cluster_id": {
+                    "type": "integer"
+                },
+                "cluster_name": {
+                    "type": "string"
+                },
+                "connected": {
+                    "type": "boolean"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "latency": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }
