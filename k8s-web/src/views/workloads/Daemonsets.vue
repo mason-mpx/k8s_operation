@@ -844,15 +844,6 @@ const canOperate = computed(() => {
   // 其他角色有操作权限
   return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
 })
-import permissionStore from '@/stores/permission'
-
-// ===== 操作权限控制 =====
-const canOperate = computed(() => {
-  if (permissionStore.state.isSuperAdmin) return true
-  const roleTypes = permissionStore.roleTypes.value
-  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
-  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
-})
 
 // ===== 获取认证头 =====
 const getAuthHeaders = () => {

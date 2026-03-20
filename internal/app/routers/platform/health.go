@@ -23,8 +23,9 @@ func (r *PlatformHealthRouter) Inject(router *gin.RouterGroup) {
 
 	g := router.Group("/platform/health")
 	{
-		g.GET("", c.GetFullHealth)                       // GET /api/v1/platform/health
-		g.GET("/ping", c.Ping)                           // GET /api/v1/platform/health/ping
-		g.GET("/component/:component", c.CheckComponent) // GET /api/v1/platform/health/component/:component
+		g.GET("", c.GetFullHealth)                                     // GET /api/v1/platform/health
+		g.GET("/ping", c.Ping)                                         // GET /api/v1/platform/health/ping
+		g.GET("/component/:component", c.CheckComponent)               // GET /api/v1/platform/health/component/:component
+		g.GET("/cluster/:cluster_id/connectivity", c.CheckClusterConnectivity) // GET /api/v1/platform/health/cluster/:cluster_id/connectivity
 	}
 }

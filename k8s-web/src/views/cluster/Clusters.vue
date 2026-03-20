@@ -362,6 +362,7 @@ import {useRouter} from 'vue-router'
 import Pagination from '@/components/Pagination.vue'
 import {useClusterStore} from '@/stores/cluster'
 import permissionStore from '@/stores/permission'
+import http from '@/api/http'
 
 import {
   createCluster,
@@ -651,25 +652,29 @@ const onDelete = async (c) => {
   }
 }
 
-// ✅ 健康检查：只负责触发后端 init；状态以“后端写库 + list 返回”为准
+// ✅ 健康检查：调用连通性检测接口，前端5秒超时
 const testCluster = async (c) => {
   testingId.value = c.id
   try {
-    const body = await initCluster({id: c.id})
-    const ok = isOk(body)
-    Message[ok ? 'success' : 'error']({
-      content: ok ? (body?.msg || '初始化成功') : (body?.msg || '初始化失败'),
-      duration: ok ? 1800 : 2600,
-    })
+    // 前端5秒超时控制
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    )
+    const request = http.get(`/api/v1/platform/health/cluster/${c.id}/connectivity`)
+    
+    const res = await Promise.race([request, timeout])
+    if (res.code === 0 && res.data) {
+      Message[res.data.connected ? 'success' : 'error']({ 
+        content: res.data.connected ? 'ok' : '异常', 
+        duration: 1500 
+      })
+    } else {
+      Message.error({ content: '异常', duration: 1500 })
+    }
   } catch (e) {
-    const body = unwrapErrorBody(e)
-    Message.error({
-      content: `初始化失败：${pickMsg(body, e?.message || 'K8s 集群初始化失败')}`,
-      duration: 2600,
-    })
+    Message.error({ content: '异常', duration: 1500 })
   } finally {
     testingId.value = null
-    // 关键：让后端写库后的 status 回显
     await fetchList()
   }
 }

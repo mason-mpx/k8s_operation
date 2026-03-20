@@ -177,23 +177,19 @@ func (s *PlatformHealthService) GetFullHealth(ctx context.Context) (*FullPlatfor
 		RefreshedAt: time.Now(),
 	}
 
-	// 并发获取各项健康数据
+	// 第一阶段：先获取集群详情（包含实际连通性检测）
+	health.ClusterDetails = s.getClusterDetails(ctx)
+
+	// 基于实际连通性结果计算集群摘要（而非仅依赖数据库状态）
+	health.Clusters = s.calculateClusterSummaryFromDetails(health.ClusterDetails)
+
+	// 第二阶段：并发获取其他健康数据
 	var wg sync.WaitGroup
-	wg.Add(9) // 增加一个任务：获取集群详情
+	wg.Add(7)
 
 	go func() {
 		defer wg.Done()
 		health.Platform = s.getPlatformStatus()
-	}()
-
-	go func() {
-		defer wg.Done()
-		health.Clusters = s.getClusterSummary(ctx)
-	}()
-
-	go func() {
-		defer wg.Done()
-		health.ClusterDetails = s.getClusterDetails(ctx)
 	}()
 
 	go func() {
@@ -235,6 +231,25 @@ func (s *PlatformHealthService) GetFullHealth(ctx context.Context) (*FullPlatfor
 	health.Platform.Status = s.calculateOverallStatus(health.Components)
 
 	return health, nil
+}
+
+// calculateClusterSummaryFromDetails 基于集群详情计算摘要（使用实际连通性结果）
+func (s *PlatformHealthService) calculateClusterSummaryFromDetails(details []ClusterDetail) ClusterHealthSummary {
+	summary := ClusterHealthSummary{
+		Total: len(details),
+	}
+
+	for _, d := range details {
+		if d.Connectable && d.Status == "online" {
+			summary.Online++
+		} else if d.Status == "error" || d.Latency == "timeout" {
+			summary.Abnormal++
+		} else {
+			summary.Offline++
+		}
+	}
+
+	return summary
 }
 
 // getPlatformStatus 获取平台状态
@@ -319,34 +334,72 @@ func (s *PlatformHealthService) getClusterDetails(ctx context.Context) []Cluster
 				StatusCode: cluster.Status,
 			}
 
-			// 设置状态文本
+			// 设置状态文本（初始状态基于数据库）
 			if cluster.Status == 0 {
 				detail.Status = "online"
 			} else {
 				detail.Status = "offline"
 			}
 
+			// 为每个集群的检查设置30秒整体超时
+			clusterCtx, clusterCancel := context.WithTimeout(ctx, 30*time.Second)
+			defer clusterCancel()
+
 			// 尝试获取 K8s 客户端
 			var client *kubernetes.Clientset
 			if s.factory != nil {
 				start := time.Now()
-				if clients, err := s.factory.GetClient(ctx, cluster.ID); err == nil && clients != nil {
-					client = clients.Kube
-					detail.Connectable = true
-					detail.Latency = time.Since(start).String()
-				} else {
+				clients, err := s.factory.GetClient(clusterCtx, cluster.ID)
+				if err != nil || clients == nil {
+					// 获取客户端失败（可能是超时或其他错误）
 					detail.Status = "error"
 					detail.Connectable = false
-					detail.Latency = "-"
+					if clusterCtx.Err() == context.DeadlineExceeded {
+						detail.Latency = "timeout"
+						global.Logger.Warn("集群健康检查超时",
+							zap.Int64("cluster_id", cluster.ID),
+							zap.String("cluster_name", cluster.ClusterName))
+					} else {
+						detail.Latency = "-"
+						global.Logger.Warn("获取集群客户端失败",
+							zap.Int64("cluster_id", cluster.ID),
+							zap.String("cluster_name", cluster.ClusterName),
+							zap.Error(err))
+					}
+				} else {
+					client = clients.Kube
+					// 主动验证连接（调用 ServerVersion 验证 API Server 是否可达）
+					_, verifyErr := client.Discovery().ServerVersion()
+
+					if verifyErr != nil {
+						// 客户端创建成功但连接验证失败（集群不可达或超时）
+						detail.Status = "error"
+						detail.Connectable = false
+						if clusterCtx.Err() == context.DeadlineExceeded {
+							detail.Latency = "timeout"
+						} else {
+							detail.Latency = "-"
+						}
+						client = nil // 置空，防止后续使用
+						global.Logger.Warn("集群连接验证失败",
+							zap.Int64("cluster_id", cluster.ID),
+							zap.String("cluster_name", cluster.ClusterName),
+							zap.Error(verifyErr))
+					} else {
+						// 连接验证成功
+						detail.Connectable = true
+						detail.Latency = time.Since(start).String()
+						detail.Status = "online" // 实际可连接时强制设为 online
+					}
 				}
 			}
 
-			// 如果可连接，获取集群数据
-			if client != nil && detail.Connectable {
-				detail.Nodes = s.getClusterNodeSummary(ctx, client)
-				detail.Workloads = s.getClusterWorkloadSummary(ctx, client)
-				detail.Services = s.getClusterServiceSummary(ctx, client)
-				detail.Events = s.getClusterEventSummary(ctx, client)
+			// 如果可连接且未超时，获取集群数据
+			if client != nil && detail.Connectable && clusterCtx.Err() == nil {
+				detail.Nodes = s.getClusterNodeSummary(clusterCtx, client)
+				detail.Workloads = s.getClusterWorkloadSummary(clusterCtx, client)
+				detail.Services = s.getClusterServiceSummary(clusterCtx, client)
+				detail.Events = s.getClusterEventSummary(clusterCtx, client)
 			}
 
 			mu.Lock()
@@ -1154,4 +1207,116 @@ func (s *PlatformHealthService) Ping(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ClusterConnectivityResult 集群连通性检测结果
+type ClusterConnectivityResult struct {
+	ClusterID   int64  `json:"cluster_id"`
+	ClusterName string `json:"cluster_name"`
+	Connected   bool   `json:"connected"`
+	Latency     string `json:"latency"`
+	Version     string `json:"version,omitempty"`
+	Error       string `json:"error,omitempty"`
+	CheckedAt   string `json:"checked_at"`
+}
+
+// CheckClusterConnectivity 检查单个集群连通性并更新数据库状态
+func (s *PlatformHealthService) CheckClusterConnectivity(ctx context.Context, clusterID int64) (*ClusterConnectivityResult, error) {
+	now := time.Now()
+	result := &ClusterConnectivityResult{
+		ClusterID: clusterID,
+		CheckedAt: now.Format("2006-01-02 15:04:05"),
+	}
+
+	// 获取集群名称
+	if global.DB != nil {
+		var clusterName string
+		global.DB.Table("kube_cluster").
+			Select("cluster_name").
+			Where("id = ? AND deleted_at = 0", clusterID).
+			Pluck("cluster_name", &clusterName)
+		result.ClusterName = clusterName
+	}
+
+	if s.factory == nil {
+		result.Connected = false
+		result.Error = "集群客户端工厂未初始化"
+		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
+		return result, nil
+	}
+
+	// 设置 5 秒超时
+	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	clients, err := s.factory.GetClient(checkCtx, clusterID)
+	if err != nil {
+		result.Connected = false
+		if checkCtx.Err() == context.DeadlineExceeded {
+			result.Latency = "timeout"
+			result.Error = "连接超时(>5s)"
+		} else {
+			result.Latency = "-"
+			result.Error = "获取客户端失败: " + err.Error()
+		}
+		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
+		return result, nil
+	}
+
+	if clients == nil || clients.Kube == nil {
+		result.Connected = false
+		result.Latency = "-"
+		result.Error = "K8s 客户端为空"
+		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
+		return result, nil
+	}
+
+	// 验证连接 - 调用 ServerVersion
+	version, verifyErr := clients.Kube.Discovery().ServerVersion()
+	if verifyErr != nil {
+		result.Connected = false
+		if checkCtx.Err() == context.DeadlineExceeded {
+			result.Latency = "timeout"
+			result.Error = "API 验证超时"
+		} else {
+			result.Latency = "-"
+			result.Error = "API 连接失败: " + verifyErr.Error()
+		}
+		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
+		return result, nil
+	}
+
+	// 连接成功
+	result.Connected = true
+	result.Latency = time.Since(start).String()
+	if version != nil {
+		result.Version = version.GitVersion
+	}
+
+	// 更新数据库状态为正常
+	s.updateClusterHealthStatus(clusterID, true, "", now)
+
+	return result, nil
+}
+
+// updateClusterHealthStatus 更新集群健康状态到数据库
+func (s *PlatformHealthService) updateClusterHealthStatus(clusterID int64, connected bool, errMsg string, checkTime time.Time) {
+	if global.DB == nil {
+		return
+	}
+
+	status := uint8(0) // 0=正常
+	if !connected {
+		status = 1 // 1=异常
+	}
+
+	global.DB.Table("kube_cluster").
+		Where("id = ? AND deleted_at = 0", clusterID).
+		Updates(map[string]interface{}{
+			"status":        status,
+			"last_check_at": checkTime.Unix(),
+			"last_error":    errMsg,
+			"modified_at":   checkTime.Unix(),
+		})
 }
