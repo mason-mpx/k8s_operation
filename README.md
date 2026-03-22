@@ -226,6 +226,26 @@
   <img src="docs/images/20.png" width="900"/>
 </p>
 
+<p align="center">
+  <img src="docs/images/21.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/22.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/23.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/24.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/25.png" width="900"/>
+</p>
+
 </details>
 
 
