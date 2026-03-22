@@ -11,7 +11,7 @@
       </div>
       <div class="header-actions">
         <button class="btn btn-refresh" @click="loadData" :disabled="loading">🔄 刷新</button>
-        <button class="btn btn-primary" @click="openCreateModal">+ 创建策略</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreateModal">+ 创建策略</button>
       </div>
     </div>
 
@@ -95,6 +95,7 @@
                   type="checkbox" 
                   :checked="policy.enabled" 
                   @change="togglePolicy(policy)"
+                  :disabled="!canOperate"
                 />
                 <span class="toggle-slider"></span>
               </label>
@@ -108,10 +109,10 @@
             </td>
             <td>
               <div class="action-group">
-                <button class="action-btn run" @click="runPolicy(policy)" title="立即执行">▶️</button>
-                <button class="action-btn edit" @click="openEditModal(policy)" title="编辑">✏️</button>
+                <button v-if="canOperate" class="action-btn run" @click="runPolicy(policy)" title="立即执行">▶️</button>
+                <button v-if="canOperate" class="action-btn edit" @click="openEditModal(policy)" title="编辑">✏️</button>
                 <button class="action-btn logs" @click="viewLogs(policy)" title="日志">📜</button>
-                <button class="action-btn delete" @click="confirmDelete(policy)" title="删除">🗑️</button>
+                <button v-if="canOperate" class="action-btn delete" @click="confirmDelete(policy)" title="删除">🗑️</button>
               </div>
             </td>
           </tr>
@@ -262,6 +263,7 @@ import {
   runCleanupPolicy,
   getCleanupLogs
 } from '@/api/image.js'
+import permissionStore from '@/stores/permission'
 
 export default {
   name: 'CleanupPolicies',
@@ -269,6 +271,14 @@ export default {
     const policies = ref([])
     const registries = ref([])
     const loading = ref(false)
+    
+    // ===== 操作权限控制 =====
+    const canOperate = computed(() => {
+      if (permissionStore.state.isSuperAdmin) return true
+      const roleTypes = permissionStore.roleTypes.value
+      if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+      return roleTypes.some(r => ['super_admin', 'platform_admin'].includes(r))
+    })
     
     // 模态框
     const showModal = ref(false)
@@ -489,6 +499,7 @@ export default {
       showLogsModal, selectedPolicy, logs,
       showDeleteConfirm, deleteTarget, deleting,
       enabledCount, totalDeleted,
+      canOperate,
       loadData, openCreateModal, openEditModal, closeModal, submitForm,
       togglePolicy, runPolicy, viewLogs,
       confirmDelete, doDelete,

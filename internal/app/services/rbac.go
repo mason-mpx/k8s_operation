@@ -89,9 +89,19 @@ func (s *Services) PermissionList() ([]*models.SysPermission, error) {
 	return s.dao.PermissionList()
 }
 
-// RolePermissionAssign 分配角色权限
-func (s *Services) RolePermissionAssign(roleID int64, permissionIDs []int64) error {
+// RolePermissionList 获取角色权限列表
+func (s *Services) RolePermissionList(roleID int64) ([]*models.SysPermission, error) {
+	return s.dao.PermissionGetByRoleID(roleID)
+}
+
+// RolePermissionUpdate 更新角色权限
+func (s *Services) RolePermissionUpdate(roleID int64, permissionIDs []int64) error {
 	return s.dao.RolePermissionAssign(roleID, permissionIDs)
+}
+
+// RoleUserList 获取角色绑定的用户列表
+func (s *Services) RoleUserList(roleID int64) ([]*models.User, error) {
+	return s.dao.RoleUserList(roleID)
 }
 
 // ==================== 用户角色管理 ====================

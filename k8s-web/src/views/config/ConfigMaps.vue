@@ -717,6 +717,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import configmapApi from '@/api/cluster/config/configmap'
 import namespaceApi from '@/api/cluster/config/namespace'
 import permissionStore from '@/stores/permission'
+import { useClusterStore } from '@/stores/cluster'
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -899,9 +900,23 @@ const fetchNamespaces = async () => {
     const res = await namespaceApi.list?.()
     if (res?.code === 0 && res?.data) {
       const list = res.data.list || res.data || []
-      const nsNames = list
+      let nsNames = list
         .map(item => item?.name || item?.metadata?.name)
         .filter(Boolean)
+
+      // 权限过滤：基于 RBAC + Scope 模型
+      if (!permissionStore.state.isSuperAdmin) {
+        const clusterStore = useClusterStore()
+        const clusterId = clusterStore.current?.id
+        if (clusterId) {
+          const accessibleNs = permissionStore.getAccessibleNamespaces(clusterId)
+          if (accessibleNs.length > 0 && !accessibleNs.includes('*') && !accessibleNs.includes('__none__')) {
+            nsNames = nsNames.filter(ns => accessibleNs.includes(ns))
+          } else if (accessibleNs.includes('__none__')) {
+            nsNames = []
+          }
+        }
+      }
 
       const nsSet = new Set(['default', 'kube-system', 'kube-public'])
       nsNames.forEach(n => nsSet.add(n))

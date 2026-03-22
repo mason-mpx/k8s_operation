@@ -717,7 +717,21 @@ const loadNamespaceStats = async () => {
   try {
     const res = await namespaceApi.list({ page: 1, limit: 1000 })
     if (res.code === 0 && res.data) {
-      const namespaces = res.data.list || res.data || []
+      let namespaces = res.data.list || res.data || []
+      
+      // 权限过滤：只统计用户有权限访问的命名空间
+      if (!permissionStore.state.isSuperAdmin) {
+        const clusterId = clusterStore.current?.id
+        if (clusterId) {
+          const accessibleNs = permissionStore.getAccessibleNamespaces(clusterId)
+          if (accessibleNs.length > 0 && !accessibleNs.includes('*') && !accessibleNs.includes('__none__')) {
+            namespaces = namespaces.filter(ns => accessibleNs.includes(ns.name || ns.metadata?.name))
+          } else if (accessibleNs.includes('__none__')) {
+            namespaces = []
+          }
+        }
+      }
+      
       namespaceStats.value.total = namespaces.length
       const systemNs = ['kube-system', 'kube-public', 'kube-node-lease', 'default']
       namespaceStats.value.system = namespaces.filter(ns => 
@@ -898,7 +912,7 @@ onUnmounted(() => {
 
 /* 顶部欢迎区域 */
 .dashboard-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border-radius: 12px;
   padding: 32px;
   margin-bottom: 24px;
@@ -906,7 +920,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
 }
 
 .header-content h1 {
@@ -984,10 +998,10 @@ onUnmounted(() => {
   transform: translateY(-2px);
 }
 
-.stat-card.cluster-card { border-left-color: #667eea; }
-.stat-card.node-card { border-left-color: #48bb78; }
-.stat-card.pod-card { border-left-color: #ed8936; }
-.stat-card.namespace-card { border-left-color: #4299e1; }
+.stat-card.cluster-card { border-left-color: #6366f1; }
+.stat-card.node-card { border-left-color: #10b981; }
+.stat-card.pod-card { border-left-color: #f59e0b; }
+.stat-card.namespace-card { border-left-color: #3b82f6; }
 
 .stat-icon {
   font-size: 40px;
@@ -1073,11 +1087,11 @@ onUnmounted(() => {
   font-size: 24px;
 }
 
-.workload-icon.deployment { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.workload-icon.statefulset { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-.workload-icon.daemonset { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-.workload-icon.job { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-.workload-icon.cronjob { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+.workload-icon.deployment { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+.workload-icon.statefulset { background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); }
+.workload-icon.daemonset { background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%); }
+.workload-icon.job { background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); }
+.workload-icon.cronjob { background: linear-gradient(135deg, #f59e0b 0%, #fb923c 100%); }
 
 .workload-info {
   flex: 1;
@@ -1137,7 +1151,7 @@ onUnmounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1158,7 +1172,7 @@ onUnmounted(() => {
 .resource-count {
   font-size: 18px;
   font-weight: 700;
-  color: #667eea;
+  color: #6366f1;
 }
 
 .resource-arrow {
@@ -1198,7 +1212,7 @@ onUnmounted(() => {
   width: 48px;
   height: 48px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1256,7 +1270,7 @@ onUnmounted(() => {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -41,6 +41,21 @@ export function getPermissionList() {
   return http.get(`${API_BASE}/rbac/permission/list`)
 }
 
+// 获取角色权限列表
+export function getRolePermissions(roleId) {
+  return http.get(`${API_BASE}/rbac/role/permissions`, { params: { role_id: roleId } })
+}
+
+// 更新角色权限
+export function updateRolePermissions(data) {
+  return http.post(`${API_BASE}/rbac/role/permissions/update`, data)
+}
+
+// 获取角色绑定的用户列表
+export function getRoleUsers(roleId) {
+  return http.get(`${API_BASE}/rbac/role/users`, { params: { role_id: roleId } })
+}
+
 // ==================== 用户角色管理 ====================
 
 // 分配用户角色

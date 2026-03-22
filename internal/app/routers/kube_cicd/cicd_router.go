@@ -13,6 +13,7 @@ type CicdRouter struct {
 	approvalCtrl    *cicd.ApprovalController
 	stageCtrl       *cicd.StageController
 	templateCtrl    *cicd.TemplateController
+	resourceCtrl    *cicd.ResourceController
 }
 
 func NewCicdRouter() *CicdRouter {
@@ -24,6 +25,7 @@ func NewCicdRouter() *CicdRouter {
 		approvalCtrl:    cicd.NewApprovalController(),
 		stageCtrl:       cicd.NewStageController(),
 		templateCtrl:    cicd.NewTemplateController(),
+		resourceCtrl:    cicd.NewResourceController(),
 	}
 }
 
@@ -115,5 +117,31 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		template.POST("/create", r.templateCtrl.Create)  // 创建模板
 		template.POST("/update", r.templateCtrl.Update)  // 更新模板
 		template.POST("/delete", r.templateCtrl.Delete)  // 删除模板
+	}
+
+	// ==================== 资源配置管理 ====================
+	// /api/v1/k8s/cicd/resource/...
+	resource := rg.Group("/resource")
+	{
+		// 资源模板
+		resource.GET("/templates", r.resourceCtrl.TemplateList)           // 获取资源模板列表
+		resource.GET("/template/default", r.resourceCtrl.TemplateDefault) // 获取默认模板
+		resource.GET("/template/:id", r.resourceCtrl.TemplateDetail)      // 获取模板详情
+		resource.POST("/template", r.resourceCtrl.TemplateCreate)         // 创建模板
+		resource.PUT("/template/:id", r.resourceCtrl.TemplateUpdate)      // 更新模板
+		resource.DELETE("/template/:id", r.resourceCtrl.TemplateDelete)   // 删除模板
+
+		// 环境规则
+		resource.GET("/rules", r.resourceCtrl.RuleList)     // 获取规则列表
+		resource.PUT("/rule/:id", r.resourceCtrl.RuleUpdate) // 更新规则
+
+		// 资源校验
+		resource.POST("/validate", r.resourceCtrl.Validate) // 校验资源配置
+
+		// 发布审批
+		resource.GET("/approvals", r.resourceCtrl.ApprovalList)              // 审批列表
+		resource.GET("/approval/:id", r.resourceCtrl.ApprovalDetail)         // 审批详情
+		resource.PUT("/approval/:id/approve", r.resourceCtrl.ApprovalApprove) // 通过审批
+		resource.PUT("/approval/:id/reject", r.resourceCtrl.ApprovalReject)   // 拒绝审批
 	}
 }

@@ -234,68 +234,267 @@ export const validateGitRepo = (repoUrl, credentialId = '') => {
 }
 
 // =======================
-// K8s环境管理（静态Mock数据）
+// K8s环境管理（真实后端接口）
+// 对应后端路由: /api/v1/k8s/cicd/environment/*
 // =======================
 
-const mockK8sEnvironments = [
-  { id: 1, name: '开发环境', description: '开发测试集群', clusterName: 'dev-cluster', apiUrl: 'https://dev-k8s.example.com', namespace: 'dev', type: 'development', status: 'connected' },
-  { id: 2, name: '测试环境', description: '集成测试集群', clusterName: 'test-cluster', apiUrl: 'https://test-k8s.example.com', namespace: 'test', type: 'testing', status: 'connected' },
-  { id: 3, name: '生产环境', description: '生产集群', clusterName: 'prod-cluster', apiUrl: 'https://prod-k8s.example.com', namespace: 'production', type: 'production', status: 'connected' }
-]
+const ENVIRONMENT_BASE = `${API_BASE}/k8s/cicd/environment`
 
-export const getK8sEnvironments = () => {
-  return Promise.resolve({ code: 0, msg: 'success', data: mockK8sEnvironments })
+/**
+ * 获取 K8s 部署环境列表
+ * @param {Object} params - 查询参数
+ * @param {number} params.page - 页码
+ * @param {number} params.page_size - 每页数量
+ * @param {string} params.keyword - 搜索关键字
+ */
+export const getK8sEnvironments = (params = {}) => {
+  return http.get(`${ENVIRONMENT_BASE}/list`, { params })
 }
 
+/**
+ * 创建 K8s 部署环境
+ * @param {Object} data - 环境数据
+ * @param {string} data.name - 环境名称
+ * @param {string} data.description - 描述
+ * @param {number} data.cluster_id - 关联集群ID
+ * @param {string} data.namespace - 默认命名空间
+ * @param {string} data.type - 环境类型 (development/testing/staging/production)
+ */
 export const createK8sEnvironment = (data) => {
-  return Promise.resolve({ code: 0, msg: '创建成功', data: { id: Date.now(), ...data } })
+  return http.post(`${ENVIRONMENT_BASE}/create`, data)
 }
 
+/**
+ * 更新 K8s 部署环境
+ * @param {number} id - 环境ID
+ * @param {Object} data - 更新数据
+ */
 export const updateK8sEnvironment = (id, data) => {
-  return Promise.resolve({ code: 0, msg: '更新成功', data: { id, ...data } })
+  return http.post(`${ENVIRONMENT_BASE}/update`, { id, ...data })
 }
 
+/**
+ * 删除 K8s 部署环境
+ * @param {number} id - 环境ID
+ */
 export const deleteK8sEnvironment = (id) => {
-  return Promise.resolve({ code: 0, msg: '删除成功' })
+  return http.post(`${ENVIRONMENT_BASE}/delete`, { id })
 }
 
+/**
+ * 获取 K8s 部署环境详情
+ * @param {number} id - 环境ID
+ */
 export const getK8sEnvironmentDetail = (id) => {
-  const env = mockK8sEnvironments.find(e => e.id === parseInt(id)) || mockK8sEnvironments[0]
-  return Promise.resolve({ code: 0, msg: 'success', data: env })
+  return http.get(`${ENVIRONMENT_BASE}/detail`, { params: { id } })
 }
 
 // =======================
-// 镜像仓库管理（静态Mock数据）
+// 镜像仓库管理（真实后端接口）
+// 对应后端路由: /api/v1/image/registry/*
 // =======================
 
-const mockImageRepositories = [
-  { id: 1, name: 'Docker Hub', type: 'docker', url: 'https://registry.hub.docker.com', status: 'connected' },
-  { id: 2, name: 'Harbor私有仓库', type: 'harbor', url: 'https://harbor.example.com', status: 'connected' },
-  { id: 3, name: 'Aliyun ACR', type: 'acr', url: 'https://registry.cn-hangzhou.aliyuncs.com', status: 'disconnected' }
-]
+const IMAGE_REGISTRY_BASE = `${API_BASE}/image/registry`
+const IMAGE_BROWSE_BASE = `${API_BASE}/image/browse`
 
-const mockImages = [
-  { id: 1, name: 'nginx', tags: ['latest', '1.21', '1.20', '1.19'], size: '133MB', lastUpdated: '2024-01-10' },
-  { id: 2, name: 'redis', tags: ['latest', '7.0', '6.2'], size: '117MB', lastUpdated: '2024-01-08' },
-  { id: 3, name: 'mysql', tags: ['latest', '8.0', '5.7'], size: '446MB', lastUpdated: '2024-01-05' }
-]
-
-export const getImageRepositories = () => {
-  return Promise.resolve({ code: 0, msg: 'success', data: mockImageRepositories })
+/**
+ * 获取镜像仓库列表（分页）
+ * @param {Object} params - 查询参数
+ * @param {number} params.page - 页码
+ * @param {number} params.page_size - 每页数量
+ * @param {string} params.keyword - 搜索关键字
+ */
+export const getImageRepositories = (params = {}) => {
+  return http.get(`${IMAGE_REGISTRY_BASE}/list`, { params })
 }
 
+/**
+ * 获取所有镜像仓库（下拉选择用）
+ */
+export const getAllImageRepositories = () => {
+  return http.get(`${IMAGE_REGISTRY_BASE}/all`)
+}
+
+/**
+ * 创建镜像仓库
+ * @param {Object} data - 仓库数据
+ * @param {string} data.name - 仓库名称
+ * @param {string} data.type - 类型 (docker/harbor/acr)
+ * @param {string} data.url - 仓库URL
+ * @param {string} data.username - 用户名
+ * @param {string} data.password - 密码
+ */
 export const createImageRepository = (data) => {
-  return Promise.resolve({ code: 0, msg: '创建成功', data: { id: Date.now(), ...data } })
+  return http.post(`${IMAGE_REGISTRY_BASE}/create`, data)
 }
 
+/**
+ * 更新镜像仓库
+ * @param {number} id - 仓库ID
+ * @param {Object} data - 更新数据
+ */
 export const updateImageRepository = (id, data) => {
-  return Promise.resolve({ code: 0, msg: '更新成功', data: { id, ...data } })
+  return http.post(`${IMAGE_REGISTRY_BASE}/update`, { id, ...data })
 }
 
+/**
+ * 删除镜像仓库
+ * @param {number} id - 仓库ID
+ */
 export const deleteImageRepository = (id) => {
-  return Promise.resolve({ code: 0, msg: '删除成功' })
+  return http.post(`${IMAGE_REGISTRY_BASE}/delete`, { id })
 }
 
-export const getImages = (repoId) => {
-  return Promise.resolve({ code: 0, msg: 'success', data: mockImages })
+/**
+ * 获取镜像仓库详情
+ * @param {number} id - 仓库ID
+ */
+export const getImageRepositoryDetail = (id) => {
+  return http.get(`${IMAGE_REGISTRY_BASE}/detail`, { params: { id } })
+}
+
+/**
+ * 检查镜像仓库连接
+ * @param {number} id - 仓库ID
+ */
+export const checkImageRepositoryConnection = (id) => {
+  return http.post(`${IMAGE_REGISTRY_BASE}/check`, { id })
+}
+
+/**
+ * 获取镜像仓库统计信息
+ */
+export const getImageRepositoryStats = () => {
+  return http.get(`${IMAGE_REGISTRY_BASE}/stats`)
+}
+
+/**
+ * 设置默认镜像仓库
+ * @param {number} id - 仓库ID
+ */
+export const setDefaultImageRepository = (id) => {
+  return http.post(`${IMAGE_REGISTRY_BASE}/default`, { id })
+}
+
+// =======================
+// 镜像浏览管理（真实后端接口）
+// 对应后端路由: /api/v1/image/browse/*
+// =======================
+
+/**
+ * 获取镜像列表（从指定仓库）
+ * @param {number} registryId - 仓库ID
+ * @param {Object} params - 查询参数
+ */
+export const getImages = (registryId, params = {}) => {
+  return http.get(`${IMAGE_BROWSE_BASE}/repositories`, { 
+    params: { registry_id: registryId, ...params } 
+  })
+}
+
+/**
+ * 获取镜像标签列表
+ * @param {number} registryId - 仓库ID
+ * @param {string} repository - 镜像名称
+ */
+export const getImageTags = (registryId, repository) => {
+  return http.get(`${IMAGE_BROWSE_BASE}/tags`, { 
+    params: { registry_id: registryId, repository } 
+  })
+}
+
+/**
+ * 获取镜像详情
+ * @param {number} registryId - 仓库ID
+ * @param {string} repository - 镜像名称
+ * @param {string} tag - 标签
+ */
+export const getImageDetail = (registryId, repository, tag) => {
+  return http.get(`${IMAGE_BROWSE_BASE}/detail`, { 
+    params: { registry_id: registryId, repository, tag } 
+  })
+}
+
+/**
+ * 删除镜像
+ * @param {number} registryId - 仓库ID
+ * @param {string} repository - 镜像名称
+ * @param {string} tag - 标签（可选，不传则删除整个仓库）
+ */
+export const deleteImage = (registryId, repository, tag = '') => {
+  return http.post(`${IMAGE_BROWSE_BASE}/delete`, { 
+    registry_id: registryId, 
+    repository,
+    tag 
+  })
+}
+
+// =======================
+// CICD 资源配置管理
+// =======================
+
+const RESOURCE_BASE = `${API_BASE}/k8s/cicd/resource`
+
+/**
+ * 获取资源模板列表
+ * @param {Object} params - 查询参数
+ * @param {string} params.env - 环境
+ * @param {string} params.service_type - 服务类型
+ */
+export const getResourceTemplates = (params = {}) => {
+  return http.get(`${RESOURCE_BASE}/templates`, { params })
+}
+
+/**
+ * 获取默认资源模板
+ * @param {string} env - 环境
+ * @param {string} serviceType - 服务类型
+ */
+export const getDefaultResourceTemplate = (env, serviceType) => {
+  return http.get(`${RESOURCE_BASE}/template/default`, { params: { env, service_type: serviceType } })
+}
+
+/**
+ * 校验资源配置
+ * @param {Object} data - 校验数据
+ * @param {string} data.env - 环境
+ * @param {string} data.service_type - 服务类型
+ * @param {Object} data.config - 资源配置
+ */
+export const validateResourceConfig = (data) => {
+  return http.post(`${RESOURCE_BASE}/validate`, data)
+}
+
+/**
+ * 获取环境资源规则
+ * @param {string} env - 环境
+ */
+export const getResourceRules = (env) => {
+  return http.get(`${RESOURCE_BASE}/rules`, { params: { env } })
+}
+
+/**
+ * 获取审批列表
+ * @param {Object} params - 查询参数
+ */
+export const getResourceApprovals = (params = {}) => {
+  return http.get(`${RESOURCE_BASE}/approvals`, { params })
+}
+
+/**
+ * 通过审批
+ * @param {number} id - 审批ID
+ * @param {string} comment - 审批意见
+ */
+export const approveResourceConfig = (id, comment = '') => {
+  return http.put(`${RESOURCE_BASE}/approval/${id}/approve`, { comment })
+}
+
+/**
+ * 拒绝审批
+ * @param {number} id - 审批ID
+ * @param {string} comment - 拒绝原因
+ */
+export const rejectResourceConfig = (id, comment = '') => {
+  return http.put(`${RESOURCE_BASE}/approval/${id}/reject`, { comment })
 }

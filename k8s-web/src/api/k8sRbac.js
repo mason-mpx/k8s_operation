@@ -49,12 +49,12 @@ export function deleteServiceAccount(clusterId, namespace, name) {
 // ==================== Role / ClusterRole ====================
 
 // 获取 Role 列表（包含 ClusterRole）
-export function listRoles(clusterId, namespace = '') {
+export function listRoles(clusterId, namespace = '', type = '') {
   return http({
     url: '/api/v1/k8s/rbac/roles',
     method: 'get',
     headers: { 'X-Cluster-ID': clusterId },
-    params: { namespace }
+    params: { namespace, type }
   })
 }
 

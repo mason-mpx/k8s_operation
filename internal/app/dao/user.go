@@ -7,16 +7,16 @@ import (
 )
 
 // UserCreate 创建用户（密码使用 bcrypt 加密存储）
-func (d *Dao) UserCreate(name, password string) error {
+func (d *Dao) UserCreate(name, password string) (*models.User, error) {
 	// 对密码进行 bcrypt 加密
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 获取当前时间戳并转换为uint32类型
 	nowTime := uint32(time.Now().Unix())
-	user := models.User{
+	user := &models.User{
 		Username: name,
 		Password: hashedPassword,
 		Base: &models.Base{
@@ -25,7 +25,10 @@ func (d *Dao) UserCreate(name, password string) error {
 			IsDel:      0,
 		},
 	}
-	return user.Create(d.db)
+	if err := user.Create(d.db); err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 // UserDelete 删除用户

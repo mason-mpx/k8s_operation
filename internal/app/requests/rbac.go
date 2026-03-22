@@ -89,6 +89,26 @@ func ValidRoleListRequest(data interface{}, ctx *gin.Context) map[string][]strin
 	return valid.ValidateOptions(data, rules, messages)
 }
 
+// RolePermissionsUpdateRequest 更新角色权限请求
+type RolePermissionsUpdateRequest struct {
+	RoleID        int64   `json:"role_id" form:"role_id" valid:"role_id"`
+	PermissionIDs []int64 `json:"permission_ids" form:"permission_ids" valid:"permission_ids"`
+}
+
+func NewRolePermissionsUpdateRequest() *RolePermissionsUpdateRequest {
+	return &RolePermissionsUpdateRequest{}
+}
+
+func ValidRolePermissionsUpdateRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"role_id": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"role_id": []string{"required:角色ID为必填项"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
 // ==================== 用户角色分配 ====================
 
 // UserRoleAssignRequest 分配用户角色请求

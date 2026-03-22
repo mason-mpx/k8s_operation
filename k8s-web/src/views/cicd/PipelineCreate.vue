@@ -387,6 +387,116 @@
             </div>
 
             <div class="form-card">
+              <!-- 部署环境选择（在Step 4直接选择） -->
+              <div class="form-group">
+                <label class="form-label">部署环境</label>
+                <div class="env-selector-inline">
+                  <div
+                    v-for="env in deployEnvOptions"
+                    :key="env.value"
+                    :class="['env-chip', { selected: pipelineData.deploy_env === env.value }]"
+                    @click="selectDeployEnv(env.value)"
+                  >
+                    <span class="env-dot" :style="{ backgroundColor: env.color }"></span>
+                    <span>{{ env.label }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 服务类型和资源模板选择 -->
+              <div class="resource-template-section">
+                <div class="form-row">
+                  <div class="form-group half">
+                    <label class="form-label">服务类型</label>
+                    <div class="service-type-selector">
+                      <div
+                        v-for="svc in serviceTypeOptions"
+                        :key="svc.value"
+                        :class="['service-type-card', { selected: selectedServiceType === svc.value }]"
+                        @click="onServiceTypeChange(svc.value)"
+                      >
+                        <span class="svc-dot" :style="{ backgroundColor: svc.color }"></span>
+                        <span class="svc-name">{{ svc.label }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">资源模板</label>
+                    <select v-model="selectedResourceTemplate" @change="onResourceTemplateChange" class="form-select" :disabled="loadingResourceTemplates">
+                      <option value="">自定义配置</option>
+                      <option v-for="tpl in resourceTemplates" :key="tpl.id" :value="tpl.id">
+                        {{ tpl.name }} - {{ tpl.description || tpl.name }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 资源校验提示 -->
+              <div v-if="resourceValidation" :class="['validation-result', resourceValidation.valid ? 'success' : 'error', resourceValidation.risk_level]">
+                <div class="validation-header">
+                  <svg v-if="resourceValidation.valid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span>{{ resourceValidation.valid ? '配置校验通过' : '配置校验失败' }}</span>
+                  <span v-if="resourceValidation.risk_level === 'high'" class="risk-badge high">高风险</span>
+                  <span v-else-if="resourceValidation.risk_level === 'medium'" class="risk-badge medium">中风险</span>
+                </div>
+                <ul v-if="resourceValidation.errors && resourceValidation.errors.length" class="validation-errors">
+                  <li v-for="(err, i) in resourceValidation.errors" :key="i">{{ err }}</li>
+                </ul>
+                <ul v-if="resourceValidation.warnings && resourceValidation.warnings.length" class="validation-warnings">
+                  <li v-for="(warn, i) in resourceValidation.warnings" :key="i">{{ warn }}</li>
+                </ul>
+                
+                <!-- 审批提示区域（大厂风格） -->
+                <div v-if="resourceValidation.need_approval" class="approval-card">
+                  <div class="approval-card-header">
+                    <div class="approval-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                      </svg>
+                    </div>
+                    <div class="approval-info">
+                      <div class="approval-title">生产环境审批</div>
+                      <div class="approval-desc">此配置需要 <strong>{{ resourceValidation.approval_role?.toUpperCase() || 'SRE' }}</strong> 角色审批后方可部署</div>
+                    </div>
+                  </div>
+                  
+                  <!-- 有审批权限：显示操作按钮 -->
+                  <div v-if="canApprove" class="approval-actions">
+                    <div class="approval-status approved">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                      </svg>
+                      <span>你拥有审批权限，可直接部署</span>
+                    </div>
+                  </div>
+                  
+                  <!-- 无审批权限：显示等待审批提示 -->
+                  <div v-else class="approval-pending">
+                    <div class="pending-info">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      <span>提交后将进入审批流程，请等待审批人处理</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-if="resourceValidation.suggestion" class="validation-suggestion">
+                  <strong>建议：</strong>{{ resourceValidation.suggestion }}
+                </div>
+              </div>
+
               <!-- 部署策略卡片 -->
               <div class="strategy-cards">
                 <div
@@ -798,14 +908,16 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   createPipeline,
   updatePipeline,
   getPipelineDetail,
   getPipelineTemplates,
-  getGitBranches
+  getGitBranches,
+  getResourceTemplates,
+  validateResourceConfig
 } from '@/api/cicd.js'
 import { getClusterList } from '@/api/cluster.js'
 import namespaceApi from '@/api/cluster/config/namespace'
@@ -886,6 +998,33 @@ export default {
     // 集群列表
     const clusters = ref([])
     const loadingClusters = ref(false)
+    
+    // 资源模板相关
+    const resourceTemplates = ref([])
+    const selectedResourceTemplate = ref('')
+    const loadingResourceTemplates = ref(false)
+    const resourceValidation = ref(null)
+    const validatingResource = ref(false)
+    
+    // 审批权限判断（大厂风格：无权限则不显示审批按钮）
+    const canApprove = computed(() => {
+      // 超级管理员有所有权限
+      if (permissionStore.state.isSuperAdmin) return true
+      
+      // 检查角色：platform_admin / cluster_admin / sre 可以审批
+      const roleTypes = permissionStore.roleTypes?.value || []
+      const approvalRoles = ['super_admin', 'platform_admin', 'cluster_admin', 'sre']
+      return approvalRoles.some(role => roleTypes.includes(role))
+    })
+    
+    // 服务类型选项
+    const serviceTypeOptions = ref([
+      { value: 'java', label: 'Java', color: '#f89820' },
+      { value: 'go', label: 'Go', color: '#00add8' },
+      { value: 'node', label: 'Node.js', color: '#339933' },
+      { value: 'python', label: 'Python', color: '#3776ab' }
+    ])
+    const selectedServiceType = ref('go')
     
     // 命名空间列表
     const namespaces = ref([])
@@ -1115,6 +1254,90 @@ export default {
       }
     }
 
+    // ==================== 资源模板相关方法 ====================
+    
+    // 加载资源模板
+    const loadResourceTemplates = async () => {
+      loadingResourceTemplates.value = true
+      try {
+        const res = await getResourceTemplates({
+          env: pipelineData.value.deploy_env || 'dev',
+          service_type: selectedServiceType.value
+        })
+        if (res.code === 0 && res.data) {
+          // 后端返回 { list: [...], total: x }
+          resourceTemplates.value = res.data.list || res.data || []
+          // 找到默认模板
+          const defaultTpl = resourceTemplates.value.find(t => t.is_default)
+          if (defaultTpl && !selectedResourceTemplate.value) {
+            selectedResourceTemplate.value = defaultTpl.id
+            applyResourceTemplate(defaultTpl)
+          }
+        }
+      } catch (error) {
+        console.error('加载资源模板失败:', error)
+      } finally {
+        loadingResourceTemplates.value = false
+      }
+    }
+    
+    // 服务类型变化
+    const onServiceTypeChange = (type) => {
+      selectedServiceType.value = type
+      selectedResourceTemplate.value = ''
+      loadResourceTemplates()
+    }
+    
+    // 资源模板变化
+    const onResourceTemplateChange = () => {
+      if (selectedResourceTemplate.value) {
+        const tpl = resourceTemplates.value.find(t => t.id === parseInt(selectedResourceTemplate.value))
+        if (tpl) {
+          applyResourceTemplate(tpl)
+        }
+      }
+      doValidateResource()
+    }
+    
+    // 应用资源模板配置
+    const applyResourceTemplate = (tpl) => {
+      pipelineData.value.deploy_config.replicas = tpl.replicas_default || 1
+      pipelineData.value.deploy_config.resources = {
+        limits: {
+          cpu: tpl.cpu_limit || '500m',
+          memory: tpl.memory_limit || '512Mi'
+        },
+        requests: {
+          cpu: tpl.cpu_request || '200m',
+          memory: tpl.memory_request || '256Mi'
+        }
+      }
+    }
+    
+    // 校验资源配置
+    const doValidateResource = async () => {
+      validatingResource.value = true
+      try {
+        const res = await validateResourceConfig({
+          env: pipelineData.value.deploy_env || 'dev',
+          service_type: selectedServiceType.value,
+          config: {
+            replicas: pipelineData.value.deploy_config.replicas,
+            strategy: pipelineData.value.deploy_config.strategy,
+            resources: pipelineData.value.deploy_config.resources
+          }
+        })
+        if (res.code === 0 && res.data) {
+          resourceValidation.value = res.data
+        }
+      } catch (error) {
+        console.error('资源校验失败:', error)
+        resourceValidation.value = null
+      } finally {
+        validatingResource.value = false
+      }
+    }
+
     // 加载编辑数据
     const loadPipelineData = async () => {
       if (isEdit) {
@@ -1229,7 +1452,20 @@ export default {
         
         const res = await namespaceApi.list({ page: 1, limit: 1000 })
         if (res.code === 0 && res.data) {
-          namespaces.value = res.data.list || res.data || []
+          let nsList = res.data.list || res.data || []
+          
+          // 权限过滤：只显示用户有权限访问的命名空间
+          if (!permissionStore.state.isSuperAdmin) {
+            const clusterId = pipelineData.value.target_cluster_id
+            const accessibleNs = permissionStore.getAccessibleNamespaces(clusterId)
+            if (accessibleNs.length > 0 && !accessibleNs.includes('*') && !accessibleNs.includes('__none__')) {
+              nsList = nsList.filter(ns => accessibleNs.includes(ns.name || ns.metadata?.name))
+            } else if (accessibleNs.includes('__none__')) {
+              nsList = []
+            }
+          }
+          
+          namespaces.value = nsList
         }
       } catch (error) {
         console.error('加载命名空间失败:', error)
@@ -1318,6 +1554,10 @@ export default {
       if (env === 'prod') {
         pipelineData.value.require_approval = true
       }
+      // 切换环境后重新加载资源模板和校验
+      selectedResourceTemplate.value = ''
+      loadResourceTemplates()
+      doValidateResource()
     }
     
     // 选择工作负载类型
@@ -1346,6 +1586,9 @@ export default {
     onMounted(() => {
       loadTemplates()
       loadPipelineData()
+      loadResourceTemplates()
+      // 初始化时触发一次校验
+      setTimeout(() => doValidateResource(), 500)
     })
 
     return {
@@ -1367,6 +1610,18 @@ export default {
       fetchBranches,
       selectBranch,
       onRepoUrlChange,
+      // 资源模板相关
+      resourceTemplates,
+      selectedResourceTemplate,
+      loadingResourceTemplates,
+      resourceValidation,
+      validatingResource,
+      canApprove,
+      serviceTypeOptions,
+      selectedServiceType,
+      onServiceTypeChange,
+      onResourceTemplateChange,
+      doValidateResource,
       // 自动部署相关
       clusters,
       loadingClusters,
@@ -2837,5 +3092,341 @@ export default {
   .workload-kind-selector {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==================== 资源模板选择器 ==================== */
+.resource-template-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+}
+
+.form-group.half {
+  flex: 1;
+}
+
+/* Step 4 部署环境选择器 */
+.env-selector-inline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.env-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.env-chip:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.env-chip.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.env-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.service-type-selector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.service-type-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.service-type-card:hover {
+  border-color: #cbd5e1;
+}
+
+.service-type-card.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.svc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.svc-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #4a5568;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* ==================== 校验结果 ==================== */
+.validation-result {
+  padding: 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.validation-result.success {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+}
+
+.validation-result.error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+}
+
+.validation-result.high {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.validation-result.medium {
+  background: #fffbeb;
+  border-color: #fbbf24;
+}
+
+.validation-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.validation-header svg {
+  width: 20px;
+  height: 20px;
+}
+
+.validation-result.success .validation-header {
+  color: #16a34a;
+}
+
+.validation-result.success .validation-header svg {
+  stroke: #16a34a;
+}
+
+.validation-result.error .validation-header {
+  color: #dc2626;
+}
+
+.validation-result.error .validation-header svg {
+  stroke: #dc2626;
+}
+
+.risk-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.risk-badge.high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.risk-badge.medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.validation-errors,
+.validation-warnings {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.validation-errors li {
+  color: #dc2626;
+  margin-bottom: 4px;
+}
+
+.validation-warnings li {
+  color: #d97706;
+  margin-bottom: 4px;
+}
+
+/* ==================== 审批卡片（大厂风格） ==================== */
+.approval-card {
+  margin-top: 16px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fbbf24;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.approval-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: rgba(251, 191, 36, 0.1);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.approval-icon {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.approval-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: white;
+}
+
+.approval-info {
+  flex: 1;
+}
+
+.approval-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.approval-desc {
+  font-size: 13px;
+  color: #a16207;
+}
+
+.approval-desc strong {
+  color: #92400e;
+  font-weight: 600;
+}
+
+/* 有审批权限 */
+.approval-actions {
+  padding: 14px 20px;
+}
+
+.approval-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.approval-status.approved {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.approval-status.approved svg {
+  width: 20px;
+  height: 20px;
+  stroke: #059669;
+}
+
+/* 无审批权限 */
+.approval-pending {
+  padding: 14px 20px;
+}
+
+.pending-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(251, 191, 36, 0.15);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.pending-info svg {
+  width: 20px;
+  height: 20px;
+  stroke: #d97706;
+  flex-shrink: 0;
+}
+
+/* 兼容旧样式 */
+.approval-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fef3c7;
+  border-radius: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.approval-notice svg {
+  width: 18px;
+  height: 18px;
+  stroke: #92400e;
+  flex-shrink: 0;
+}
+
+.validation-suggestion {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f0f9ff;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #0369a1;
 }
 </style>

@@ -42,13 +42,18 @@ func (c *UserController) Create(ctx *gin.Context) {
 	// 创建一个新的服务对象
 	svc := services.NewServices()
 	// 调用服务层的用户创建方法，如果创建失败则记录错误并返回错误响应
-	if err := svc.UserCreate(param); err != nil {
+	user, err := svc.UserCreate(param)
+	if err != nil {
 		global.Logger.Error("创建用户失败,", zap.String("error", err.Error())) // 记录错误日志
 		resp.ToErrorResponse(errorcode.ErrorUserCreateFail)              // 返回创建失败的错误响应
 		return
 	}
-	// 如果创建成功，返回成功响应
-	resp.Success("创建用户成功")
+	// 如果创建成功，返回用户ID
+	resp.Success(gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"msg":      "创建用户成功",
+	})
 }
 
 // @Summary 删除用户

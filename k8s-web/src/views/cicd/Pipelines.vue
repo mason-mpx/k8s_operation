@@ -19,7 +19,7 @@
           </svg>
           {{ loading ? '加载中...' : '刷新' }}
         </button>
-        <button class="btn btn-primary" @click="createPipeline">
+        <button v-if="canOperate" class="btn btn-primary" @click="createPipeline">
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -149,7 +149,7 @@
         </div>
         <h3>暂无流水线</h3>
         <p>点击"创建流水线"按钮开始您的第一条流水线</p>
-        <button class="btn btn-primary" @click="createPipeline">
+        <button v-if="canOperate" class="btn btn-primary" @click="createPipeline">
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -177,6 +177,7 @@
           </div>
           <div class="pipeline-actions">
             <button 
+              v-if="canOperate"
               class="action-btn run" 
               @click="handleRunPipeline(pipeline)"
               :disabled="pipeline.status === 'running'"
@@ -202,14 +203,14 @@
                 </svg>
                 查看详情
               </button>
-              <button @click="editPipeline(pipeline.id)">
+              <button v-if="canOperate" @click="editPipeline(pipeline.id)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
                 编辑配置
               </button>
-              <button v-if="pipeline.status === 'running' || pipeline.lastRunStatus === 'pending'" @click="handleStopPipeline(pipeline)" class="danger">
+              <button v-if="canOperate && (pipeline.status === 'running' || pipeline.lastRunStatus === 'pending')" @click="handleStopPipeline(pipeline)" class="danger">
                 <svg v-if="pipeline.lastRunStatus === 'pending'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"/>
                   <line x1="15" y1="9" x2="9" y2="15"/>
@@ -220,7 +221,7 @@
                 </svg>
                 {{ pipeline.lastRunStatus === 'pending' ? '取消构建' : '停止构建' }}
               </button>
-              <button @click="handleDeletePipeline(pipeline)" class="danger">
+              <button v-if="canOperate" @click="handleDeletePipeline(pipeline)" class="danger">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -248,7 +249,7 @@
           <div class="status-actions">
             <!-- 停止按钮：运行中或pending状态显示 -->
             <button
-              v-if="pipeline.status === 'running' || pipeline.lastRunStatus === 'pending' || pipeline.lastRunStatus === 'running'"
+              v-if="canOperate && (pipeline.status === 'running' || pipeline.lastRunStatus === 'pending' || pipeline.lastRunStatus === 'running')"
               class="action-mini-btn btn-stop"
               @click.stop="handleStopPipeline(pipeline)"
               title="停止构建"
@@ -260,7 +261,7 @@
             </button>
             <!-- 重新发布按钮：非运行状态显示 -->
             <button
-              v-if="pipeline.status !== 'running' && pipeline.lastRunStatus !== 'running' && pipeline.lastRunStatus !== 'pending'"
+              v-if="canOperate && (pipeline.status !== 'running' && pipeline.lastRunStatus !== 'running' && pipeline.lastRunStatus !== 'pending')"
               class="action-mini-btn btn-rerun"
               @click.stop="handleRunPipeline(pipeline)"
               title="重新发布"
@@ -365,6 +366,7 @@ import {
   stopPipeline as cancelPipeline,
   deletePipeline as removePipeline
 } from '@/api/platform/pipeline'
+import permissionStore from '@/stores/permission'
 
 export default {
   name: 'Pipelines',
@@ -379,6 +381,17 @@ export default {
     const loading = ref(false)
     const errorMsg = ref('')
     const activeMenu = ref(null)
+
+    // ===== 操作权限控制 =====
+    // viewer 角色只能查看，不能执行任何修改操作
+    const canOperate = computed(() => {
+      if (permissionStore.state.isSuperAdmin) return true
+      const roleTypes = permissionStore.roleTypes.value
+      // viewer 角色无操作权限
+      if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+      // 需要 developer 或更高权限才能操作流水线
+      return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+    })
 
     // 统计数据
     const runningCount = computed(() => 
@@ -584,6 +597,7 @@ export default {
       successCount,
       failedCount,
       filteredPipelines,
+      canOperate,
       loadPipelines,
       handleRunPipeline,
       handleStopPipeline,

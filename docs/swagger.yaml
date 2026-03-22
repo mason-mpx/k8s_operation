@@ -36,12 +36,110 @@ definitions:
       timezone:
         type: string
     type: object
+  models.CicdEnvResourceRule:
+    properties:
+      approval_role:
+        description: sre/admin
+        type: string
+      cpu_limit_max:
+        description: 资源上限
+        type: string
+      cpu_request_min:
+        description: 资源下限
+        type: string
+      created_at:
+        type: integer
+      description:
+        type: string
+      env:
+        description: dev/test/staging/prod
+        type: string
+      id:
+        type: integer
+      memory_limit_max:
+        type: string
+      memory_request_min:
+        type: string
+      modified_at:
+        type: integer
+      replicas_max:
+        type: integer
+      replicas_min:
+        type: integer
+      require_approval:
+        description: 审批规则
+        type: boolean
+      service_type:
+        description: 空=通用规则
+        type: string
+    type: object
+  models.CicdResourceTemplate:
+    properties:
+      cpu_limit:
+        type: string
+      cpu_request:
+        type: string
+      created_at:
+        type: integer
+      description:
+        type: string
+      env:
+        description: dev/test/staging/prod
+        type: string
+      hpa_cpu_target:
+        description: CPU目标利用率%
+        type: integer
+      hpa_enabled:
+        description: HPA 配置
+        type: boolean
+      hpa_max_replicas:
+        type: integer
+      hpa_min_replicas:
+        type: integer
+      id:
+        type: integer
+      is_default:
+        type: boolean
+      memory_limit:
+        type: string
+      memory_request:
+        type: string
+      modified_at:
+        type: integer
+      name:
+        description: small/medium/large/custom
+        type: string
+      replicas_default:
+        description: 资源配置
+        type: integer
+      replicas_max:
+        type: integer
+      replicas_min:
+        type: integer
+      service_type:
+        description: java/go/node/python
+        type: string
+      sort_order:
+        type: integer
+    type: object
   models.EnvVar:
     properties:
       name:
         type: string
       value:
         type: string
+    type: object
+  models.HPAConfig:
+    properties:
+      cpu_target:
+        description: CPU利用率目标%
+        type: integer
+      enabled:
+        type: boolean
+      max_replicas:
+        type: integer
+      min_replicas:
+        type: integer
     type: object
   models.NotificationSettings:
     properties:
@@ -71,6 +169,70 @@ definitions:
       security:
         $ref: '#/definitions/models.SecuritySettings'
     type: object
+  models.ResourceConfig:
+    properties:
+      hpa:
+        $ref: '#/definitions/models.HPAConfig'
+      replicas:
+        type: integer
+      resources:
+        $ref: '#/definitions/models.ResourceRequests'
+      strategy:
+        description: rollingUpdate/recreate
+        type: string
+    type: object
+  models.ResourceRequests:
+    properties:
+      limits:
+        $ref: '#/definitions/models.ResourceValues'
+      requests:
+        $ref: '#/definitions/models.ResourceValues'
+    type: object
+  models.ResourceValidationResult:
+    properties:
+      approval_role:
+        description: 审批角色
+        type: string
+      errors:
+        description: 错误（不可继续）
+        items:
+          type: string
+        type: array
+      need_approval:
+        description: 是否需要审批
+        type: boolean
+      risk_level:
+        allOf:
+        - $ref: '#/definitions/models.RiskLevel'
+        description: 风险等级
+      suggestion:
+        description: 建议
+        type: string
+      valid:
+        type: boolean
+      warnings:
+        description: 警告（可继续）
+        items:
+          type: string
+        type: array
+    type: object
+  models.ResourceValues:
+    properties:
+      cpu:
+        type: string
+      memory:
+        type: string
+    type: object
+  models.RiskLevel:
+    enum:
+    - low
+    - medium
+    - high
+    type: string
+    x-enum-varnames:
+    - RiskLevelLow
+    - RiskLevelMedium
+    - RiskLevelHigh
   models.SecuritySettings:
     properties:
       audit_retention:
@@ -1496,6 +1658,23 @@ definitions:
         type: string
       namespace:
         type: string
+    type: object
+  requests.ResourceValidateRequest:
+    properties:
+      config:
+        allOf:
+        - $ref: '#/definitions/models.ResourceConfig'
+        description: 资源配置
+      env:
+        description: dev/test/staging/prod
+        type: string
+      service_type:
+        description: java/go/node/python
+        type: string
+    required:
+    - config
+    - env
+    - service_type
     type: object
   requests.RoleCreateRequest:
     properties:
@@ -3845,6 +4024,290 @@ paths:
       summary: 获取发布单下的任务列表
       tags:
       - CICD Release
+  /api/v1/k8s/cicd/resource/approval/{id}:
+    get:
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取审批详情
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/approval/{id}/approve:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 审批意见
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 通过审批
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/approval/{id}/reject:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 拒绝原因
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 拒绝审批
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/approvals:
+    get:
+      parameters:
+      - description: 状态：pending/approved/rejected
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取审批列表
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/rule/{id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 规则信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CicdEnvResourceRule'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新环境规则
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/rules:
+    get:
+      parameters:
+      - description: 环境
+        in: query
+        name: env
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取环境规则列表
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/template:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模板信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CicdResourceTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建资源模板
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/template/{id}:
+    delete:
+      parameters:
+      - description: 模板ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除资源模板
+      tags:
+      - CICD Resource
+    get:
+      parameters:
+      - description: 模板ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取资源模板详情
+      tags:
+      - CICD Resource
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模板ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 模板信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CicdResourceTemplate'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新资源模板
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/template/default:
+    get:
+      parameters:
+      - description: 环境
+        in: query
+        name: env
+        required: true
+        type: string
+      - description: 服务类型
+        in: query
+        name: service_type
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取默认资源模板
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/templates:
+    get:
+      consumes:
+      - application/json
+      description: 根据环境和服务类型获取资源模板列表
+      parameters:
+      - description: 环境：dev/test/staging/prod
+        in: query
+        name: env
+        type: string
+      - description: 服务类型：java/go/node/python
+        in: query
+        name: service_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取资源模板列表
+      tags:
+      - CICD Resource
+  /api/v1/k8s/cicd/resource/validate:
+    post:
+      consumes:
+      - application/json
+      description: 校验资源配置是否符合环境规则，返回警告和错误
+      parameters:
+      - description: 校验参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.ResourceValidateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ResourceValidationResult'
+      summary: 校验资源配置
+      tags:
+      - CICD Resource
   /api/v1/k8s/cicd/stage/approve:
     post:
       consumes:
