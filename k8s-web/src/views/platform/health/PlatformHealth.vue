@@ -196,7 +196,13 @@
       </div>
 
       <!-- 资源使用率 -->
-      <div class="usage-row">
+      <div class="usage-section">
+        <div class="section-header">
+          <h3 class="section-title"><span class="section-icon">⚡</span> 资源使用率{{ selectedCluster !== 'all' ? ' (当前集群)' : ' (全部集群汇总)' }}</h3>
+          <span class="usage-cluster-info" v-if="selectedCluster === 'all'">共 {{ health.clusters?.total || 0 }} 个集群</span>
+          <span class="usage-cluster-info" v-else>{{ currentClusterData?.name || '' }}</span>
+        </div>
+        <div class="usage-row">
         <div class="usage-card">
           <div class="usage-header"><span class="usage-icon">⚡</span><span class="usage-title">CPU 使用率</span></div>
           <div class="usage-gauge"><div class="gauge-circle" :style="{ '--usage': currentNodes.cpu_usage || 0 }"><span class="gauge-value">{{ (currentNodes.cpu_usage || 0).toFixed(1) }}%</span></div></div>
@@ -211,6 +217,7 @@
           <div class="usage-header"><span class="usage-icon">📦</span><span class="usage-title">Pod 使用率</span></div>
           <div class="usage-gauge"><div class="gauge-circle" :style="{ '--usage': currentNodes.pod_usage || 0 }"><span class="gauge-value">{{ (currentNodes.pod_usage || 0).toFixed(1) }}%</span></div></div>
           <div class="usage-bar"><div class="bar-fill" :class="getUsageClass(currentNodes.pod_usage)" :style="{ width: (currentNodes.pod_usage || 0) + '%' }"></div></div>
+        </div>
         </div>
       </div>
 
@@ -621,14 +628,17 @@ onUnmounted(() => stopAutoRefresh())
 .stat-val.warning { color: #f59e0b; }
 .stat-val.danger { color: #ef4444; }
 /* 使用率 */
-.usage-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
-.usage-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); text-align: center; }
+.usage-section { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); margin-bottom: 20px; }
+.usage-cluster-info { color: #64748b; font-size: 14px; background: #f1f5f9; padding: 4px 12px; border-radius: 20px; }
+.usage-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.usage-card { background: #f8fafc; border-radius: 12px; padding: 20px; text-align: center; transition: all 0.3s; }
+.usage-card:hover { background: #f1f5f9; transform: translateY(-2px); }
 .usage-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; }
 .usage-icon { font-size: 18px; }
 .usage-title { font-size: 14px; font-weight: 600; color: #1e293b; }
 .usage-gauge { margin-bottom: 16px; }
 .gauge-circle { width: 80px; height: 80px; border-radius: 50%; background: conic-gradient(#3b82f6 calc(var(--usage) * 3.6deg), #e2e8f0 calc(var(--usage) * 3.6deg)); display: flex; align-items: center; justify-content: center; margin: 0 auto; position: relative; }
-.gauge-circle::before { content: ''; position: absolute; width: 60px; height: 60px; background: white; border-radius: 50%; }
+.gauge-circle::before { content: ''; position: absolute; width: 60px; height: 60px; background: #f8fafc; border-radius: 50%; }
 .gauge-value { position: relative; z-index: 1; font-size: 16px; font-weight: 700; color: #1e293b; }
 .usage-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
