@@ -486,7 +486,17 @@ const getClusterStatusClass = (c) => ({ 'cluster-online': c.status === 'online',
 const getUsageClass = (u) => (u >= 90 ? 'usage-critical' : u >= 70 ? 'usage-warning' : 'usage-normal')
 const getWorkloadBadgeClass = (w) => !w ? 'badge-ok' : w.failed > 0 ? 'badge-danger' : w.running < w.total ? 'badge-warning' : 'badge-ok'
 const getWorkloadStatus = (w) => !w || w.total === 0 ? '无' : w.failed > 0 ? `${w.failed} 异常` : w.running < w.total ? '部分就绪' : '正常'
-const getComponentIcon = (n) => ({ 'API Server': '🚀', 'PostgreSQL': '🐘', 'Redis': '📦', 'Kubernetes': '☸️' }[n] || '🔧')
+const getComponentIcon = (n) => ({
+  'API Server': '🚀',
+  'MySQL': '🗄️',
+  'PostgreSQL': '🐘',
+  'Redis': '📦',
+  'Kubernetes': '☸️',
+  'ETCD': '💾',
+  'Controller Manager': '🎛️',
+  'Scheduler': '📅',
+  'CoreDNS': '🌐'
+}[n] || '🔧')
 const getStatusText = (s) => ({ ok: 'OK', warning: 'WARNING', error: 'ERROR' }[s] || s?.toUpperCase())
 const getComponentClass = (c) => ({ 'component-ok': c.status === 'ok', 'component-warning': c.status === 'warning', 'component-error': c.status === 'error' })
 

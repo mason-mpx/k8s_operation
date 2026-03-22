@@ -3102,9 +3102,27 @@ const fetchNamespaces = async () => {
   try {
     const res = await namespaceApi.list({ page: 1, limit: 1000 })
     const list = res?.data?.list || res?.data?.items || []
-    namespaces.value = (Array.isArray(list) ? list : []).map(ns =>
+    let nsList = (Array.isArray(list) ? list : []).map(ns =>
       typeof ns === 'string' ? ns : (ns?.metadata?.name || ns?.name || ns)
     ).filter(Boolean)
+    
+    // 应用权限过滤 - 基于 RBAC + Scope 模型
+    if (!permissionStore.state.isSuperAdmin) {
+      const clusterStore = useClusterStore()
+      const clusterId = clusterStore.current?.id
+      if (clusterId) {
+        const accessibleNs = permissionStore.getAccessibleNamespaces(clusterId)
+        // 如果有命名空间限制（非空且非'*'），则过滤
+        if (accessibleNs.length > 0 && !accessibleNs.includes('*') && !accessibleNs.includes('__none__')) {
+          nsList = nsList.filter(ns => accessibleNs.includes(ns))
+        } else if (accessibleNs.includes('__none__')) {
+          // 无任何命名空间权限
+          nsList = []
+        }
+      }
+    }
+    
+    namespaces.value = nsList
   } catch (e) {
     console.error('获取命名空间失败:', e)
     namespaces.value = ['default', 'kube-system']

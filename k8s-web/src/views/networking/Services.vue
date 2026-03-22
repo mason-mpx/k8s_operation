@@ -445,6 +445,7 @@ import serviceApi from '@/api/cluster/networking/service'
 import deploymentsApi from '@/api/cluster/workloads/deployments'
 import namespaceApi from '@/api/cluster/config/namespace'
 import permissionStore from '@/stores/permission'
+import { useClusterStore } from '@/stores/cluster'
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -587,12 +588,25 @@ const fetchNamespaces = async () => {
   try {
     const res = await namespaceApi.list({ page: 1, limit: 1000 })
     const list = res?.data?.list || res?.data?.items || []
-    namespaces.value = (Array.isArray(list) ? list : []).map(ns =>
+    let nsList = (Array.isArray(list) ? list : []).map(ns =>
       typeof ns === 'string' ? ns : (ns?.metadata?.name || ns?.name || ns)
     ).filter(Boolean)
-    if (namespaces.value.length === 0) {
-      namespaces.value = ['default', 'kube-system', 'kube-public']
+    
+    // 权限过滤：基于 RBAC + Scope 模型
+    if (!permissionStore.state.isSuperAdmin) {
+      const clusterStore = useClusterStore()
+      const clusterId = clusterStore.current?.id
+      if (clusterId) {
+        const accessibleNs = permissionStore.getAccessibleNamespaces(clusterId)
+        if (accessibleNs.length > 0 && !accessibleNs.includes('*') && !accessibleNs.includes('__none__')) {
+          nsList = nsList.filter(ns => accessibleNs.includes(ns))
+        } else if (accessibleNs.includes('__none__')) {
+          nsList = []
+        }
+      }
     }
+    
+    namespaces.value = nsList.length > 0 ? nsList : ['default', 'kube-system', 'kube-public']
   } catch (e) {
     console.error('获取命名空间列表失败:', e)
     namespaces.value = ['default', 'kube-system', 'kube-public']

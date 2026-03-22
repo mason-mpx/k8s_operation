@@ -75,7 +75,7 @@
         
         <!-- 批量操作按钮 -->
         <button 
-          v-if="!batchMode" 
+          v-if="canOperate && !batchMode" 
           class="btn btn-batch" 
           @click="enterBatchMode"
           title="进入批量操作模式"
@@ -113,7 +113,7 @@
         <button class="btn btn-secondary" @click="refreshList" :disabled="loading">
           {{ loading ? '刷新中...' : '🔄 刷新' }}
         </button>
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">
           ➕ 创建命名空间
         </button>
       </div>
@@ -228,6 +228,7 @@
                   📝 YAML
                 </button>
                 <button 
+                  v-if="canOperate"
                   class="action-btn danger" 
                   @click="confirmDelete(namespace)" 
                   title="删除"
@@ -244,7 +245,7 @@
       <div v-if="!loading && filteredNamespaces.length === 0" class="empty-state">
         <div class="empty-icon">🔍</div>
         <div class="empty-text">没有找到匹配的命名空间</div>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建第一个命名空间</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建第一个命名空间</button>
       </div>
       
       <Pagination 
@@ -260,7 +261,7 @@
       <div v-if="!loading && filteredNamespaces.length === 0" class="empty-state">
         <div class="empty-icon">🗂️</div>
         <div class="empty-text">没有找到匹配的命名空间</div>
-        <button class="btn btn-primary" @click="showCreateModal = true">创建第一个命名空间</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="showCreateModal = true">创建第一个命名空间</button>
       </div>
       
       <div class="cards-grid">
@@ -362,6 +363,7 @@
               📝 YAML
             </button>
             <button 
+              v-if="canOperate"
               class="card-action-btn danger" 
               @click="confirmDelete(namespace)" 
               title="删除"
@@ -689,9 +691,21 @@ import { useRouter, useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
 import namespacesApi from '@/api/cluster/namespaces'
+import permissionStore from '@/stores/permission'
 
 const router = useRouter()
 const route = useRoute()
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 需要 cluster_admin 或更高权限才能操作命名空间
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin'].includes(r))
+})
 
 // ========== 状态变量 ==========
 const searchQuery = ref('')

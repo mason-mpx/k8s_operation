@@ -226,7 +226,13 @@ const menuPermissions = {
   '/platform/settings': ['super_admin', 'platform_admin'],
   '/platform/appstore': ['super_admin', 'platform_admin', 'cluster_admin'],
   
-  // ==================== 用户与权限管理 ====================
+  // ==================== 用户与权限管理（精简后） ====================
+  '/security/users': ['super_admin', 'platform_admin'],
+  '/security/roles': ['super_admin', 'platform_admin'],
+  '/security/authorization': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/diagnosis': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
+  
+  // 兼容旧路径
   '/users': ['super_admin', 'platform_admin'],
   '/user-permissions': ['super_admin', 'platform_admin'],
   '/rbac': ['super_admin', 'platform_admin'],
@@ -255,6 +261,7 @@ const menuPermissions = {
 
 /**
  * 检查菜单项是否可见
+ * 大厂风格：无权限即隐藏
  */
 const isMenuVisible = (path) => {
   // 超级管理员可以看到所有菜单
@@ -264,8 +271,16 @@ const isMenuVisible = (path) => {
   const roles = menuPermissions[path]
   if (!roles) return true // 未配置则默认可见
   
-  // 检查用户角色
-  const userRoles = permissionStore.roleTypes.value
+  // 检查用户角色（平台角色 + 集群权限角色）
+  const userRoles = permissionStore.roleTypes.value || []
+  
+  // 没有任何角色时，只允许访问基础功能
+  if (userRoles.length === 0) {
+    // 基础功能：首页、权限诊断
+    const basicPaths = ['/dashboard', '/security/diagnosis']
+    return basicPaths.includes(path)
+  }
+  
   return roles.some(role => userRoles.includes(role))
 }
 
@@ -294,30 +309,28 @@ const menuGroupsConfig = reactive([
   {
     name: '平台',
     icon: '🏷️',
-    count: 2,
+    count: 3,
     collapsed: true,
-    match: ['/dashboard', '/clusters', '/platform'],
+    match: ['/dashboard', '/clusters', '/platform', '/environments'],
     items: [
       { path: '/clusters', label: '集群列表' },
+      { path: '/environments', label: 'K8s环境管理' },
       { path: '/platform/health', label: '平台健康' },
     ],
   },
-  // 安全
+  // 安全（精简后的5个菜单，大厂风格）
   {
     name: '安全',
     icon: '🛡️',
-    count: 2,
+    count: 5,
     collapsed: true,
     match: ['/users', '/security', '/rbac', '/user-permissions'],
     items: [
-      { path: '/users', label: '用户列表' },
-      { path: '/user-permissions', label: '用户授权管理' },
-      { path: '/rbac', label: '角色权限' },
+      { path: '/security/users', label: '用户管理' },
+      { path: '/security/roles', label: '角色管理' },
+      { path: '/security/authorization', label: '授权管理' },
       { path: '/security/audit', label: '审计日志' },
-      { path: '/security/rbac/serviceaccounts', label: 'ServiceAccount 管理' },
-      { path: '/security/rbac/roles', label: 'Role 管理' },
-      { path: '/security/rbac/rolebindings', label: 'RoleBinding 管理' },
-      { path: '/security/rbac/permission-check', label: '权限校验工具' },
+      { path: '/security/diagnosis', label: '权限诊断' },
     ],
   },
   // CI/CD
@@ -334,18 +347,17 @@ const menuGroupsConfig = reactive([
       { path: '/cicd/templates', label: '流水线模板' },
     ],
   },
-  // 镜像与环境
+  // 镜像管理
   {
-    name: '镜像与环境',
+    name: '镜像管理',
     icon: '📦',
-    count: 4,
+    count: 3,
     collapsed: true,
-    match: ['/images', '/environments'],
+    match: ['/images'],
     items: [
       { path: '/images/repositories', label: '镜像仓库管理' },
       { path: '/images/browse', label: '镜像浏览' },
       { path: '/images/cleanup', label: '清理策略' },
-      { path: '/environments', label: 'K8s环境管理' },
     ],
   },
 ])
@@ -408,18 +420,18 @@ watch(
 .app-layout {
   display: flex;
   height: 100vh;
-  background-color: #f0f2f5;
+  background-color: var(--bg-secondary, #f9fafb);
 }
 
-/* ===== 侧边栏 ===== */
+/* ===== 侧边栏 - 现代紫蓝渐变 ===== */
 .sidebar {
   width: 15rem;
-  background: linear-gradient(180deg, #1e2a3a 0%, #2d3748 100%);
+  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 4px 0 20px rgba(30, 27, 75, 0.3);
 }
 
 .sidebar.collapsed {
@@ -462,7 +474,7 @@ watch(
 
 .logo-version {
   font-size: 0.65rem;
-  color: #64b5f6;
+  color: #a5b4fc;
   font-weight: 500;
   margin-top: 2px;
 }
@@ -492,8 +504,8 @@ watch(
 }
 
 .group-header:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-left-color: #326ce5;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-left-color: #818cf8;
   padding-left: 1.25rem;
 }
 
@@ -532,7 +544,7 @@ watch(
 }
 
 .arrow.expanded::before {
-  border-color: #326ce5;
+  border-color: #818cf8;
   transform: rotate(45deg);
 }
 
@@ -573,10 +585,10 @@ watch(
 }
 
 .nav-item-active {
-  background: linear-gradient(90deg, #326ce5 0%, #4a85f0 100%);
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
   color: #ffffff;
   border-left-color: #ffffff;
-  box-shadow: 2px 0 8px rgba(50, 108, 229, 0.3);
+  box-shadow: 2px 0 12px rgba(99, 102, 241, 0.4);
 }
 
 /* ===== 底部固定区域（大厂风格） ===== */
@@ -610,8 +622,8 @@ watch(
 }
 
 .footer-item-active {
-  background: linear-gradient(90deg, rgba(50, 108, 229, 0.3), rgba(50, 108, 229, 0.1));
-  color: #64b5f6;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.1));
+  color: #a5b4fc;
 }
 
 .footer-icon {
@@ -633,7 +645,7 @@ watch(
 
 .footer-badge {
   padding: 0.125rem 0.375rem;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
   color: #fff;
   font-size: 0.625rem;
   font-weight: 600;
@@ -656,7 +668,7 @@ watch(
 .user-avatar {
   width: 2.25rem;
   height: 2.25rem;
-  background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
@@ -787,7 +799,7 @@ watch(
   min-width: 1rem;
   height: 1rem;
   padding: 0 0.25rem;
-  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #ec4899 100%);
   color: #fff;
   font-size: 0.625rem;
   font-weight: 600;

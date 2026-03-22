@@ -174,6 +174,16 @@ func (d *Dao) UserRoleList(userID int64) ([]*models.SysRole, error) {
 	return models.GetUserRoles(d.db, userID)
 }
 
+// RoleUserList 获取角色绑定的用户列表
+func (d *Dao) RoleUserList(roleID int64) ([]*models.User, error) {
+	var users []*models.User
+	err := d.db.Table("user").
+		Joins("JOIN sys_user_role ON user.id = sys_user_role.user_id").
+		Where("sys_user_role.role_id = ? AND user.is_del = 0", roleID).
+		Find(&users).Error
+	return users, err
+}
+
 // UserRoleListWithCount 获取用户角色关联列表（带用户数统计）
 func (d *Dao) UserRoleListWithCount(page, limit int) ([]*models.RoleWithPermissions, int64, error) {
 	var roles []*models.SysRole
@@ -219,6 +229,29 @@ func (d *Dao) ClusterPermissionCreate(userID, clusterID int64, roleType string, 
 		}
 	}
 
+	// 检查是否已存在，存在则更新
+	var existing models.SysUserCluster
+	err := d.db.Where("user_id = ? AND cluster_id = ?", userID, clusterID).First(&existing).Error
+	if err == nil {
+		// 已存在，更新
+		updates := map[string]interface{}{
+			"role_type":   roleType,
+			"namespaces":  nsJSON,
+			"can_view":    canView,
+			"can_create":  canCreate,
+			"can_update":  canUpdate,
+			"can_delete":  canDelete,
+			"can_exec":    canExec,
+			"expire_at":   expireAt,
+			"modified_at": now,
+		}
+		if err := d.db.Model(&existing).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+		return &existing, nil
+	}
+
+	// 不存在，创建新记录
 	perm := &models.SysUserCluster{
 		UserID:     userID,
 		ClusterID:  clusterID,

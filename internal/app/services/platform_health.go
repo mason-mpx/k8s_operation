@@ -966,27 +966,27 @@ func (s *PlatformHealthService) getTaskQueueStatus(ctx context.Context) TaskQueu
 		AvgDelay: "0ms",
 	}
 
-	// 从数据库获取流水线任务统计
+	// 从数据库获取流水线任务统计（真实表：cicd_pipeline_run）
 	if global.DB != nil {
 		var pending, running, completed, failed int64
 
 		global.DB.WithContext(ctx).
-			Table("pipeline_runs").
+			Table("cicd_pipeline_run").
 			Where("status = ?", "pending").
 			Count(&pending)
 
 		global.DB.WithContext(ctx).
-			Table("pipeline_runs").
+			Table("cicd_pipeline_run").
 			Where("status = ?", "running").
 			Count(&running)
 
 		global.DB.WithContext(ctx).
-			Table("pipeline_runs").
+			Table("cicd_pipeline_run").
 			Where("status = ?", "success").
 			Count(&completed)
 
 		global.DB.WithContext(ctx).
-			Table("pipeline_runs").
+			Table("cicd_pipeline_run").
 			Where("status = ?", "failed").
 			Count(&failed)
 
@@ -1004,7 +1004,7 @@ func (s *PlatformHealthService) checkComponents(ctx context.Context) []Component
 	components := make([]ComponentStatus, 0)
 	now := time.Now().Format("2006-01-02 15:04:05")
 
-	// 1. API Server
+	// 1. API Server（平台自身）
 	apiStatus := ComponentStatus{
 		Name:      "API Server",
 		Status:    "ok",
@@ -1028,6 +1028,98 @@ func (s *PlatformHealthService) checkComponents(ctx context.Context) []Component
 	k8sStatus := s.checkK8sConnection(ctx)
 	k8sStatus.CheckedAt = now
 	components = append(components, k8sStatus)
+
+	// 5-8. K8s 核心组件（ETCD、Controller Manager、Scheduler、CoreDNS）
+	k8sComponents := s.checkK8sCoreComponents(ctx)
+	for i := range k8sComponents {
+		k8sComponents[i].CheckedAt = now
+		components = append(components, k8sComponents[i])
+	}
+
+	return components
+}
+
+// checkK8sCoreComponents 检查 K8s 核心组件健康状态
+func (s *PlatformHealthService) checkK8sCoreComponents(ctx context.Context) []ComponentStatus {
+	components := make([]ComponentStatus, 0)
+
+	if global.ManagementKubeClient == nil {
+		return components
+	}
+
+	client := global.ManagementKubeClient
+
+	// 定义核心组件及其 Pod 标签选择器
+	coreComponents := []struct {
+		Name     string
+		Selector string
+		Icon     string
+	}{
+		{"ETCD", "component=etcd", "💾"},
+		{"Controller Manager", "component=kube-controller-manager", "🎛️"},
+		{"Scheduler", "component=kube-scheduler", "📅"},
+		{"CoreDNS", "k8s-app=kube-dns", "🌐"},
+	}
+
+	for _, comp := range coreComponents {
+		status := ComponentStatus{
+			Name:   comp.Name,
+			Status: "ok",
+		}
+
+		start := time.Now()
+		pods, err := client.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{
+			LabelSelector: comp.Selector,
+		})
+
+		latency := time.Since(start)
+		status.Latency = latency.String()
+
+		if err != nil {
+			status.Status = "error"
+			status.Description = "无法获取组件状态"
+			components = append(components, status)
+			continue
+		}
+
+		if len(pods.Items) == 0 {
+			status.Status = "warning"
+			status.Description = "未发现组件 Pod"
+			components = append(components, status)
+			continue
+		}
+
+		// 统计 Pod 状态
+		total := len(pods.Items)
+		running := 0
+		for _, pod := range pods.Items {
+			if pod.Status.Phase == corev1.PodRunning {
+				allReady := true
+				for _, cond := range pod.Status.Conditions {
+					if cond.Type == corev1.PodReady && cond.Status != corev1.ConditionTrue {
+						allReady = false
+						break
+					}
+				}
+				if allReady {
+					running++
+				}
+			}
+		}
+
+		if running == total {
+			status.Status = "ok"
+			status.Description = fmt.Sprintf("%d/%d 实例运行正常", running, total)
+		} else if running > 0 {
+			status.Status = "warning"
+			status.Description = fmt.Sprintf("%d/%d 实例运行中", running, total)
+		} else {
+			status.Status = "error"
+			status.Description = fmt.Sprintf("0/%d 实例运行", total)
+		}
+
+		components = append(components, status)
+	}
 
 	return components
 }

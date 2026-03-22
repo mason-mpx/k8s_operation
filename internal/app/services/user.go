@@ -6,7 +6,7 @@ import (
 )
 
 // UserCreate 创建用户
-func (s *Services) UserCreate(parm *requests.UserCreateRequest) error {
+func (s *Services) UserCreate(parm *requests.UserCreateRequest) (*models.User, error) {
 	return s.dao.UserCreate(parm.Username, parm.Password)
 }
 

@@ -17,12 +17,15 @@ func (r *RBACRouter) Inject(router *gin.RouterGroup) {
 	// 角色管理
 	role := router.Group("/role")
 	{
-		role.GET("/list", c.RoleList)         // 获取角色列表（分页）
-		role.GET("/all", c.RoleListAll)       // 获取所有角色（下拉用）
-		role.GET("/detail", c.RoleDetail)     // 获取角色详情
-		role.POST("/create", c.RoleCreate)    // 创建角色
-		role.POST("/update", c.RoleUpdate)    // 更新角色
-		role.POST("/delete", c.RoleDelete)    // 删除角色
+		role.GET("/list", c.RoleList)                       // 获取角色列表（分页）
+		role.GET("/all", c.RoleListAll)                     // 获取所有角色（下拉用）
+		role.GET("/detail", c.RoleDetail)                   // 获取角色详情
+		role.POST("/create", c.RoleCreate)                  // 创建角色
+		role.POST("/update", c.RoleUpdate)                  // 更新角色
+		role.POST("/delete", c.RoleDelete)                  // 删除角色
+		role.GET("/permissions", c.RolePermissions)         // 获取角色权限
+		role.POST("/permissions/update", c.RolePermissionsUpdate) // 更新角色权限
+		role.GET("/users", c.RoleUsers)                     // 获取角色绑定用户
 	}
 
 	// 权限管理

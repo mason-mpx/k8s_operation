@@ -64,10 +64,16 @@ export const MENU_PERMISSIONS = {
   '/platform/health': { roles: ['super_admin', 'platform_admin'] },
   '/platform/settings': { roles: ['super_admin', 'platform_admin'] },
   
-  // 安全管理
+  // 安全管理（精简后的5个模块）
+  '/security/users': { roles: ['super_admin', 'platform_admin'] },
+  '/security/roles': { roles: ['super_admin', 'platform_admin'] },
+  '/security/authorization': { roles: ['super_admin', 'platform_admin', 'cluster_admin'] },
+  '/security/audit': { roles: ['super_admin', 'platform_admin'] },
+  '/security/diagnosis': { roles: ['*'] },
+  
+  // 兼容旧路径
   '/users': { roles: ['super_admin', 'platform_admin'] },
   '/rbac': { roles: ['super_admin', 'platform_admin'] },
-  '/security/audit': { roles: ['super_admin', 'platform_admin'] },
   '/security/rbac/serviceaccounts': { roles: ['super_admin', 'platform_admin', 'cluster_admin'] },
   '/security/rbac/roles': { roles: ['super_admin', 'platform_admin', 'cluster_admin'] },
   '/security/rbac/rolebindings': { roles: ['super_admin', 'platform_admin', 'cluster_admin'] },

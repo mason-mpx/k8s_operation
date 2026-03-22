@@ -2606,6 +2606,439 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/resource/approval/{id}": {
+            "get": {
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "获取审批详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/approval/{id}/approve": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "通过审批",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "审批意见",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/approval/{id}/reject": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "拒绝审批",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "拒绝原因",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/approvals": {
+            "get": {
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "获取审批列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "状态：pending/approved/rejected",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/rule/{id}": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "更新环境规则",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "规则ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "规则信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CicdEnvResourceRule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/rules": {
+            "get": {
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "获取环境规则列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "环境",
+                        "name": "env",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/template": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "创建资源模板",
+                "parameters": [
+                    {
+                        "description": "模板信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CicdResourceTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/template/default": {
+            "get": {
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "获取默认资源模板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "环境",
+                        "name": "env",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "服务类型",
+                        "name": "service_type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/template/{id}": {
+            "get": {
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "获取资源模板详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "更新资源模板",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "模板信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CicdResourceTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "删除资源模板",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/templates": {
+            "get": {
+                "description": "根据环境和服务类型获取资源模板列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "获取资源模板列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "环境：dev/test/staging/prod",
+                        "name": "env",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "服务类型：java/go/node/python",
+                        "name": "service_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/resource/validate": {
+            "post": {
+                "description": "校验资源配置是否符合环境规则，返回警告和错误",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Resource"
+                ],
+                "summary": "校验资源配置",
+                "parameters": [
+                    {
+                        "description": "校验参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.ResourceValidateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ResourceValidationResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/stage/approve": {
             "post": {
                 "consumes": [
@@ -13541,6 +13974,130 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CicdEnvResourceRule": {
+            "type": "object",
+            "properties": {
+                "approval_role": {
+                    "description": "sre/admin",
+                    "type": "string"
+                },
+                "cpu_limit_max": {
+                    "description": "资源上限",
+                    "type": "string"
+                },
+                "cpu_request_min": {
+                    "description": "资源下限",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "env": {
+                    "description": "dev/test/staging/prod",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "memory_limit_max": {
+                    "type": "string"
+                },
+                "memory_request_min": {
+                    "type": "string"
+                },
+                "modified_at": {
+                    "type": "integer"
+                },
+                "replicas_max": {
+                    "type": "integer"
+                },
+                "replicas_min": {
+                    "type": "integer"
+                },
+                "require_approval": {
+                    "description": "审批规则",
+                    "type": "boolean"
+                },
+                "service_type": {
+                    "description": "空=通用规则",
+                    "type": "string"
+                }
+            }
+        },
+        "models.CicdResourceTemplate": {
+            "type": "object",
+            "properties": {
+                "cpu_limit": {
+                    "type": "string"
+                },
+                "cpu_request": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "env": {
+                    "description": "dev/test/staging/prod",
+                    "type": "string"
+                },
+                "hpa_cpu_target": {
+                    "description": "CPU目标利用率%",
+                    "type": "integer"
+                },
+                "hpa_enabled": {
+                    "description": "HPA 配置",
+                    "type": "boolean"
+                },
+                "hpa_max_replicas": {
+                    "type": "integer"
+                },
+                "hpa_min_replicas": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "memory_limit": {
+                    "type": "string"
+                },
+                "memory_request": {
+                    "type": "string"
+                },
+                "modified_at": {
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "small/medium/large/custom",
+                    "type": "string"
+                },
+                "replicas_default": {
+                    "description": "资源配置",
+                    "type": "integer"
+                },
+                "replicas_max": {
+                    "type": "integer"
+                },
+                "replicas_min": {
+                    "type": "integer"
+                },
+                "service_type": {
+                    "description": "java/go/node/python",
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.EnvVar": {
             "type": "object",
             "properties": {
@@ -13549,6 +14106,24 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
+                }
+            }
+        },
+        "models.HPAConfig": {
+            "type": "object",
+            "properties": {
+                "cpu_target": {
+                    "description": "CPU利用率目标%",
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "max_replicas": {
+                    "type": "integer"
+                },
+                "min_replicas": {
+                    "type": "integer"
                 }
             }
         },
@@ -13594,6 +14169,101 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.SecuritySettings"
                 }
             }
+        },
+        "models.ResourceConfig": {
+            "type": "object",
+            "properties": {
+                "hpa": {
+                    "$ref": "#/definitions/models.HPAConfig"
+                },
+                "replicas": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "$ref": "#/definitions/models.ResourceRequests"
+                },
+                "strategy": {
+                    "description": "rollingUpdate/recreate",
+                    "type": "string"
+                }
+            }
+        },
+        "models.ResourceRequests": {
+            "type": "object",
+            "properties": {
+                "limits": {
+                    "$ref": "#/definitions/models.ResourceValues"
+                },
+                "requests": {
+                    "$ref": "#/definitions/models.ResourceValues"
+                }
+            }
+        },
+        "models.ResourceValidationResult": {
+            "type": "object",
+            "properties": {
+                "approval_role": {
+                    "description": "审批角色",
+                    "type": "string"
+                },
+                "errors": {
+                    "description": "错误（不可继续）",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "need_approval": {
+                    "description": "是否需要审批",
+                    "type": "boolean"
+                },
+                "risk_level": {
+                    "description": "风险等级",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.RiskLevel"
+                        }
+                    ]
+                },
+                "suggestion": {
+                    "description": "建议",
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                },
+                "warnings": {
+                    "description": "警告（可继续）",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.ResourceValues": {
+            "type": "object",
+            "properties": {
+                "cpu": {
+                    "type": "string"
+                },
+                "memory": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RiskLevel": {
+            "type": "string",
+            "enum": [
+                "low",
+                "medium",
+                "high"
+            ],
+            "x-enum-varnames": [
+                "RiskLevelLow",
+                "RiskLevelMedium",
+                "RiskLevelHigh"
+            ]
         },
         "models.SecuritySettings": {
             "type": "object",
@@ -15681,6 +16351,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "requests.ResourceValidateRequest": {
+            "type": "object",
+            "required": [
+                "config",
+                "env",
+                "service_type"
+            ],
+            "properties": {
+                "config": {
+                    "description": "资源配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ResourceConfig"
+                        }
+                    ]
+                },
+                "env": {
+                    "description": "dev/test/staging/prod",
+                    "type": "string"
+                },
+                "service_type": {
+                    "description": "java/go/node/python",
                     "type": "string"
                 }
             }

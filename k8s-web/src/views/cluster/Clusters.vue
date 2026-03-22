@@ -76,7 +76,7 @@
           />
         </div>
 
-        <button class="btn btn-primary" @click="openCreate">➕ 创建集群</button>
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreate">➕ 创建集群</button>
         <button class="btn btn-secondary" :disabled="loading" @click="fetchList">🔄 刷新</button>
       </div>
     </div>
@@ -123,7 +123,7 @@
 
             <td>
               <div class="op">
-                <button class="btn btn-mini" :disabled="testingId === c.id || loading"
+                <button v-if="canOperate" class="btn btn-mini" :disabled="testingId === c.id || loading"
                         @click="openEdit(c)">
                   编辑
                 </button>
@@ -137,6 +137,7 @@
                 </button>
 
                 <button
+                  v-if="canOperate"
                   class="btn btn-mini btn-danger"
                   :disabled="testingId === c.id || loading"
                   @click="onDelete(c)"
@@ -224,6 +225,7 @@
               🔗 进入
             </button>
             <button 
+              v-if="canOperate"
               class="card-action-btn" 
               :disabled="testingId === c.id || loading"
               @click="openEdit(c)"
@@ -240,6 +242,7 @@
               {{ testingId === c.id ? '⏳ 检测中' : '🔍 检查' }}
             </button>
             <button 
+              v-if="canOperate"
               class="card-action-btn danger" 
               :disabled="testingId === c.id || loading"
               @click="onDelete(c)"
@@ -374,6 +377,17 @@ import {
 
 const router = useRouter()
 const clusterStore = useClusterStore()
+
+// ===== 操作权限控制 =====
+// viewer 角色只能查看，不能执行任何修改操作
+const canOperate = computed(() => {
+  if (permissionStore.state.isSuperAdmin) return true
+  const roleTypes = permissionStore.roleTypes.value
+  // viewer 角色无操作权限
+  if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
+  // 需要 cluster_admin 或更高权限才能操作集群
+  return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin'].includes(r))
+})
 
 // ===== 列表数据 =====
 const clusters = ref([])

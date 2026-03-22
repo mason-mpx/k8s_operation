@@ -50,3 +50,16 @@ export function deleteUser(id) {
 export function batchDeleteUsers(ids) {
   return Promise.all(ids.map(id => deleteUser(id)))
 }
+
+// 更新用户状态
+export function updateUserStatus(user, status) {
+  return http({
+    url: '/api/v1/user/update',
+    method: 'post',
+    data: { 
+      id: user.id, 
+      username: user.username,
+      status 
+    }
+  })
+}

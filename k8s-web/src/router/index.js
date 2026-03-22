@@ -22,7 +22,13 @@ const routePermissions = {
   '/platform/settings': ['super_admin', 'platform_admin'],
   '/platform/appstore': ['super_admin', 'platform_admin', 'cluster_admin'],
   
-  // ==================== 用户与权限管理 ====================
+  // ==================== 用户与权限管理（精简后） ====================
+  '/security/users': ['super_admin', 'platform_admin'],
+  '/security/roles': ['super_admin', 'platform_admin'],
+  '/security/authorization': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/diagnosis': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
+  
+  // 兼容旧路径
   '/users': ['super_admin', 'platform_admin'],
   '/rbac': ['super_admin', 'platform_admin'],
   '/user-permissions': ['super_admin', 'platform_admin'],
@@ -88,8 +94,14 @@ const router = createRouter({
         { path: 'platform/appstore', component: () => import('@/views/platform/appstore/AppStore.vue') },
         { path: 'platform/settings', component: () => import('@/views/platform/settings/PlatformSettings.vue') },
         
-        // 安全和 RBAC
+        // 安全和 RBAC（精简后的5个模块）
+        { path: 'security/users', component: () => import('@/views/security/UserManagement.vue') },
+        { path: 'security/roles', component: () => import('@/views/security/RoleManagement.vue') },
+        { path: 'security/authorization', component: () => import('@/views/security/AuthorizationManagement.vue') },
         { path: 'security/audit', component: () => import('@/views/security/audit/AuditLog.vue') },
+        { path: 'security/diagnosis', component: () => import('@/views/security/rbac/PermissionCheck.vue') },
+        
+        // 兼容旧路径
         { path: 'security/rbac/serviceaccounts', component: () => import('@/views/security/rbac/ServiceAccounts.vue') },
         { path: 'security/rbac/roles', component: () => import('@/views/security/rbac/Roles.vue') },
         { path: 'security/rbac/rolebindings', component: () => import('@/views/security/rbac/RoleBindings.vue') },

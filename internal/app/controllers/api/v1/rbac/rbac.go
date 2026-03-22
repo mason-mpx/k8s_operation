@@ -190,6 +190,94 @@ func (c *RBACController) RoleDelete(ctx *gin.Context) {
 	resp.Success("删除成功")
 }
 
+// RolePermissions godoc
+// @Summary 获取角色权限
+// @Description 获取角色关联的权限列表
+// @Tags RBAC权限管理
+// @Produce json
+// @Security ApiKeyAuth
+// @Param role_id query int true "角色ID"
+// @Success 200 {object} string "成功"
+// @Router /api/v1/rbac/role/permissions [get]
+func (c *RBACController) RolePermissions(ctx *gin.Context) {
+	resp := response.NewResponse(ctx)
+
+	roleIDStr := ctx.Query("role_id")
+	roleID, err := strconv.ParseInt(roleIDStr, 10, 64)
+	if err != nil || roleID <= 0 {
+		resp.ToErrorResponse(errorcode.InvalidParams)
+		return
+	}
+
+	svc := services.NewServices()
+	permissions, err := svc.RolePermissionList(roleID)
+	if err != nil {
+		global.Logger.Error("获取角色权限失败", zap.Error(err))
+		resp.ToErrorResponse(errorcode.ErrorPermissionListFail)
+		return
+	}
+
+	resp.SuccessList(permissions, len(permissions))
+}
+
+// RolePermissionsUpdate godoc
+// @Summary 更新角色权限
+// @Description 更新角色关联的权限（覆盖原有权限）
+// @Tags RBAC权限管理
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param body body requests.RolePermissionsUpdateRequest true "角色权限信息"
+// @Success 200 {object} string "成功"
+// @Router /api/v1/rbac/role/permissions/update [post]
+func (c *RBACController) RolePermissionsUpdate(ctx *gin.Context) {
+	param := requests.NewRolePermissionsUpdateRequest()
+	resp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidRolePermissionsUpdateRequest); !ok {
+		return
+	}
+
+	svc := services.NewServices()
+	if err := svc.RolePermissionUpdate(param.RoleID, param.PermissionIDs); err != nil {
+		global.Logger.Error("更新角色权限失败", zap.Error(err))
+		resp.ToErrorResponse(errorcode.ErrorRoleUpdateFail)
+		return
+	}
+
+	resp.Success("更新成功")
+}
+
+// RoleUsers godoc
+// @Summary 获取角色绑定用户
+// @Description 获取角色绑定的用户列表
+// @Tags RBAC权限管理
+// @Produce json
+// @Security ApiKeyAuth
+// @Param role_id query int true "角色ID"
+// @Success 200 {object} string "成功"
+// @Router /api/v1/rbac/role/users [get]
+func (c *RBACController) RoleUsers(ctx *gin.Context) {
+	resp := response.NewResponse(ctx)
+
+	roleIDStr := ctx.Query("role_id")
+	roleID, err := strconv.ParseInt(roleIDStr, 10, 64)
+	if err != nil || roleID <= 0 {
+		resp.ToErrorResponse(errorcode.InvalidParams)
+		return
+	}
+
+	svc := services.NewServices()
+	users, err := svc.RoleUserList(roleID)
+	if err != nil {
+		global.Logger.Error("获取角色用户失败", zap.Error(err))
+		resp.ToErrorResponse(errorcode.ErrorUserListFail)
+		return
+	}
+
+	resp.SuccessList(users, len(users))
+}
+
 // ==================== 权限管理 ====================
 
 // PermissionList godoc
