@@ -255,8 +255,6 @@ const menuPermissions = {
   '/images/browse': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer', 'viewer'],
   '/images/cleanup': ['super_admin', 'platform_admin'],
   
-  // ==================== 环境管理 ====================
-  '/environments': ['super_admin', 'platform_admin', 'cluster_admin', 'developer']
 }
 
 /**
@@ -309,12 +307,11 @@ const menuGroupsConfig = reactive([
   {
     name: '平台',
     icon: '🏷️',
-    count: 3,
+    count: 2,
     collapsed: true,
-    match: ['/dashboard', '/clusters', '/platform', '/environments'],
+    match: ['/dashboard', '/clusters', '/platform'],
     items: [
-      { path: '/clusters', label: '集群列表' },
-      { path: '/environments', label: 'K8s环境管理' },
+      { path: '/clusters', label: '集群管理' },
       { path: '/platform/health', label: '平台健康' },
     ],
   },

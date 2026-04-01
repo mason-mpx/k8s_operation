@@ -160,6 +160,38 @@ func ValidPipelineRunRequest(data interface{}, ctx *gin.Context) map[string][]st
 	return valid.ValidateOptions(data, rules, messages)
 }
 
+// ==================== 批量运行流水线请求 ====================
+
+type PipelineBatchRunRequest struct {
+	IDs []int64 `json:"ids" valid:"ids"` // 流水线ID列表
+}
+
+func ValidPipelineBatchRunRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"ids": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"ids": []string{"required:流水线ID列表不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ==================== 批量停止流水线请求 ====================
+
+type PipelineBatchStopRequest struct {
+	IDs []int64 `json:"ids" valid:"ids"` // 流水线ID列表
+}
+
+func ValidPipelineBatchStopRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"ids": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"ids": []string{"required:流水线ID列表不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
 // ==================== 停止流水线请求 ====================
 
 type PipelineStopRequest struct {

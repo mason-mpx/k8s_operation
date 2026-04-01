@@ -7,6 +7,21 @@
         <p>当前时间：{{ currentTime }}</p>
       </div>
       <div class="header-actions">
+        <!-- 集群连接状态指示器 -->
+        <div class="connection-status" :class="clusterConnectionStatus">
+          <span v-if="clusterConnectionStatus === 'checking'" class="status-indicator">
+            <span class="spinner"></span> 连接中...
+          </span>
+          <span v-else-if="clusterConnectionStatus === 'connected'" class="status-indicator connected">
+            ✅ 已连接
+          </span>
+          <span v-else-if="clusterConnectionStatus === 'timeout'" class="status-indicator timeout">
+            ⚠️ 部分集群超时
+          </span>
+          <span v-else class="status-indicator error">
+            ❌ 连接失败
+          </span>
+        </div>
         <button class="btn btn-primary" @click="refreshData">
           <span v-if="!loading">🔄 刷新数据</span>
           <span v-else>加载中...</span>
@@ -342,6 +357,37 @@ import namespaceApi from '@/api/cluster/config/namespace'
 const router = useRouter()
 const clusterStore = useClusterStore()
 
+// =============================================================================
+// 超时控制工具（大厂设计模式）
+// 
+// 设计原则：
+// 1. 快速失败：单个 API 超时不阻塞其他请求
+// 2. 优雅降级：超时后显示默认数据，不影响用户体验
+// 3. 可观测性：记录超时日志，便于问题定位
+// =============================================================================
+
+// API 超时配置（单位：毫秒）
+const API_TIMEOUT = 8000 // 8 秒，给后端 5 秒超时 + 网络延迟
+
+/**
+ * 包装 Promise，添加超时控制
+ * @param {Promise} promise 原始 Promise
+ * @param {number} timeoutMs 超时时间（毫秒）
+ * @param {string} name 请求名称（用于日志）
+ * @returns {Promise} 带超时控制的 Promise
+ */
+const withTimeout = (promise, timeoutMs = API_TIMEOUT, name = 'API') => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`${name} 请求超时(${timeoutMs}ms)`)), timeoutMs)
+    )
+  ])
+}
+
+// 集群连接状态
+const clusterConnectionStatus = ref('checking') // checking | connected | timeout | error
+
 /**
  * 基于实际授权的资源权限配置
  * 参考 Rancher/Kuboard/KubeSphere 权限模型
@@ -610,31 +656,52 @@ const ensureDefaultCluster = async () => {
   }
 }
 
-// 加载数据
+// 加载数据（带超时控制）
 const loadData = async () => {
   loading.value = true
+  clusterConnectionStatus.value = 'checking'
+  
   try {
-    // 先确保有默认集群
-    const hasCluster = await ensureDefaultCluster()
+    // 先确保有默认集群（快速超时）
+    const hasCluster = await withTimeout(
+      ensureDefaultCluster(), 
+      5000, 
+      '获取集群列表'
+    ).catch(() => false)
+    
     if (!hasCluster) {
-      // 使用模拟数据
+      clusterConnectionStatus.value = 'timeout'
       useMockData()
+      Message.warning({ content: '无可用集群或连接超时，显示示例数据', duration: 3000 })
       return
     }
     
-    // 并发请求所有数据
-    await Promise.allSettled([
-      loadClusterStats(),
-      loadNodeStats(),
-      loadPodStats(),
-      loadNamespaceStats(),
-      loadWorkloadStats(),
-      loadNetworkStats(),
-      loadStorageStats(),
-      loadConfigStats()
+    clusterConnectionStatus.value = 'connected'
+    
+    // 并发请求所有数据（每个请求独立超时，互不影响）
+    const results = await Promise.allSettled([
+      withTimeout(loadClusterStats(), API_TIMEOUT, '集群统计'),
+      withTimeout(loadNodeStats(), API_TIMEOUT, '节点统计'),
+      withTimeout(loadPodStats(), API_TIMEOUT, 'Pod统计'),
+      withTimeout(loadNamespaceStats(), API_TIMEOUT, '命名空间统计'),
+      withTimeout(loadWorkloadStats(), API_TIMEOUT, '工作负载统计'),
+      withTimeout(loadNetworkStats(), API_TIMEOUT, '网络统计'),
+      withTimeout(loadStorageStats(), API_TIMEOUT, '存储统计'),
+      withTimeout(loadConfigStats(), API_TIMEOUT, '配置统计')
     ])
+    
+    // 统计成功/失败数量
+    const failed = results.filter(r => r.status === 'rejected')
+    if (failed.length > 0) {
+      console.warn(`Dashboard: ${failed.length}/${results.length} 个请求超时或失败`)
+      // 部分超时时只显示警告，不影响已成功的数据
+      if (failed.length >= results.length / 2) {
+        clusterConnectionStatus.value = 'timeout'
+      }
+    }
   } catch (error) {
     console.error('加载数据失败:', error)
+    clusterConnectionStatus.value = 'error'
     useMockData()
   } finally {
     loading.value = false
@@ -956,6 +1023,54 @@ onUnmounted(() => {
 .header-actions .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 连接状态指示器（大厂设计风格） */
+.connection-status {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-right: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.connection-status .status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.connection-status .status-indicator.connected {
+  color: #86efac;
+}
+
+.connection-status .status-indicator.timeout {
+  color: #fcd34d;
+}
+
+.connection-status .status-indicator.error {
+  color: #fca5a5;
+}
+
+/* 加载动画 */
+.connection-status .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 区域标题 */

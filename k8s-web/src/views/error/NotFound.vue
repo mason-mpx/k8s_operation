@@ -6,7 +6,7 @@
 
     <div class="actions">
       <button @click="$router.back()">返回上一页</button>
-      <button @click="$router.push('/clusters')">去集群列表</button>
+      <button @click="$router.push('/clusters')">去集群管理</button>
       <button @click="$router.push('/dashboard')">去 Dashboard</button>
     </div>
   </div>

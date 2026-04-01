@@ -39,13 +39,15 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		pipeline.POST("/create", r.pipelineCtrl.Create)    // 创建流水线
 		pipeline.POST("/update", r.pipelineCtrl.Update)    // 更新流水线
 		pipeline.POST("/delete", r.pipelineCtrl.Delete)    // 删除流水线
-		pipeline.POST("/run", r.pipelineCtrl.Run)          // 运行流水线（触发Jenkins构建）
+		pipeline.POST("/run", r.pipelineCtrl.Run)          // 运行流水线（触发 Jenkins 构建）
 		pipeline.POST("/stop", r.pipelineCtrl.Stop)        // 停止流水线
+		pipeline.POST("/batch-run", r.pipelineCtrl.BatchRun)   // 批量运行流水线
+		pipeline.POST("/batch-stop", r.pipelineCtrl.BatchStop) // 批量停止流水线
 		pipeline.GET("/logs", r.pipelineCtrl.Logs)         // 获取构建日志
 		pipeline.GET("/status", r.pipelineCtrl.Status)     // 获取实时状态
 		pipeline.GET("/stages", r.pipelineCtrl.Stages)     // 获取阶段数据（Jenkins Pipeline）
 		pipeline.GET("/history", r.pipelineCtrl.History)   // 获取运行历史
-		// callback 已移至 cicd_callback_router.go（公开接口，跳过JWT）
+		// callback 已移至 cicd_callback_router.go（公开接口，跳过 JWT）
 	}
 
 	// ==================== 发布单管理 ====================

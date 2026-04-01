@@ -1794,6 +1794,104 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/pipeline/batch-run": {
+            "post": {
+                "description": "批量触发多个流水线的 Jenkins 构建",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "批量运行流水线",
+                "parameters": [
+                    {
+                        "description": "批量运行参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.PipelineBatchRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回批量运行结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/batch-stop": {
+            "post": {
+                "description": "批量停止多个正在运行的流水线",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "批量停止流水线",
+                "parameters": [
+                    {
+                        "description": "批量停止参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.PipelineBatchStopRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回批量停止结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/pipeline/callback": {
             "post": {
                 "description": "Jenkins 构建完成后调用此接口通知平台更新状态",
@@ -13476,6 +13574,79 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/rbac/role/permissions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取角色关联的权限列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取角色权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "role_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/permissions/update": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新角色关联的权限（覆盖原有权限）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "更新角色权限",
+                "parameters": [
+                    {
+                        "description": "角色权限信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.RolePermissionsUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/rbac/role/update": {
             "post": {
                 "security": [
@@ -13503,6 +13674,40 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/requests.RoleUpdateRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/role/users": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取角色绑定的用户列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RBAC权限管理"
+                ],
+                "summary": "获取角色绑定用户",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "role_id",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -16074,6 +16279,30 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.PipelineBatchRunRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "description": "流水线ID列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "requests.PipelineBatchStopRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "description": "流水线ID列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "requests.PipelineCallbackRequest": {
             "type": "object",
             "properties": {
@@ -16401,6 +16630,20 @@ const docTemplate = `{
                 },
                 "role_type": {
                     "type": "string"
+                }
+            }
+        },
+        "requests.RolePermissionsUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "permission_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "role_id": {
+                    "type": "integer"
                 }
             }
         },

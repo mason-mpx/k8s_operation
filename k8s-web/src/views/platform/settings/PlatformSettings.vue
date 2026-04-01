@@ -83,7 +83,7 @@
               <div class="setting-control">
                 <select v-model="settings.defaultPage">
                   <option value="/dashboard">仪表盘</option>
-                  <option value="/clusters">集群列表</option>
+                  <option value="/clusters">集群管理</option>
                   <option value="/platform/health">平台健康</option>
                 </select>
               </div>

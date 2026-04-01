@@ -1461,6 +1461,22 @@ definitions:
       new_image:
         type: string
     type: object
+  requests.PipelineBatchRunRequest:
+    properties:
+      ids:
+        description: 流水线ID列表
+        items:
+          type: integer
+        type: array
+    type: object
+  requests.PipelineBatchStopRequest:
+    properties:
+      ids:
+        description: 流水线ID列表
+        items:
+          type: integer
+        type: array
+    type: object
   requests.PipelineCallbackRequest:
     properties:
       build_number:
@@ -1690,6 +1706,15 @@ definitions:
         type: string
       role_type:
         type: string
+    type: object
+  requests.RolePermissionsUpdateRequest:
+    properties:
+      permission_ids:
+        items:
+          type: integer
+        type: array
+      role_id:
+        type: integer
     type: object
   requests.RoleUpdateRequest:
     properties:
@@ -3480,6 +3505,72 @@ paths:
       summary: 验证 Git 仓库连接
       tags:
       - CICD Git
+  /api/v1/k8s/cicd/pipeline/batch-run:
+    post:
+      consumes:
+      - application/json
+      description: 批量触发多个流水线的 Jenkins 构建
+      parameters:
+      - description: 批量运行参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.PipelineBatchRunRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回批量运行结果
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量运行流水线
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/batch-stop:
+    post:
+      consumes:
+      - application/json
+      description: 批量停止多个正在运行的流水线
+      parameters:
+      - description: 批量停止参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.PipelineBatchStopRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回批量停止结果
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量停止流水线
+      tags:
+      - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/callback:
     post:
       consumes:
@@ -11260,6 +11351,51 @@ paths:
       summary: 获取角色列表
       tags:
       - RBAC权限管理
+  /api/v1/rbac/role/permissions:
+    get:
+      description: 获取角色关联的权限列表
+      parameters:
+      - description: 角色ID
+        in: query
+        name: role_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取角色权限
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/permissions/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新角色关联的权限（覆盖原有权限）
+      parameters:
+      - description: 角色权限信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.RolePermissionsUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新角色权限
+      tags:
+      - RBAC权限管理
   /api/v1/rbac/role/update:
     post:
       consumes:
@@ -11282,6 +11418,27 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: 更新角色
+      tags:
+      - RBAC权限管理
+  /api/v1/rbac/role/users:
+    get:
+      description: 获取角色绑定的用户列表
+      parameters:
+      - description: 角色ID
+        in: query
+        name: role_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取角色绑定用户
       tags:
       - RBAC权限管理
   /api/v1/rbac/user-role/assign:

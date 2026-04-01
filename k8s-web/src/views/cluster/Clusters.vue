@@ -1,83 +1,68 @@
 <template>
   <div class="cluster-view">
-    <div class="view-header">
-      <h1>集群管理</h1>
-      <p>基础 CRUD + kubeconfig 上传/更新 + 连接测试</p>
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <div class="page-title-section">
+        <h1>集群管理</h1>
+        <span class="cluster-count">{{ filteredClusters.length }} 个集群</span>
+      </div>
+      <div class="header-actions">
+        <button v-if="canOperate" class="btn btn-primary" @click="openCreate">
+          <span class="btn-icon">+</span> 创建集群
+        </button>
+      </div>
     </div>
 
-    <!-- 操作栏 -->
-    <div class="action-bar">
-      <div class="search-box">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="按集群名称搜索..."
-          @keyup.enter="fetchList"
-        />
-      </div>
-
-      <div class="action-buttons">
-        <!-- 视图切换按钮 -->
-        <div class="view-toggle">
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="搜索集群..."
+            @keyup.enter="fetchList"
+          />
+        </div>
+        <div class="filter-group">
           <button 
-            class="btn btn-view" 
+            v-for="f in filters" 
+            :key="f.key"
+            class="filter-btn" 
+            :class="{ active: statusFilter === f.key }"
+            @click="setFilter(f.key)"
+          >
+            {{ f.label }}
+          </button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <div class="view-switch">
+          <button 
+            class="view-btn" 
             :class="{ active: viewMode === 'table' }" 
             @click="viewMode = 'table'"
             title="表格视图"
           >
-            📋
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/>
+            </svg>
           </button>
           <button 
-            class="btn btn-view" 
+            class="view-btn" 
             :class="{ active: viewMode === 'card' }" 
             @click="viewMode = 'card'"
             title="卡片视图"
           >
-            🗂️
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/>
+            </svg>
           </button>
         </div>
-        
-        <div class="filter-buttons">
-          <button class="btn btn-filter" :class="{ active: statusFilter === 'all' }"
-                  @click="setFilter('all')">
-            全部
-          </button>
-          <button class="btn btn-filter" :class="{ active: statusFilter === 'ok' }"
-                  @click="setFilter('ok')">
-            正常
-          </button>
-          <button class="btn btn-filter" :class="{ active: statusFilter === 'bad' }"
-                  @click="setFilter('bad')">
-            异常
-          </button>
-          <button class="btn btn-filter" :class="{ active: statusFilter === 'pending' }"
-                  @click="setFilter('pending')">
-            待检测
-          </button>
-        </div>
-
-        <div class="filter-dropdown">
-          <select v-model.number="itemsPerPage">
-            <option :value="10">10 条/页</option>
-            <option :value="20">20 条/页</option>
-            <option :value="50">50 条/页</option>
-            <option :value="100">100 条/页</option>
-          </select>
-        </div>
-
-        <div class="filter-dropdown">
-          <input
-            type="number"
-            min="1"
-            v-model.number="currentPage"
-            @keyup.enter="fetchList"
-            class="page-input"
-            placeholder="页码"
-          />
-        </div>
-
-        <button v-if="canOperate" class="btn btn-primary" @click="openCreate">➕ 创建集群</button>
-        <button class="btn btn-secondary" :disabled="loading" @click="fetchList">🔄 刷新</button>
+        <button class="btn btn-ghost" :disabled="loading" @click="fetchList">
+          <span class="btn-icon">↻</span> 刷新
+        </button>
       </div>
     </div>
 
@@ -402,6 +387,14 @@ const currentPage = ref(1)
 const itemsPerPage = ref(10)
 const loading = ref(false)
 const testingId = ref(null)
+
+// 筛选按钮配置
+const filters = [
+  { key: 'all', label: '全部' },
+  { key: 'ok', label: '正常' },
+  { key: 'bad', label: '异常' },
+  { key: 'pending', label: '待检测' }
+]
 
 // ===== 弹窗表单 =====
 const showFormModal = ref(false)
@@ -732,114 +725,180 @@ const formatCheckAt = (ts) => {
 </script>
 
 <style scoped>
-/* 容器：支持全屏自适应 */
+/* ===== 容器 ===== */
 .cluster-view {
   width: 100%;
-  max-width: 1800px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 20px 24px;
+  padding: 24px;
   min-height: calc(100vh - 60px);
   box-sizing: border-box;
 }
 
-.view-header {
-  margin-bottom: 20px;
+/* ===== 页面头部 ===== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
-.view-header h1 {
-  font-size: clamp(22px, 3vw, 28px);
-  font-weight: 700;
-  margin: 0 0 8px 0;
+.page-title-section {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.page-title-section h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
   color: #1e293b;
 }
 
-.view-header p {
-  margin: 0;
-  color: #64748b;
+.cluster-count {
   font-size: 14px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 12px;
 }
 
-/* 操作栏：弹性布局自适应 */
-.action-bar {
+/* ===== 工具栏 ===== */
+.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .search-box {
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
+  position: relative;
+  width: 280px;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.5;
 }
 
 .search-box input {
   width: 100%;
-  padding: 10px 16px;
+  padding: 10px 12px 10px 36px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   outline: none;
   font-size: 14px;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  background: #f8fafc;
 }
 
 .search-box input:focus {
   border-color: #326ce5;
-  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.12);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.1);
 }
 
-.action-buttons {
+.filter-group {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 8px;
 }
 
-.filter-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.filter-dropdown select,
-.filter-dropdown input {
-  padding: 9px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 14px;
-  background-color: white;
+.filter-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s;
 }
 
-.filter-dropdown select:focus,
-.filter-dropdown input:focus {
-  outline: none;
-  border-color: #326ce5;
-  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.12);
+.filter-btn:hover {
+  color: #1e293b;
 }
 
-.page-input {
-  width: 72px;
+.filter-btn.active {
+  background: #fff;
+  color: #326ce5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* 按钮通用样式 */
+.view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.view-btn {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-btn:hover {
+  color: #1e293b;
+}
+
+.view-btn.active {
+  background: #fff;
+  color: #326ce5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* ===== 按钮 ===== */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 16px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.15s;
   white-space: nowrap;
 }
 
 .btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .btn:disabled {
@@ -847,98 +906,90 @@ const formatCheckAt = (ts) => {
   cursor: not-allowed;
 }
 
+.btn-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
 .btn-primary {
-  background: linear-gradient(135deg, #326ce5 0%, #2557c5 100%);
-  color: #fff;
-}
-
-.btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #e2e8f0;
-}
-
-.btn-filter {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid transparent;
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 13px;
-}
-
-.btn-filter:hover {
-  background: #e2e8f0;
-}
-
-.btn-filter.active {
   background: #326ce5;
   color: #fff;
 }
 
+.btn-primary:hover:not(:disabled) {
+  background: #2557c5;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
 .btn-mini {
   padding: 6px 12px;
-  border-radius: 8px;
-  background: #f1f5f9;
+  border-radius: 6px;
+  background: #f8fafc;
   font-size: 13px;
+  border: 1px solid #e2e8f0;
 }
 
 .btn-mini:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .btn-danger {
-  background: rgba(239, 68, 68, 0.1);
+  background: #fef2f2;
   color: #dc2626;
+  border-color: #fecaca;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.2);
+  background: #fee2e2;
 }
 
 .btn-info {
-  background: rgba(59, 130, 246, 0.1);
+  background: #eff6ff;
   color: #2563eb;
+  border-color: #bfdbfe;
 }
 
 .btn-info:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.2);
+  background: #dbeafe;
 }
 
-/* 表格容器：弹性高度 */
+/* ===== 表格 ===== */
 .table-container {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .table-scroll {
-  flex: 1;
-  max-height: calc(100vh - 320px);
+  max-height: calc(100vh - 280px);
   min-height: 300px;
   overflow: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
 }
 
 .resource-table th {
   background: #f8fafc;
   text-align: left;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #e2e8f0;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -948,24 +999,23 @@ const formatCheckAt = (ts) => {
 }
 
 .resource-table td {
-  padding: 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
   font-size: 14px;
+  color: #334155;
 }
 
 .resource-table tbody tr {
-  transition: background-color 0.15s ease;
+  transition: background 0.1s;
 }
 
 .resource-table tbody tr:hover {
-  background-color: #f8fafc;
+  background: #f8fafc;
 }
 
 .op {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 /* 状态标签 */
@@ -1306,64 +1356,36 @@ const formatCheckAt = (ts) => {
     padding: 16px;
   }
   
-  .action-bar {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .toolbar {
     flex-direction: column;
     align-items: stretch;
   }
   
-  .search-box {
-    max-width: none;
+  .toolbar-left {
+    flex-direction: column;
   }
   
-  .action-buttons {
-    justify-content: flex-start;
+  .search-box {
+    width: 100%;
   }
   
   .table-scroll {
-    max-height: calc(100vh - 380px);
+    max-height: calc(100vh - 360px);
   }
   
   .modal {
-    padding: 20px 12px;
+    padding: 16px;
   }
   
   .modal-content {
-    max-height: calc(100vh - 40px);
+    max-height: calc(100vh - 32px);
   }
-}
-
-/* ==================== */
-/* 视图切换按钮样式 */
-/* ==================== */
-.view-toggle {
-  display: flex;
-  gap: 0;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #d1d5db;
-}
-
-.btn-view {
-  padding: 8px 16px;
-  background: white;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-right: 1px solid #d1d5db;
-}
-
-.btn-view:last-child {
-  border-right: none;
-}
-
-.btn-view:hover {
-  background: #f3f4f6;
-}
-
-.btn-view.active {
-  background: #3b82f6;
-  color: white;
 }
 
 /* ==================== */

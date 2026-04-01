@@ -97,27 +97,49 @@
           placeholder="搜索流水线名称、描述或 Git 仓库..."
         />
       </div>
-      <div class="filter-tabs">
-        <button 
-          :class="['filter-tab', { active: statusFilter === '' }]"
-          @click="statusFilter = ''"
-        >
-          全部
-        </button>
-        <button 
-          :class="['filter-tab', { active: statusFilter === 'running' }]"
-          @click="statusFilter = 'running'"
-        >
-          <span class="status-dot running"></span>
-          运行中
-        </button>
-        <button 
-          :class="['filter-tab', { active: statusFilter === 'idle' }]"
-          @click="statusFilter = 'idle'"
-        >
-          <span class="status-dot idle"></span>
-          空闲
-        </button>
+      <div class="filter-right">
+        <div class="filter-tabs">
+          <button 
+            :class="['filter-tab', { active: statusFilter === '' }]"
+            @click="statusFilter = ''"
+          >
+            全部
+          </button>
+          <button 
+            :class="['filter-tab', { active: statusFilter === 'running' }]"
+            @click="statusFilter = 'running'"
+          >
+            <span class="status-dot running"></span>
+            运行中
+          </button>
+          <button 
+            :class="['filter-tab', { active: statusFilter === 'idle' }]"
+            @click="statusFilter = 'idle'"
+          >
+            <span class="status-dot idle"></span>
+            空闲
+          </button>
+        </div>
+        <div class="view-switch">
+          <button 
+            :class="['view-btn', { active: viewMode === 'card' }]"
+            @click="viewMode = 'card'"
+            title="卡片视图"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/>
+            </svg>
+          </button>
+          <button 
+            :class="['view-btn', { active: viewMode === 'table' }]"
+            @click="viewMode = 'table'"
+            title="列表视图"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -137,34 +159,170 @@
       <div class="loading-spinner"></div>
       <p>正在加载流水线...</p>
     </div>
-
-    <!-- 流水线列表 -->
-    <div v-else class="pipeline-grid">
-      <!-- 空状态 -->
-      <div v-if="filteredPipelines.length === 0" class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-          </svg>
-        </div>
-        <h3>暂无流水线</h3>
-        <p>点击"创建流水线"按钮开始您的第一条流水线</p>
-        <button v-if="canOperate" class="btn btn-primary" @click="createPipeline">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          创建流水线
-        </button>
+    
+    <!-- 空状态 -->
+    <div v-else-if="filteredPipelines.length === 0" class="empty-state">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
       </div>
-
-      <!-- 流水线卡片 -->
-      <div 
-        v-for="pipeline in filteredPipelines" 
-        :key="pipeline.id"
-        :class="['pipeline-card', { 'is-running': pipeline.status === 'running' }]"
-      >
-        <!-- 卡片头部 -->
+      <h3>暂无流水线</h3>
+      <p>点击“创建流水线”按钮开始您的第一条流水线</p>
+      <button v-if="canOperate" class="btn btn-primary" @click="createPipeline">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        创建流水线
+      </button>
+    </div>
+    
+    <!-- 表格视图 -->
+    <div v-else-if="viewMode === 'table'" class="table-container">
+      <!-- 批量操作工具栏 -->
+      <transition name="slide-down">
+        <div v-if="selectedIds.length > 0" class="batch-toolbar">
+          <div class="batch-info">
+            <span class="batch-count">已选择 <strong>{{ selectedIds.length }}</strong> 项</span>
+            <button class="batch-clear" @click="clearSelection">取消选择</button>
+          </div>
+          <div class="batch-actions">
+            <button v-if="canOperate" class="batch-btn primary" @click="batchRunPipelines" :disabled="batchRunDisabled">
+              <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              批量发布
+            </button>
+            <button v-if="canOperate" class="batch-btn warning" @click="batchStopPipelines" :disabled="batchStopDisabled">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              取消发布
+            </button>
+            <button v-if="canOperate" class="batch-btn danger" @click="batchDeletePipelines">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              批量删除
+            </button>
+          </div>
+        </div>
+      </transition>
+      <table class="pipeline-table">
+        <thead>
+          <tr>
+            <th style="width: 48px;" class="checkbox-col">
+              <label class="checkbox-wrapper">
+                <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" :indeterminate="isIndeterminate" />
+                <span class="checkmark"></span>
+              </label>
+            </th>
+            <th style="width: 200px;">流水线名称</th>
+            <th>描述</th>
+            <th style="width: 100px;">状态</th>
+            <th style="width: 100px;">上次运行</th>
+            <th style="width: 140px;">运行时间</th>
+            <th style="width: 200px;">Git 仓库</th>
+            <th style="width: 100px;">分支</th>
+            <th style="width: 200px;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="pipeline in paginatedPipelines" :key="pipeline.id" :class="{ 'row-selected': selectedIds.includes(pipeline.id) }">
+            <td class="checkbox-col">
+              <label class="checkbox-wrapper">
+                <input type="checkbox" :checked="selectedIds.includes(pipeline.id)" @change="toggleSelect(pipeline.id)" />
+                <span class="checkmark"></span>
+              </label>
+            </td>
+            <td>
+              <div class="table-name-cell">
+                <span :class="['status-indicator', `status-${pipeline.status}`]"></span>
+                <span class="pipeline-link" @click="viewPipeline(pipeline.id)">{{ pipeline.name }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="table-desc">{{ pipeline.description || '-' }}</span>
+            </td>
+            <td>
+              <span :class="['status-tag', `status-${pipeline.status}`]">
+                {{ pipeline.status === 'running' ? '运行中' : '空闲' }}
+              </span>
+            </td>
+            <td>
+              <span :class="['run-status-tag', `status-${pipeline.lastRunStatus}`]">
+                {{ runStatusText(pipeline.lastRunStatus) }}
+              </span>
+            </td>
+            <td>
+              <span class="table-time">{{ formatDate(pipeline.lastRunTime) }}</span>
+            </td>
+            <td>
+              <span class="table-repo" :title="pipeline.gitRepo">{{ formatRepoUrl(pipeline.gitRepo) }}</span>
+            </td>
+            <td>
+              <span class="table-branch">{{ pipeline.branch || 'main' }}</span>
+            </td>
+            <td>
+              <div class="table-actions">
+                <button 
+                  v-if="canOperate && pipeline.status !== 'running'"
+                  class="action-btn-sm run"
+                  @click="handleRunPipeline(pipeline)"
+                  title="运行"
+                >
+                  ▶ 运行
+                </button>
+                <button 
+                  v-if="canOperate && (pipeline.status === 'running' || pipeline.lastRunStatus === 'pending')"
+                  class="action-btn-sm stop"
+                  @click="handleStopPipeline(pipeline)"
+                  title="停止"
+                >
+                  ■ 停止
+                </button>
+                <button class="action-btn-sm" @click="viewPipeline(pipeline.id)" title="详情">查看</button>
+                <button v-if="canOperate" class="action-btn-sm" @click="editPipeline(pipeline.id)" title="编辑">编辑</button>
+                <button v-if="canOperate" class="action-btn-sm danger" @click="handleDeletePipeline(pipeline)" title="删除">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- 卡片视图 -->
+    <div v-else class="pipeline-grid-wrapper">
+      <!-- 批量操作工具栏 -->
+      <transition name="slide-down">
+        <div v-if="selectedIds.length > 0" class="batch-toolbar card-batch-toolbar">
+          <div class="batch-info">
+            <span class="batch-count">已选择 <strong>{{ selectedIds.length }}</strong> 项</span>
+            <button class="batch-clear" @click="clearSelection">取消选择</button>
+          </div>
+          <div class="batch-actions">
+            <button v-if="canOperate" class="batch-btn primary" @click="batchRunPipelines" :disabled="batchRunDisabled">
+              <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              批量发布
+            </button>
+            <button v-if="canOperate" class="batch-btn warning" @click="batchStopPipelines" :disabled="batchStopDisabled">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              取消发布
+            </button>
+            <button v-if="canOperate" class="batch-btn danger" @click="batchDeletePipelines">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              批量删除
+            </button>
+          </div>
+        </div>
+      </transition>
+      <div class="pipeline-grid">
+        <div 
+          v-for="pipeline in paginatedPipelines" 
+          :key="pipeline.id"
+          :class="['pipeline-card', { 'is-running': pipeline.status === 'running', 'is-selected': selectedIds.includes(pipeline.id) }]"
+        >
+          <!-- 卡片复选框 -->
+          <label class="card-checkbox" @click.stop>
+            <input type="checkbox" :checked="selectedIds.includes(pipeline.id)" @change="toggleSelect(pipeline.id)" />
+            <span class="checkmark"></span>
+          </label>
+          <!-- 卡片头部 -->
         <div class="card-header">
           <div class="pipeline-info">
             <div class="pipeline-name-row">
@@ -329,29 +487,33 @@
           </button>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- 分页 -->
-    <div v-if="total > pageSize" class="pagination">
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === 1"
-        @click="currentPage--"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-      </button>
-      <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
-      <button 
-        class="page-btn" 
-        :disabled="currentPage >= totalPages"
-        @click="currentPage++"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
+    <div v-if="filteredPipelines.length > 0" class="pagination">
+      <span class="page-total">共 {{ filteredPipelines.length }} 条</span>
+      <div class="page-controls">
+        <button class="page-arrow" :disabled="currentPage === 1" @click="currentPage--">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="page-current">{{ currentPage }}</span>
+        <button class="page-arrow" :disabled="currentPage >= localTotalPages" @click="currentPage++">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="page-size-select">
+        <select v-model.number="pageSize" @change="currentPage = 1">
+          <option :value="10">10 条/页</option>
+          <option :value="20">20 条/页</option>
+          <option :value="50">50 条/页</option>
+          <option :value="100">100 条/页</option>
+        </select>
+      </div>
+      <div class="page-jump">
+        <span>前往</span>
+        <input type="number" v-model.number="jumpPage" min="1" :max="localTotalPages" @keyup.enter="goToPage" />
+      </div>
     </div>
   </div>
 </template>
@@ -375,23 +537,67 @@ export default {
     const pipelines = ref([])
     const searchQuery = ref('')
     const statusFilter = ref('')
+    const viewMode = ref('card')
     const currentPage = ref(1)
     const pageSize = ref(12)
     const total = ref(0)
     const loading = ref(false)
     const errorMsg = ref('')
     const activeMenu = ref(null)
+    const jumpPage = ref(1)
+    const selectedIds = ref([])
+
+    // ===== 多选功能 =====
+    const isAllSelected = computed(() => {
+      if (paginatedPipelines.value.length === 0) return false
+      return paginatedPipelines.value.every(p => selectedIds.value.includes(p.id))
+    })
+    const isIndeterminate = computed(() => {
+      const selectedInPage = paginatedPipelines.value.filter(p => selectedIds.value.includes(p.id)).length
+      return selectedInPage > 0 && selectedInPage < paginatedPipelines.value.length
+    })
+    const batchRunDisabled = computed(() => {
+      return pipelines.value.filter(p => selectedIds.value.includes(p.id)).some(p => p.status === 'running')
+    })
+    const batchStopDisabled = computed(() => {
+      return !pipelines.value.filter(p => selectedIds.value.includes(p.id)).some(p => p.status === 'running' || p.lastRunStatus === 'pending')
+    })
+    const toggleSelect = (id) => {
+      const idx = selectedIds.value.indexOf(id)
+      if (idx > -1) {
+        selectedIds.value.splice(idx, 1)
+      } else {
+        selectedIds.value.push(id)
+      }
+    }
+    const toggleSelectAll = () => {
+      if (isAllSelected.value) {
+        paginatedPipelines.value.forEach(p => {
+          const idx = selectedIds.value.indexOf(p.id)
+          if (idx > -1) selectedIds.value.splice(idx, 1)
+        })
+      } else {
+        paginatedPipelines.value.forEach(p => {
+          if (!selectedIds.value.includes(p.id)) selectedIds.value.push(p.id)
+        })
+      }
+    }
+    const clearSelection = () => { selectedIds.value = [] }
 
     // ===== 操作权限控制 =====
     // viewer 角色只能查看，不能执行任何修改操作
     const canOperate = computed(() => {
       if (permissionStore.state.isSuperAdmin) return true
       const roleTypes = permissionStore.roleTypes.value
+      console.log('[Pipelines] 当前用户角色类型:', roleTypes)
       // viewer 角色无操作权限
       if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
       // 需要 developer 或更高权限才能操作流水线
       return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
     })
+    
+    // TODO: 调试用 - 临时允许所有操作（上线前需删除）
+    // const canOperate = ref(true)
 
     // 统计数据
     const runningCount = computed(() => 
@@ -404,6 +610,27 @@ export default {
       pipelines.value.filter(p => p.lastRunStatus === 'failed').length
     )
     const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+    const localTotalPages = computed(() => Math.ceil(filteredPipelines.value.length / pageSize.value))
+    
+    // 生成分页按钮
+    const displayPages = computed(() => {
+      const pages = []
+      const total = localTotalPages.value
+      const current = currentPage.value
+      
+      if (total <= 7) {
+        for (let i = 1; i <= total; i++) pages.push(i)
+      } else {
+        if (current <= 3) {
+          pages.push(1, 2, 3, 4, '...', total)
+        } else if (current >= total - 2) {
+          pages.push(1, '...', total - 3, total - 2, total - 1, total)
+        } else {
+          pages.push(1, '...', current - 1, current, current + 1, '...', total)
+        }
+      }
+      return pages
+    })
 
     // 过滤后的流水线列表
     const filteredPipelines = computed(() => {
@@ -412,6 +639,12 @@ export default {
         result = result.filter(p => p.status === statusFilter.value)
       }
       return result
+    })
+
+    // 分页后的流水线列表
+    const paginatedPipelines = computed(() => {
+      const start = (currentPage.value - 1) * pageSize.value
+      return filteredPipelines.value.slice(start, start + pageSize.value)
     })
 
     // 加载流水线列表
@@ -515,6 +748,80 @@ export default {
       activeMenu.value = null
     }
 
+    // 批量运行流水线
+    const batchRunPipelines = async () => {
+      if (selectedIds.value.length === 0) return
+      const toRun = pipelines.value.filter(p => selectedIds.value.includes(p.id) && p.status !== 'running')
+      if (toRun.length === 0) {
+        Message.warning({ content: '所选流水线均在运行中' })
+        return
+      }
+      if (!confirm(`确定要批量发布 ${toRun.length} 条流水线吗？`)) return
+      Message.info({ content: `正在启动 ${toRun.length} 条流水线...` })
+      
+      try {
+        const response = await batchRunPipelines(selectedIds.value)
+        if (response.code === 0) {
+          const successCount = response.data?.success_count || 0
+          const failCount = response.data?.fail_count || 0
+          Message.success({ content: `成功发布 ${successCount} 条，失败 ${failCount} 条` })
+        } else {
+          throw new Error(response.msg || '批量发布失败')
+        }
+      } catch (error) {
+        console.error('批量发布失败:', error)
+        Message.error({ content: error.message || '批量发布失败' })
+      }
+      
+      selectedIds.value = []
+      loadPipelines()
+    }
+
+    // 批量停止流水线
+    const batchStopPipelines = async () => {
+      if (selectedIds.value.length === 0) return
+      const toStop = pipelines.value.filter(p => selectedIds.value.includes(p.id) && (p.status === 'running' || p.lastRunStatus === 'pending'))
+      if (toStop.length === 0) {
+        Message.warning({ content: '所选流水线均未在运行' })
+        return
+      }
+      if (!confirm(`确定要取消发布 ${toStop.length} 条流水线吗？`)) return
+      Message.info({ content: `正在停止 ${toStop.length} 条流水线...` })
+      
+      try {
+        const response = await batchStopPipelines(selectedIds.value)
+        if (response.code === 0) {
+          const successCount = response.data?.success_count || 0
+          const failCount = response.data?.fail_count || 0
+          Message.success({ content: `成功停止 ${successCount} 条，失败 ${failCount} 条` })
+        } else {
+          throw new Error(response.msg || '批量停止失败')
+        }
+      } catch (error) {
+        console.error('批量停止失败:', error)
+        Message.error({ content: error.message || '批量停止失败' })
+      }
+      
+      selectedIds.value = []
+      loadPipelines()
+    }
+
+    // 批量删除流水线
+    const batchDeletePipelines = async () => {
+      if (selectedIds.value.length === 0) return
+      if (!confirm(`确定要删除 ${selectedIds.value.length} 条流水线吗？此操作不可恢复！`)) return
+      let deleteSuccessCount = 0
+      for (const id of selectedIds.value) {
+        try {
+          const res = await removePipeline(id)
+          if (res.code === 0) deleteSuccessCount++
+        } catch (e) { /* ignore */ }
+      }
+      Message.success({ content: `成功删除 ${deleteSuccessCount} 条流水线` })
+      selectedIds.value = []
+      loadPipelines()
+    }
+
     // 菜单操作
     const toggleMenu = (id) => {
       activeMenu.value = activeMenu.value === id ? null : id
@@ -532,6 +839,13 @@ export default {
     const editPipeline = (id) => router.push(`/cicd/pipelines/${id}/edit`)
     const viewHistory = (id) => router.push(`/cicd/pipelines/${id}?tab=history`)
     const viewLogs = (id) => router.push(`/cicd/pipelines/${id}?tab=logs`)
+
+    // 页码跳转
+    const goToPage = () => {
+      const page = Math.max(1, Math.min(jumpPage.value, localTotalPages.value))
+      currentPage.value = page
+      jumpPage.value = page
+    }
 
     // 格式化
     const formatDate = (dateString) => {
@@ -586,28 +900,45 @@ export default {
       pipelines,
       searchQuery,
       statusFilter,
+      viewMode,
       currentPage,
       pageSize,
       total,
       totalPages,
+      localTotalPages,
+      displayPages,
       loading,
       errorMsg,
       activeMenu,
+      jumpPage,
+      selectedIds,
+      isAllSelected,
+      isIndeterminate,
+      batchRunDisabled,
+      batchStopDisabled,
       runningCount,
       successCount,
       failedCount,
       filteredPipelines,
+      paginatedPipelines,
       canOperate,
       loadPipelines,
       handleRunPipeline,
       handleStopPipeline,
       handleDeletePipeline,
+      batchRunPipelines,
+      batchStopPipelines,
+      batchDeletePipelines,
+      toggleSelect,
+      toggleSelectAll,
+      clearSelection,
       toggleMenu,
       createPipeline,
       viewPipeline,
       editPipeline,
       viewHistory,
       viewLogs,
+      goToPage,
       formatDate,
       formatRepoUrl,
       runStatusText
@@ -726,6 +1057,48 @@ export default {
   align-items: center;
   margin-bottom: 20px;
   gap: 16px;
+}
+
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.view-btn {
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.view-btn:hover {
+  color: #64748b;
+}
+
+.view-btn.active {
+  background: #4299e1;
+  color: white;
 }
 
 .search-wrapper {
@@ -865,16 +1238,8 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-/* 流水线网格 */
-.pipeline-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 20px;
-}
-
 /* 空状态 */
 .empty-state {
-  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -908,6 +1273,367 @@ export default {
   margin: 0 0 24px 0;
 }
 
+/* 表格视图 */
+.table-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 批量操作工具栏 */
+.batch-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #ebf8ff 0%, #e0f2fe 100%);
+  border-bottom: 1px solid #bae6fd;
+}
+
+.batch-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.batch-count {
+  font-size: 14px;
+  color: #0369a1;
+}
+
+.batch-count strong {
+  font-weight: 600;
+  color: #0284c7;
+}
+
+.batch-clear {
+  background: none;
+  border: none;
+  color: #0284c7;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.batch-clear:hover {
+  background: rgba(2, 132, 199, 0.1);
+}
+
+.batch-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.batch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.batch-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.batch-btn.primary {
+  background: #4299e1;
+  color: white;
+}
+
+.batch-btn.primary:hover:not(:disabled) {
+  background: #3182ce;
+}
+
+.batch-btn.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.batch-btn.warning {
+  background: white;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+}
+
+.batch-btn.warning:hover:not(:disabled) {
+  background: #fffbeb;
+  border-color: #fbbf24;
+}
+
+.batch-btn.warning:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.batch-btn.danger {
+  background: white;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.batch-btn.danger:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.2s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* 复选框 */
+.checkbox-col {
+  width: 48px;
+  text-align: center;
+}
+
+.checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.checkbox-wrapper input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  background: white;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkbox-wrapper:hover .checkmark {
+  border-color: #4299e1;
+}
+
+.checkbox-wrapper input:checked + .checkmark {
+  background: #4299e1;
+  border-color: #4299e1;
+}
+
+.checkbox-wrapper input:checked + .checkmark::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-bottom: 2px;
+}
+
+.checkbox-wrapper input:indeterminate + .checkmark {
+  background: #4299e1;
+  border-color: #4299e1;
+}
+
+.checkbox-wrapper input:indeterminate + .checkmark::after {
+  content: '';
+  width: 10px;
+  height: 2px;
+  background: white;
+}
+
+.row-selected {
+  background: #eff6ff !important;
+}
+
+.pipeline-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pipeline-table th {
+  background: #f8fafc;
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pipeline-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+  color: #334155;
+}
+
+.pipeline-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.table-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pipeline-link {
+  color: #3182ce;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.pipeline-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.table-desc {
+  color: #64748b;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.table-time {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.table-repo {
+  color: #64748b;
+  font-size: 13px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.table-branch {
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #475569;
+  font-family: monospace;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-tag.status-running {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.status-tag.status-idle {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.table-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-btn-sm {
+  padding: 4px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: white;
+  font-size: 12px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.action-btn-sm:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.action-btn-sm.run {
+  background: #d1fae5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+
+.action-btn-sm.run:hover {
+  background: #a7f3d0;
+}
+
+.action-btn-sm.stop {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.action-btn-sm.stop:hover {
+  background: #fecaca;
+}
+
+.action-btn-sm.danger {
+  color: #dc2626;
+}
+
+.action-btn-sm.danger:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+/* 流水线网格包装器 */
+.pipeline-grid-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-batch-toolbar {
+  border-radius: 12px;
+  margin-bottom: 0;
+}
+
+/* 流水线网格 */
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+}
+
 /* 流水线卡片 */
 .pipeline-card {
   background: white;
@@ -916,6 +1642,7 @@ export default {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: all 0.3s;
   border: 1px solid transparent;
+  position: relative;
 }
 
 .pipeline-card:hover {
@@ -929,11 +1656,69 @@ export default {
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
 }
 
+.pipeline-card.is-selected {
+  border-color: #4299e1;
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.3);
+  background: #f0f9ff;
+}
+
+/* 卡片复选框 */
+.card-checkbox {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.card-checkbox input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.card-checkbox .checkmark {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pipeline-card:hover .card-checkbox .checkmark {
+  border-color: #4299e1;
+}
+
+.card-checkbox input:checked + .checkmark {
+  background: #4299e1;
+  border-color: #4299e1;
+}
+
+.card-checkbox input:checked + .checkmark::after {
+  content: '';
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-bottom: 2px;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 20px;
+  padding: 20px 20px 20px 48px;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -1264,43 +2049,107 @@ export default {
 /* 分页 */
 .pagination {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
   gap: 16px;
-  margin-top: 32px;
+  margin-top: 16px;
+  padding: 12px 0;
 }
 
-.page-btn {
-  width: 40px;
-  height: 40px;
+.page-total {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-arrow {
+  width: 32px;
+  height: 32px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 6px;
   background: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  color: #64748b;
+  transition: all 0.15s;
 }
 
-.page-btn:hover:not(:disabled) {
+.page-arrow:hover:not(:disabled) {
   border-color: #4299e1;
   color: #4299e1;
 }
 
-.page-btn:disabled {
-  opacity: 0.5;
+.page-arrow:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.page-btn svg {
-  width: 18px;
-  height: 18px;
+.page-arrow svg {
+  width: 14px;
+  height: 14px;
 }
 
-.page-info {
+.page-current {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #4299e1;
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.page-size-select select {
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  color: #334155;
+  cursor: pointer;
+  outline: none;
+}
+
+.page-size-select select:focus {
+  border-color: #4299e1;
+}
+
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   color: #64748b;
+}
+
+.page-jump input {
+  width: 50px;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  outline: none;
+}
+
+.page-jump input:focus {
+  border-color: #4299e1;
+}
+
+.page-jump input::-webkit-inner-spin-button,
+.page-jump input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* 按钮 */
