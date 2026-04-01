@@ -3,7 +3,7 @@
   <div class="cluster-layout">
     <div class="cluster-bar">
       <div class="left">
-        <button class="btn btn-mini" @click="backToClusters">← 返回集群列表</button>
+        <button class="btn btn-mini" @click="backToClusters">← 返回集群管理</button>
         <div class="cluster-info">
           <div class="name">{{ clusterName }}</div>
           <div class="meta">ClusterID: {{ clusterId }}</div>

@@ -80,7 +80,7 @@ export const runPipeline = (id, options = {}) => {
 
 /**
  * 停止流水线
- * @param {number} id - 流水线ID
+ * @param {number} id - 流水线 ID
  * @param {number} buildNumber - 可选：指定构建号
  */
 export const stopPipeline = (id, buildNumber = null) => {
@@ -89,6 +89,22 @@ export const stopPipeline = (id, buildNumber = null) => {
     data.build_number = Number(buildNumber)
   }
   return http.post(`${BASE_URL}/stop`, data)
+}
+
+/**
+ * 批量运行流水线
+ * @param {Array<number>} ids - 流水线 ID 列表
+ */
+export const batchRunPipelines = (ids) => {
+  return http.post(`${BASE_URL}/batch-run`, { ids: ids.map(id => Number(id)) })
+}
+
+/**
+ * 批量停止流水线
+ * @param {Array<number>} ids - 流水线 ID 列表
+ */
+export const batchStopPipelines = (ids) => {
+  return http.post(`${BASE_URL}/batch-stop`, { ids: ids.map(id => Number(id)) })
 }
 
 /**

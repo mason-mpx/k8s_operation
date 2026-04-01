@@ -1,6 +1,7 @@
-﻿package cicd
+package cicd
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -206,6 +207,120 @@ func (c *PipelineController) Run(ctx *gin.Context) {
 	rsp.Success(gin.H{
 		"message": "流水线启动成功",
 		"run_id":  run.ID,
+	})
+}
+
+// BatchRun godoc
+// @Summary 批量运行流水线
+// @Description 批量触发多个流水线的 Jenkins 构建
+// @Tags CICD Pipeline
+// @Accept json
+// @Produce json
+// @Param body body requests.PipelineBatchRunRequest true "批量运行参数"
+// @Success 200 {object} map[string]any "返回批量运行结果"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
+// @Router /api/v1/k8s/cicd/pipeline/batch-run [post]
+func (c *PipelineController) BatchRun(ctx *gin.Context) {
+	param := &requests.PipelineBatchRunRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidPipelineBatchRunRequest); !ok {
+		return
+	}
+
+	if len(param.IDs) == 0 {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails("流水线ID列表不能为空"))
+		return
+	}
+
+	userID := ctx.GetInt64("user_id")
+	svc := services.NewServices()
+
+	var successCount, failCount int
+	var results []map[string]any
+
+	for _, id := range param.IDs {
+		runReq := &requests.PipelineRunRequest{ID: id}
+		run, err := svc.PipelineRun(ctx.Request.Context(), runReq, userID)
+		if err != nil {
+			failCount++
+			results = append(results, map[string]any{
+				"id":      id,
+				"success": false,
+				"error":   err.Error(),
+			})
+		} else {
+			successCount++
+			results = append(results, map[string]any{
+				"id":      id,
+				"success": true,
+				"run_id":  run.ID,
+			})
+		}
+	}
+
+	rsp.Success(gin.H{
+		"message":       fmt.Sprintf("批量运行完成：成功 %d，失败 %d", successCount, failCount),
+		"success_count": successCount,
+		"fail_count":    failCount,
+		"results":       results,
+	})
+}
+
+// BatchStop godoc
+// @Summary 批量停止流水线
+// @Description 批量停止多个正在运行的流水线
+// @Tags CICD Pipeline
+// @Accept json
+// @Produce json
+// @Param body body requests.PipelineBatchStopRequest true "批量停止参数"
+// @Success 200 {object} map[string]any "返回批量停止结果"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
+// @Router /api/v1/k8s/cicd/pipeline/batch-stop [post]
+func (c *PipelineController) BatchStop(ctx *gin.Context) {
+	param := &requests.PipelineBatchStopRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidPipelineBatchStopRequest); !ok {
+		return
+	}
+
+	if len(param.IDs) == 0 {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails("流水线ID列表不能为空"))
+		return
+	}
+
+	svc := services.NewServices()
+
+	var successCount, failCount int
+	var results []map[string]any
+
+	for _, id := range param.IDs {
+		stopReq := &requests.PipelineStopRequest{ID: id}
+		err := svc.PipelineStop(ctx.Request.Context(), stopReq)
+		if err != nil {
+			failCount++
+			results = append(results, map[string]any{
+				"id":      id,
+				"success": false,
+				"error":   err.Error(),
+			})
+		} else {
+			successCount++
+			results = append(results, map[string]any{
+				"id":      id,
+				"success": true,
+			})
+		}
+	}
+
+	rsp.Success(gin.H{
+		"message":       fmt.Sprintf("批量停止完成：成功 %d，失败 %d", successCount, failCount),
+		"success_count": successCount,
+		"fail_count":    failCount,
+		"results":       results,
 	})
 }
 
