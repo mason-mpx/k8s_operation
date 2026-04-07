@@ -28,5 +28,7 @@ func Register() {
 	register_pipeline()
 	// RBAC
 	registerRBAC()
+	// 应用商城
+	registerAppStore()
 	// 后续可以继续扩展
 }
