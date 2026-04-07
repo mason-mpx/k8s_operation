@@ -12868,6 +12868,382 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/platform/appstore/categories": {
+            "get": {
+                "description": "获取所有分类及其应用计数",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "获取分类列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/create": {
+            "post": {
+                "description": "管理员创建新应用",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "创建应用",
+                "parameters": [
+                    {
+                        "description": "应用信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AppStoreCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/delete/{id}": {
+            "delete": {
+                "description": "管理员删除应用（软删除）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "删除应用",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/detail/{id}": {
+            "get": {
+                "description": "根据 ID 获取应用详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "获取应用详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/install": {
+            "post": {
+                "description": "将应用安装到指定集群的命名空间",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "安装应用",
+                "parameters": [
+                    {
+                        "description": "安装信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AppStoreInstallRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/installs": {
+            "get": {
+                "description": "分页获取应用安装记录",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "获取安装记录列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "应用ID",
+                        "name": "app_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "集群ID",
+                        "name": "cluster_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/installs/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "获取安装记录详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "安装记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/installs/{id}/status": {
+            "get": {
+                "description": "实时查询已安装应用在 K8s 集群中的 Deployment/Pod/Service 状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "获取安装实时状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "安装记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/list": {
+            "get": {
+                "description": "分页获取应用列表，支持分类筛选和关键词搜索",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "获取应用商城列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "推荐",
+                        "name": "featured",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/uninstall/{id}": {
+            "post": {
+                "description": "从集群卸载已安装的应用",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "卸载应用",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "安装记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/appstore/update": {
+            "put": {
+                "description": "管理员更新应用信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "应用商城"
+                ],
+                "summary": "更新应用",
+                "parameters": [
+                    {
+                        "description": "应用信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AppStoreUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/platform/health": {
             "get": {
                 "description": "获取平台、集群、告警、任务队列和组件的完整健康状态",
@@ -14159,6 +14535,151 @@ const docTemplate = `{
                 },
                 "mem_threshold": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.AppStoreCreateRequest": {
+            "type": "object",
+            "required": [
+                "category",
+                "name",
+                "version"
+            ],
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "chart_url": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "doc_url": {
+                    "type": "string"
+                },
+                "featured": {
+                    "type": "integer"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "min_k8s": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "string"
+                },
+                "values_yaml": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AppStoreInstallRequest": {
+            "type": "object",
+            "required": [
+                "app_id",
+                "cluster_id",
+                "namespace",
+                "release_name"
+            ],
+            "properties": {
+                "app_id": {
+                    "type": "integer"
+                },
+                "cluster_id": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "release_name": {
+                    "description": "Helm release name",
+                    "type": "string"
+                },
+                "values": {
+                    "description": "自定义values.yaml",
+                    "type": "string"
+                }
+            }
+        },
+        "models.AppStoreUpdateRequest": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "chart_url": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "doc_url": {
+                    "type": "string"
+                },
+                "featured": {
+                    "type": "integer"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "min_k8s": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "string"
+                },
+                "values_yaml": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },

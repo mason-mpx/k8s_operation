@@ -25,6 +25,104 @@ definitions:
       mem_threshold:
         type: integer
     type: object
+  models.AppStoreCreateRequest:
+    properties:
+      category:
+        type: string
+      chart_url:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      doc_url:
+        type: string
+      featured:
+        type: integer
+      icon:
+        type: string
+      min_k8s:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+      provider:
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: integer
+      tags:
+        type: string
+      values_yaml:
+        type: string
+      version:
+        type: string
+    required:
+    - category
+    - name
+    - version
+    type: object
+  models.AppStoreInstallRequest:
+    properties:
+      app_id:
+        type: integer
+      cluster_id:
+        type: integer
+      namespace:
+        type: string
+      release_name:
+        description: Helm release name
+        type: string
+      values:
+        description: 自定义values.yaml
+        type: string
+    required:
+    - app_id
+    - cluster_id
+    - namespace
+    - release_name
+    type: object
+  models.AppStoreUpdateRequest:
+    properties:
+      category:
+        type: string
+      chart_url:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      doc_url:
+        type: string
+      featured:
+        type: integer
+      icon:
+        type: string
+      id:
+        type: integer
+      min_k8s:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+      provider:
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: integer
+      tags:
+        type: string
+      values_yaml:
+        type: string
+      version:
+        type: string
+    required:
+    - id
+    type: object
   models.BasicSettings:
     properties:
       default_cluster:
@@ -10910,6 +11008,251 @@ paths:
       summary: 获取 StorageClass YAML
       tags:
       - K8s StorageClass 管理
+  /api/v1/platform/appstore/categories:
+    get:
+      description: 获取所有分类及其应用计数
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取分类列表
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/create:
+    post:
+      consumes:
+      - application/json
+      description: 管理员创建新应用
+      parameters:
+      - description: 应用信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AppStoreCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 创建应用
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/delete/{id}:
+    delete:
+      description: 管理员删除应用（软删除）
+      parameters:
+      - description: 应用ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 删除应用
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/detail/{id}:
+    get:
+      description: 根据 ID 获取应用详情
+      parameters:
+      - description: 应用ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取应用详情
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/install:
+    post:
+      consumes:
+      - application/json
+      description: 将应用安装到指定集群的命名空间
+      parameters:
+      - description: 安装信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AppStoreInstallRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 安装应用
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/installs:
+    get:
+      description: 分页获取应用安装记录
+      parameters:
+      - description: 应用ID
+        in: query
+        name: app_id
+        type: integer
+      - description: 集群ID
+        in: query
+        name: cluster_id
+        type: integer
+      - description: 状态
+        in: query
+        name: status
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取安装记录列表
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/installs/{id}:
+    get:
+      parameters:
+      - description: 安装记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取安装记录详情
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/installs/{id}/status:
+    get:
+      description: 实时查询已安装应用在 K8s 集群中的 Deployment/Pod/Service 状态
+      parameters:
+      - description: 安装记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取安装实时状态
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/list:
+    get:
+      description: 分页获取应用列表，支持分类筛选和关键词搜索
+      parameters:
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: integer
+      - description: 推荐
+        in: query
+        name: featured
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取应用商城列表
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/uninstall/{id}:
+    post:
+      description: 从集群卸载已安装的应用
+      parameters:
+      - description: 安装记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 卸载应用
+      tags:
+      - 应用商城
+  /api/v1/platform/appstore/update:
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新应用信息
+      parameters:
+      - description: 应用信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AppStoreUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 更新应用
+      tags:
+      - 应用商城
   /api/v1/platform/health:
     get:
       consumes:

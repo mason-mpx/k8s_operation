@@ -21,6 +21,8 @@ const routePermissions = {
   '/platform/health': ['super_admin', 'platform_admin', 'cluster_admin'],
   '/platform/settings': ['super_admin', 'platform_admin'],
   '/platform/appstore': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/platform/appstore/records': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/platform/appstore/install': ['super_admin', 'platform_admin', 'cluster_admin'],
   
   // ==================== 用户与权限管理（精简后） ====================
   '/security/users': ['super_admin', 'platform_admin'],
@@ -92,6 +94,8 @@ const router = createRouter({
         {path: 'clusters', component: () => import('@/views/cluster/Clusters.vue')},
         { path: 'platform/health', component: () => import('@/views/platform/health/PlatformHealth.vue') },
         { path: 'platform/appstore', component: () => import('@/views/platform/appstore/AppStore.vue') },
+        { path: 'platform/appstore/records', component: () => import('@/views/platform/appstore/AppInstallRecords.vue') },
+        { path: 'platform/appstore/install/:id', component: () => import('@/views/platform/appstore/AppInstallDetail.vue') },
         { path: 'platform/settings', component: () => import('@/views/platform/settings/PlatformSettings.vue') },
         
         // 安全和 RBAC（精简后的5个模块）

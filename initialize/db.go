@@ -8,6 +8,7 @@ import (
 	"k8soperation/global"
 	"k8soperation/internal/app/dao"
 	"k8soperation/internal/app/models"
+	"k8soperation/internal/app/services"
 	"k8soperation/pkg/database"
 	"time"
 )
@@ -70,6 +71,9 @@ func SetupDB() error {
 func autoMigrateTables() error {
 	return global.DB.AutoMigrate(
 		&models.PlatformSettings{},
+		&models.AppStoreApp{},
+		&models.AppStoreInstall{},
+		&models.AppStoreComponent{},
 		// 其他需要自动迁移的表可以加在这里
 	)
 }
@@ -82,6 +86,12 @@ func initDefaultData() error {
 	// 初始化平台设置默认值
 	if err := d.PlatformSettingsInitDefaults(ctx); err != nil {
 		return fmt.Errorf("init platform settings failed: %w", err)
+	}
+
+	// 初始化应用商城种子数据
+	svc := services.NewServices()
+	if err := svc.AppStoreSeed(ctx); err != nil {
+		return fmt.Errorf("init appstore seed data failed: %w", err)
 	}
 
 	return nil
