@@ -182,7 +182,12 @@ func SetupSetting() error {
 	// 将 ErrorCode 配置注入 errorcode 包
 	// - AllowOverride=true：开发环境，允许错误码覆盖
 	// - AllowOverride=false：生产环境，发现重复直接 panic
-	errorcode.SetAllowOverride(global.ErrorCodeSetting.AllowOverride)
+	if global.ErrorCodeSetting != nil {
+		errorcode.SetAllowOverride(global.ErrorCodeSetting.AllowOverride)
+	} else {
+		log.Println("[ErrorCode] 配置未加载，使用默认值 (AllowOverride=true)")
+		errorcode.SetAllowOverride(true)
+	}
 
 	// 注册所有错误码
 	// 一般在这里做启动期校验
