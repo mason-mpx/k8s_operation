@@ -43,7 +43,26 @@ let refreshQueue = []
 const isAuthPublicApi = (url = '') =>
   url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')
 
-// ===== 从 URL 兜底拿 clusterId：/c/:clusterId/... =====
+// ===== 判断请求 URL 是否需要携带 X-Cluster-ID =====
+// 只有真正访问目标集群资源的接口才需要（B 类路由）
+// 登录/RBAC/集群管理(CRUD)/CICD 等接口不需要
+const needsClusterID = (url = '') => {
+  if (!url) return false
+  // 不需要 cluster_id 的接口前缀（A类 + 平台级）
+  const skipPrefixes = [
+    '/auth/',           // 登录/注册/刷新
+    '/k8s/cluster/',    // 集群 CRUD 管理
+    '/k8s/cicd/',       // CICD 流水线
+    '/rbac/',           // 权限管理
+    '/user/',           // 用户管理
+    '/platform/',       // 平台功能
+    '/image/',          // 镜像管理
+    '/helloworld',      // 健康检查
+  ]
+  return !skipPrefixes.some(prefix => url.includes(prefix))
+}
+
+// ===== 从 URL 兑底拿 clusterId：/c/:clusterId/... =====
 const getClusterIdFromPath = () => {
   try {
     const m = window.location.pathname.match(/\/c\/([^/]+)/)
@@ -66,14 +85,16 @@ http.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
 
-    // 2) X-Cluster-ID（数字也 OK，header 强转 string）
-    //    组件外用 store 一定要传 pinia；并且用 URL 做兜底，避免刷新时 store 还没恢复
-    const clusterStore = useClusterStore(pinia)
-    const cid = clusterStore.current?.id ?? getClusterIdFromPath()
-
-    // 注意：cid 可能是 number / string；只要不是 null/undefined/空字符串，就写入 header
-    if (cid !== undefined && cid !== null && cid !== '') {
-      config.headers['X-Cluster-ID'] = String(cid)
+    // 2) X-Cluster-ID：只在访问集群资源接口时才携带
+    //    登录/RBAC/集群CRUD/CICD 等接口不需要 cluster_id
+    if (needsClusterID(config.url)) {
+      const clusterStore = useClusterStore(pinia)
+      const cid = clusterStore.current?.id ?? getClusterIdFromPath()
+    
+      // 注意：cid 可能是 number / string；只要不是 null/undefined/空字符串，就写入 header
+      if (cid !== undefined && cid !== null && cid !== '') {
+        config.headers['X-Cluster-ID'] = String(cid)
+      }
     }
 
     // 3) 禁用 GET 请求缓存：添加时间戳参数

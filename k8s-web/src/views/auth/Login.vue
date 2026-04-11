@@ -168,6 +168,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { login, register, forgotPassword } from '@/api/auth'
+import { useClusterStore } from '@/stores/cluster'
 
 const router = useRouter()
 const route = useRoute()
@@ -294,6 +295,10 @@ const storeAuth = (token, user, remember) => {
   storage.setItem('user', JSON.stringify(user || {}))
   other.removeItem('token')
   other.removeItem('user')
+
+  // 登录时清除旧的集群选择缓存，避免携带失效的 X-Cluster-ID
+  const clusterStore = useClusterStore()
+  clusterStore.setCurrent(null)
 }
 
 // ✅ 兼容两种后端返回：{code,msg,data} 或直接 {user,token}
@@ -346,8 +351,8 @@ const handleSubmit = async () => {
       const loginData = await loginRequest(form.value.username, form.value.password)
       if (loginData) {
         storeAuth(loginData.token, loginData.user, true)
-        // 跳转到原目标页面或默认首页
-        const redirect = route.query.redirect || '/dashboard'
+        // 注册后跳转到集群列表页（引导用户先选择/添加集群）
+        const redirect = route.query.redirect || '/clusters'
         router.push(redirect)
       }
       return
@@ -357,8 +362,8 @@ const handleSubmit = async () => {
     const loginData = await loginRequest(form.value.username, form.value.password)
     if (loginData) {
       storeAuth(loginData.token, loginData.user, form.value.remember)
-      // 跳转到原目标页面或默认首页
-      const redirect = route.query.redirect || '/dashboard'
+      // 跳转到集群列表页（引导用户先选择集群，再进入集群功能）
+      const redirect = route.query.redirect || '/clusters'
       router.push(redirect)
     }
   } catch (e) {

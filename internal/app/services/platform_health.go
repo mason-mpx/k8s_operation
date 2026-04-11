@@ -354,6 +354,7 @@ func (s *PlatformHealthService) getClusterDetails(ctx context.Context) []Cluster
 					// 获取客户端失败（可能是超时或其他错误）
 					detail.Status = "error"
 					detail.Connectable = false
+					s.factory.Invalidate(uint32(cluster.ID))
 					if clusterCtx.Err() == context.DeadlineExceeded {
 						detail.Latency = "timeout"
 						global.Logger.Warn("集群健康检查超时",
@@ -375,6 +376,7 @@ func (s *PlatformHealthService) getClusterDetails(ctx context.Context) []Cluster
 						// 客户端创建成功但连接验证失败（集群不可达或超时）
 						detail.Status = "error"
 						detail.Connectable = false
+						s.factory.Invalidate(uint32(cluster.ID))
 						if clusterCtx.Err() == context.DeadlineExceeded {
 							detail.Latency = "timeout"
 						} else {
@@ -1352,6 +1354,8 @@ func (s *PlatformHealthService) CheckClusterConnectivity(ctx context.Context, cl
 			result.Latency = "-"
 			result.Error = "获取客户端失败: " + err.Error()
 		}
+		// 失败时主动驱逐缓存，确保下次请求重新建连
+		s.factory.Invalidate(uint32(clusterID))
 		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
 		return result, nil
 	}
@@ -1360,6 +1364,7 @@ func (s *PlatformHealthService) CheckClusterConnectivity(ctx context.Context, cl
 		result.Connected = false
 		result.Latency = "-"
 		result.Error = "K8s 客户端为空"
+		s.factory.Invalidate(uint32(clusterID))
 		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
 		return result, nil
 	}
@@ -1375,6 +1380,8 @@ func (s *PlatformHealthService) CheckClusterConnectivity(ctx context.Context, cl
 			result.Latency = "-"
 			result.Error = "API 连接失败: " + verifyErr.Error()
 		}
+		// 缓存的客户端实际不可用，主动驱逐
+		s.factory.Invalidate(uint32(clusterID))
 		s.updateClusterHealthStatus(clusterID, false, result.Error, now)
 		return result, nil
 	}
@@ -1409,6 +1416,6 @@ func (s *PlatformHealthService) updateClusterHealthStatus(clusterID int64, conne
 			"status":        status,
 			"last_check_at": checkTime.Unix(),
 			"last_error":    errMsg,
-			"modified_at":   checkTime.Unix(),
+			// 注意：不更新 modified_at，避免工厂缓存版本失效（modified_at 是缓存 key）
 		})
 }

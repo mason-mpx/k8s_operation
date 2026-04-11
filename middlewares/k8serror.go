@@ -55,6 +55,11 @@ func parseK8sError(err error) (httpCode int, errCode int, friendlyMsg string, de
 
 		// 根据 K8s 错误类型返回友好信息
 		switch {
+		case apierrors.IsUnauthorized(err):
+			httpCode = http.StatusUnauthorized
+			errCode = 401
+			friendlyMsg = "K8s 集群认证失败"
+			detail = "kubeconfig 中的认证凭据无效或已过期，请在集群管理中更新认证配置"
 		case apierrors.IsNotFound(err):
 			httpCode = http.StatusNotFound
 			errCode = 404
@@ -78,12 +83,6 @@ func parseK8sError(err error) (httpCode int, errCode int, friendlyMsg string, de
 			errCode = 403
 			friendlyMsg = "权限不足"
 			detail = extractResourceInfo(status.Message)
-
-		case apierrors.IsUnauthorized(err):
-			httpCode = http.StatusUnauthorized
-			errCode = 401
-			friendlyMsg = "未授权访问"
-			detail = "请检查集群认证配置"
 
 		case apierrors.IsConflict(err):
 			httpCode = http.StatusConflict
@@ -150,6 +149,12 @@ func parseK8sError(err error) (httpCode int, errCode int, friendlyMsg string, de
 		httpCode = http.StatusForbidden
 		errCode = 403
 		friendlyMsg = "权限不足"
+
+	case strings.Contains(errMsg, "unauthorized"):
+		httpCode = http.StatusUnauthorized
+		errCode = 401
+		friendlyMsg = "K8s 集群认证失败"
+		detail = "kubeconfig 中的认证凭据无效或已过期，请在集群管理中更新认证配置"
 
 	case strings.Contains(errMsg, "port is already allocated"):
 		httpCode = http.StatusConflict

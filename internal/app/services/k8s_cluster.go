@@ -100,6 +100,11 @@ func (s *Services) buildClients(cfg *rest.Config) (*K8sClients, error) {
 		return nil, fmt.Errorf("create kube client: %w", err)
 	}
 
+	// 关键：验证 API Server 连通性，避免缓存无效客户端
+	if _, err := kube.Discovery().ServerVersion(); err != nil {
+		return nil, fmt.Errorf("API Server connectivity check failed: %w", err)
+	}
+
 	// metrics 非硬依赖：失败只告警
 	var mc *metricsclient.Clientset
 	if m, mErr := metricsclient.NewForConfig(cfg); mErr != nil {
@@ -153,6 +158,11 @@ func BuildClientsFromKubeconfig(kubeConfigPlain string) (*K8sClients, error) {
 	kube, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create kube client: %w", err)
+	}
+
+	// 验证 API Server 连通性
+	if _, err := kube.Discovery().ServerVersion(); err != nil {
+		return nil, fmt.Errorf("API Server connectivity check failed: %w", err)
 	}
 
 	// metrics 非硬依赖
