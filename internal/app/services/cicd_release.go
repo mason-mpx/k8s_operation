@@ -123,6 +123,85 @@ func (s *Services) CicdReleaseList(ctx context.Context, req *requests.CicdReleas
 	return s.dao.CicdReleaseList(ctx, req.Keyword, req.AppName, req.Status, req.Page, req.PageSize)
 }
 
+// CicdReleaseStats 发布单统计
+func (s *Services) CicdReleaseStats(ctx context.Context) (map[string]int64, error) {
+	return s.dao.CicdReleaseStats(ctx)
+}
+
+// CicdReleaseUpdate 编辑发布单（仅 Pending/Failed/Canceled 状态可编辑）
+func (s *Services) CicdReleaseUpdate(ctx context.Context, req *requests.CicdReleaseUpdateRequest) error {
+	// 先查询发布单是否存在
+	rel, err := s.dao.CicdReleaseGetByID(ctx, req.ID)
+	if err != nil {
+		return fmt.Errorf("发布单不存在: %w", err)
+	}
+
+	// 检查状态：仅 Pending/Failed/Canceled 可编辑
+	if rel.Status != models.CicdReleaseStatusPending &&
+		rel.Status != models.CicdReleaseStatusFailed &&
+		rel.Status != models.CicdReleaseStatusCanceled {
+		return fmt.Errorf("发布单当前状态为 %s，无法编辑", rel.Status)
+	}
+
+	updates := map[string]any{}
+	if req.AppName != "" {
+		updates["app_name"] = req.AppName
+	}
+	if req.Namespace != "" {
+		updates["namespace"] = req.Namespace
+	}
+	if req.WorkloadKind != "" {
+		updates["workload_kind"] = req.WorkloadKind
+	}
+	if req.WorkloadName != "" {
+		updates["workload_name"] = req.WorkloadName
+	}
+	if req.ContainerName != "" {
+		updates["container_name"] = req.ContainerName
+	}
+	if req.Strategy != "" {
+		updates["strategy"] = req.Strategy
+	}
+	if req.TimeoutSec > 0 {
+		updates["timeout_sec"] = req.TimeoutSec
+	}
+	if req.Concurrency > 0 {
+		updates["concurrency"] = req.Concurrency
+	}
+	if req.ImageRepo != "" {
+		updates["image_repo"] = req.ImageRepo
+	}
+	if req.ImageTag != "" {
+		updates["image_tag"] = req.ImageTag
+	}
+	if req.Message != "" {
+		updates["message"] = req.Message
+	}
+
+	if len(updates) == 0 {
+		return nil // 无需更新
+	}
+
+	return s.dao.CicdReleaseUpdate(ctx, req.ID, updates)
+}
+
+// CicdReleaseDelete 删除发布单（软删除）
+func (s *Services) CicdReleaseDelete(ctx context.Context, releaseID int64) error {
+	// 查询发布单是否存在
+	rel, err := s.dao.CicdReleaseGetByID(ctx, releaseID)
+	if err != nil {
+		return fmt.Errorf("发布单不存在: %w", err)
+	}
+
+	// 运行中的发布单不允许删除
+	if rel.Status == models.CicdReleaseStatusRunning ||
+		rel.Status == models.CicdReleaseStatusQueued {
+		return fmt.Errorf("发布单当前状态为 %s，无法删除，请先取消", rel.Status)
+	}
+
+	return s.dao.CicdReleaseDelete(ctx, releaseID)
+}
+
 // CicdReleaseCancelResult 取消操作结果
 type CicdReleaseCancelResult struct {
 	Action          string `json:"action"`            // "canceled" 或 "rollback"

@@ -1,8 +1,8 @@
 # 🚀 K8sOperation · 企业级 Kubernetes 多集群管理平台
 
-一个对标 **Rancher/KubeSphere** 的企业级 K8s 管理平台，基于 **Go + Gin + GORM + Vue3 + client-go** 构建。
+一个对标 **Rancher/KubeSphere** 的企业级 K8s 管理平台，基于 **Go + Gin + GORM + Vue3 + client-go + AI** 构建。
 
-解决中大型企业 **多集群管理分散、权限隔离困难、运维效率低下** 的核心痛点。
+解决中大型企业 **多集群管理分散、权限隔离困难、运维效率低下** 的核心痛点，并集成 **AI 智能助手** 实现自然语言运维。
 
 ------
 
@@ -15,6 +15,7 @@
 | kubectl 门槛高 | 可视化操作，降低使用门槛 |
 | 发布不可追溯 | CI/CD 流水线 + 审计日志 |
 | 镜像管理混乱 | 多仓库接入 + 自动清理策略 |
+| 运维门槛高 | AI 智能助手，自然语言操作平台 |
 
 **核心能力**：
 - 🌐 **多集群资源治理** - 统一管理开发/测试/生产环境
@@ -22,6 +23,7 @@
 - 🔄 **CI/CD 发布编排** - 集成 Jenkins，支持审批/回滚
 - 📦 **镜像仓库管理** - 支持 Harbor/ACR/Docker Registry
 - ⚙ **平台运维监控** - 健康检查、审计日志、系统配置
+- 🤖 **AI 智能助手** - 自然语言操作 K8s，多模型支持，高危自动审批
 
 ------
 
@@ -30,19 +32,19 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    前端层 (Vue3 + Vite + Pinia)                      │
-│      企业级 UI · 动态权限菜单 · 路由守卫 · v-permission 指令          │
+│  企业级 UI · 动态权限菜单 · AI 助手面板 · 意图标签可视化       │
 └─────────────────────────────────────────────────────────────────────┘
                                 │ RESTful API + JWT
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      后端层 (Go + Gin + GORM)                        │
-│   JWT 认证 · RBAC 鉴权 · 统一错误码 · Zap 日志 · 优雅关闭            │
+│  JWT 认证 · RBAC 鉴权 · AI 服务 · 统一错误码 · Zap 日志          │
 └─────────────────────────────────────────────────────────────────────┘
-          │                    │                    │
-    ┌─────┴─────┐       ┌─────┴─────┐        ┌─────┴─────┐
-    │   MySQL   │       │   Redis   │        │  K8s API  │
-    │  持久化    │       │ 会话/缓存  │        │  多集群    │
-    │  审计日志  │       │ Token管理  │        │ client-go │
-    └───────────┘       └───────────┘        └───────────┘
+      │             │              │              │
+┌────┴────┐  ┌────┴─────┐  ┌─────┴─────┐  ┌────┴─────┐
+│  MySQL  │  │   Redis   │  │  K8s API  │  │  AI LLM  │
+│ 持久化   │  │ 会话/缓存 │  │  多集群   │  │ 多提供商  │
+│ 审计日志 │  │ Token管理 │  │ client-go │  │ OpenAI.. │
+└─────────┘  └──────────┘  └───────────┘  └──────────┘
 ```
 
 ### 技术选型说明
@@ -55,7 +57,8 @@
 | 状态管理 | Pinia | 轻量、TypeScript 友好 |
 | 认证方案 | JWT + Redis | 无状态、可横向扩展、支持主动失效 |
 | K8s 客户端 | client-go | 官方 SDK、功能完整、版本兼容好 |
-| 日志系统 | Zap | 高性能、结构化日志 |
+| AI 引擎 | OpenAI Function Calling | 多模型提供商支持、工具调用、意图识别 |
+| 日志系统 | Zap | 高性能、结构化日志、三日志分类（系统/业务/AI） |
 
 ------
 
@@ -274,11 +277,97 @@
     - StatefulSet/DaemonSet：基于 ControllerRevision 回滚（按实现情况说明）
 - ✅ 发布过程可观测：滚动更新进度、Pod 状态、事件聚合（Backoff、PullError 等）
 
+### 🤖 AI 智能助手（核心亮点）
+
+平台内置 AI 智能助手，支持用自然语言操作 K8s 集群，大幅降低运维门槛。
+
+#### AI 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      用户自然语言输入                          │
+│  "查看 default 命名空间的 Pod"  "扩容 nginx 到 5 个副本"   │
+└─────────────────────────┴───────────────────────────────────┘
+                              │
+                    ┌───────┴────────┐
+                    │  LLM 意图识别  │  ← OpenAI Function Calling
+                    └───────┬────────┘
+                            │
+                ┌────────┼────────┐
+                │           │           │
+          ┌────┴────┐ ┌──┴─────┐ ┌──┴──────┐
+          │ 只读查询 │ │ 写操作  │ │ 高危操作  │
+          │ 直接执行 │ │ 确认执行 │ │ 审批流程  │
+          └─────────┘ └────────┘ └─────────┘
+```
+
+#### 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| 🗣️ 自然语言操作 | 用中/英文描述运维意图，AI 自动转化为 K8s API 调用 |
+| 🧠 意图识别 | 基于 OpenAI Function Calling，自动识别查询/扩缩容/删除等意图 |
+| 🛡️ 高危操作审批 | 删除/扩容等危险操作自动进入审批流程，防止误操作 |
+| 🔄 多模型支持 | 支持 NVIDIA NIM、OpenAI、国产大模型等多提供商，可热切换 |
+| 💬 多轮对话 | 支持上下文连续对话，理解复杂运维场景 |
+| 📊 意图标签 | 前端可视化展示操作意图（🔍 查询 / ⚙️ 执行 / ⚠️ 审批） |
+| 📄 AI 日志 | 独立 AI 日志系统，全链路追踪，支持 API 查询 |
+
+#### 支持的工具调用（Function Calling）
+
+```
+✔ list_pods          - 查看 Pod 列表
+✔ list_deployments   - 查看 Deployment 列表
+✔ list_services      - 查看 Service 列表
+✔ list_namespaces    - 查看命名空间
+✔ get_pod_detail     - 获取 Pod 详情
+✔ get_pod_logs       - 获取 Pod 日志
+✔ scale_deployment   - 扩缩容（需审批）
+✔ delete_pod         - 删除 Pod（需审批）
+✔ restart_deployment - 重启 Deployment（需审批）
+... 更多工具持续扩展中
+```
+
+#### 多模型提供商支持
+
+```yaml
+# config.yaml 配置示例
+ai:
+  enabled: true
+  default_provider: nvidia           # 默认提供商
+  providers:
+    - id: nvidia
+      name: "NVIDIA NIM"
+      base_url: "https://integrate.api.nvidia.com/v1"
+      api_key: "nvapi-xxx"
+      model: "minimaxai/minimax-m2.7"
+    - id: openai
+      name: "OpenAI"
+      base_url: "https://api.openai.com/v1"
+      api_key: "sk-xxx"
+      model: "gpt-4o"
+```
+
+> 💡 支持任何兼容 OpenAI API 协议的提供商（NVIDIA NIM、通义千问、智谱 AI、DeepSeek 等）
+
+#### AI 日志与排查
+
+AI 助手拥有独立的日志系统（`storage/logs/ai.log`），方便排查大模型调用问题：
+
+```
+─ 全链路追踪：Registry 解析 → API 请求 → 工具执行 → 审批流程 → 响应完成
+─ 记录开销：每次调用的 latency、prompt_tokens、completion_tokens
+─ 错误定位：模型拒绝/超时/调用失败自动记录 Error 级别日志
+─ API 查询：GET /api/v1/ai/logs?level=error&keyword=超时
+```
+
+------
+
 ### 🧩 系统通用能力
 
 - 配置化加载（YAML / ENV）
 - JWT 鉴权 + 刷新机制
-- Zap 双日志系统（系统日志 / 业务日志）
+- Zap 三日志系统（系统日志 / 业务日志 / AI 日志）
 - Swagger 在线 API 文档（支持 Standalone）
 - 健康检查与优雅关闭
 - 标准化控制器 / 服务 / DAO 分层
@@ -391,6 +480,25 @@ type ClusterClientManager struct {
 └── 通知设置（邮件/钉钉/Webhook）
 ```
 
+### 5. AI 智能助手引擎
+
+```go
+// 多模型提供商注册中心（Provider Registry）
+// 支持 NVIDIA NIM、OpenAI、国产大模型等，可热切换
+type ProviderRegistry struct {
+    providers sync.Map // providerID -> *Client
+    defaults  struct { providerID, modelID string }
+}
+
+// Function Calling 工具注册 + 高危操作审批
+func (s *AIService) AIChat(msg string) {
+    // 1. LLM 意图识别（Function Calling）
+    // 2. 工具执行（list_pods / scale_deployment ...)
+    // 3. 高危操作 → 自动进入审批流程
+    // 4. 全链路 AI 日志记录
+}
+```
+
 ------
 
 ## 💡 项目难点与解决方案
@@ -403,6 +511,8 @@ type ClusterClientManager struct {
 | 空集群启动 | 降级策略，无集群时跳过 K8s 初始化 |
 | 错误码统一 | 全局错误码体系 + 中间件统一处理 |
 | 前后端类型一致性 | DAO 层强制返回空切片而非 nil |
+| AI 多模型兼容性 | Provider Registry 抽象层 + 统一 OpenAI 协议适配 |
+| AI 调用问题排查 | 独立 AI 日志 + 全链路追踪 + API 查询接口 |
 
 ------
 
@@ -417,6 +527,7 @@ type ClusterClientManager struct {
 - **效率提升**：多集群统一管理，减少 80% 切换成本
 - **安全合规**：细粒度权限隔离，满足审计要求
 - **降低门槛**：开发人员无需学习 kubectl，可视化操作
+- **AI 赋能**：自然语言操作 K8s，零门槛运维，高危自动拦截审批
 
 ------
 
@@ -424,20 +535,29 @@ type ClusterClientManager struct {
 
 ```bash
 k8soperation/
-├── cmd/
-├── configs/
-├── docs/
-│   ├── 📄 K8sOperation 后台系统部署文档.md   <--（部署文档）
-├── global/
-├── initialize/
+├── cmd/k8soperation/          # 程序入口
+├── configs/                   # 配置文件（config.yaml / k8s.yaml）
+├── docs/                      # 部署文档 / SQL / Swagger
+├── global/                    # 全局变量（DB/Redis/Logger/AILogger）
+├── initialize/                # 初始化（日志/数据库/路由/集群）
 ├── internal/
 │   ├── app/
-│   ├── errorcode/
-│   ├── health/
-│   └── k8soperation/
+│   │   ├── controllers/       # API 控制器（含 AI 控制器）
+│   │   ├── services/          # 业务服务（含 AI 助手服务）
+│   │   ├── models/            # 数据模型
+│   │   ├── dao/               # 数据访问层
+│   │   └── routers/           # 路由注册
+│   ├── bootstrap/             # 启动编排
+│   └── errorcode/             # 统一错误码
 ├── pkg/
-├── build/
-└── storage/
+│   ├── k8s/                   # K8s 客户端封装
+│   ├── openai/                # AI 多模型 Provider Registry
+│   ├── jwt/                   # JWT 认证
+│   └── jenkins/               # Jenkins CI 集成
+├── k8s-web/                   # Vue3 前端项目
+│   └── src/components/AiAssistant.vue  # AI 助手前端组件
+├── build/                     # Docker / Containerd 构建
+└── storage/logs/              # 日志（app.log / biz.log / ai.log）
 ```
 
 ------

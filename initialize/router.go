@@ -53,6 +53,9 @@ import (
 	// 平台路由
 	"k8soperation/internal/app/routers/platform"
 
+	// AI 助手路由
+	"k8soperation/internal/app/routers/ai_assistant"
+
 	// 你需要的 factory 类型
 	"k8soperation/internal/app/services"
 )
@@ -127,6 +130,13 @@ func (s *Engine) injectRouterGroup(root *gin.RouterGroup, factory *services.Clus
 	// 注入 factory 以支持安装应用到集群
 	// ======================================================
 	platform.NewAppStoreRouterWithFactory(factory).Inject(protected)
+
+	// ======================================================
+	// AI 助手分组（需要 JWT）
+	// /api/v1/ai/...
+	// 包含 AI 对话、高危操作审批等
+	// ======================================================
+	ai_assistant.NewAIAssistantRouter().Inject(protected)
 
 	// ======================================================
 	// 镜像管理分组（需要 JWT）

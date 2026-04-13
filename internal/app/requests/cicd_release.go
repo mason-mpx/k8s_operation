@@ -96,6 +96,33 @@ func ValidCicdReleaseIDRequest(data interface{}, ctx *gin.Context) map[string][]
 	return valid.ValidateOptions(data, rules, messages)
 }
 
+// ========== 编辑发布单 ==========
+
+type CicdReleaseUpdateRequest struct {
+	ID            int64  `json:"id" valid:"id"`
+	AppName       string `json:"app_name" valid:"app_name"`
+	Namespace     string `json:"namespace" valid:"namespace"`
+	WorkloadKind  string `json:"workload_kind" valid:"workload_kind"`
+	WorkloadName  string `json:"workload_name" valid:"workload_name"`
+	ContainerName string `json:"container_name" valid:"container_name"`
+	Strategy      string `json:"strategy" valid:"strategy"`
+	TimeoutSec    uint32 `json:"timeout_sec" valid:"timeout_sec"`
+	Concurrency   uint32 `json:"concurrency" valid:"concurrency"`
+	ImageRepo     string `json:"image_repo" valid:"image_repo"`
+	ImageTag      string `json:"image_tag" valid:"image_tag"`
+	Message       string `json:"message" valid:"message"`
+}
+
+func ValidCicdReleaseUpdateRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"id": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"id": []string{"required: id不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
 // ========== Jenkins构建回调 ==========
 
 type CicdBuildCallbackRequest struct {

@@ -123,8 +123,13 @@ func (s *Services) EnvironmentDelete(ctx context.Context, id int64) error {
 // ==================== 审批流程 Service ====================
 
 // ApprovalList 获取审批列表
-func (s *Services) ApprovalList(ctx context.Context, param *requests.ApprovalListRequest) ([]*models.CicdApproval, int64, error) {
-	return s.dao.ApprovalList(ctx, param.Page, param.PageSize, param.Status)
+func (s *Services) ApprovalList(ctx context.Context, param *requests.ApprovalListRequest) ([]*models.ApprovalListItem, int64, error) {
+	return s.dao.ApprovalList(ctx, param.Page, param.PageSize, param.Status, param.PipelineID)
+}
+
+// ApprovalStats 获取审批统计
+func (s *Services) ApprovalStats(ctx context.Context) (map[string]int64, error) {
+	return s.dao.ApprovalStats(ctx)
 }
 
 // ApprovalDetail 获取审批详情
@@ -188,14 +193,48 @@ func (s *Services) ApprovalAction(ctx context.Context, param *requests.ApprovalA
 		return err
 	}
 
-	// 如果是通过审批，触发实际部署
-	if status == models.ApprovalStatusApproved {
-		// 获取流水线信息
-		pipeline, err := s.dao.PipelineGetByID(ctx, approval.PipelineID)
-		if err == nil && pipeline != nil && pipeline.AutoDeploy {
-			// 通过 PipelineCallback 处理部署（已有完整的部署逻辑）
-			// 这里可以记录日志或触发异步部署
-			_ = pipeline // 审批通过，后续由用户手动触发部署
+	// 同步更新关联的流水线审批阶段（cicd_pipeline_stage）
+	if approval.StageID > 0 {
+		if status == models.ApprovalStatusApproved {
+			// 通过：更新阶段审批状态，并启动后续部署阶段
+			_ = s.dao.StageUpdateApproval(ctx, approval.StageID, userID, "approved", param.Reason)
+
+			// 获取阶段信息以启动部署阶段
+			stage, stageErr := s.dao.StageGetByID(ctx, approval.StageID)
+			if stageErr == nil && stage != nil {
+				// 检查是否有部署阶段需要启动
+				deployStage, dErr := s.dao.StageGetByRunIDAndType(ctx, stage.RunID, models.StageTypeDeploy)
+				if dErr == nil && deployStage != nil {
+					run, _ := s.dao.PipelineRunGetByID(ctx, stage.RunID)
+					if run != nil && run.ImageURL != "" {
+						_ = s.dao.StageUpdate(ctx, deployStage.ID, map[string]interface{}{
+							"status":       models.StageStatusPending,
+							"deploy_image": run.ImageURL,
+						})
+					}
+				}
+			}
+		} else {
+			// 拒绝：更新阶段审批状态，标记后续阶段为跳过，更新流水线状态为失败
+			_ = s.dao.StageUpdateApproval(ctx, approval.StageID, userID, "rejected", param.Reason)
+
+			stage, stageErr := s.dao.StageGetByID(ctx, approval.StageID)
+			if stageErr == nil && stage != nil {
+				// 将后续阶段标记为跳过
+				stages, _ := s.dao.StageListByRunID(ctx, stage.RunID)
+				for _, stg := range stages {
+					if stg.StageOrder > stage.StageOrder && stg.Status == models.StageStatusPending {
+						_ = s.dao.StageUpdateStatus(ctx, stg.ID, models.StageStatusSkipped)
+					}
+				}
+
+				// 更新流水线运行状态为失败
+				_ = s.dao.PipelineRunUpdateStatus(ctx, stage.RunID, models.PipelineRunStatusFailed)
+				run, _ := s.dao.PipelineRunGetByID(ctx, stage.RunID)
+				if run != nil {
+					_ = s.dao.PipelineUpdateRunComplete(ctx, run.PipelineID, models.PipelineRunStatusFailed)
+				}
+			}
 		}
 	}
 
@@ -203,9 +242,57 @@ func (s *Services) ApprovalAction(ctx context.Context, param *requests.ApprovalA
 }
 
 // ApprovalPendingList 获取待审批列表
-func (s *Services) ApprovalPendingList(ctx context.Context, userID int64) ([]*models.CicdApproval, int64, error) {
+func (s *Services) ApprovalPendingList(ctx context.Context, userID int64) ([]*models.ApprovalListItem, int64, error) {
 	// TODO: 可以根据用户权限过滤
-	return s.dao.ApprovalList(ctx, 1, 100, models.ApprovalStatusPending)
+	return s.dao.ApprovalList(ctx, 1, 100, models.ApprovalStatusPending, 0)
+}
+
+// ApprovalUpdate 更新审批记录
+func (s *Services) ApprovalUpdate(ctx context.Context, param *requests.ApprovalUpdateRequest) error {
+	approval, err := s.dao.ApprovalGetByID(ctx, param.ID)
+	if err != nil {
+		return errors.New("审批记录不存在")
+	}
+
+	// 只有待审批状态的记录可以编辑
+	if approval.Status != models.ApprovalStatusPending {
+		return errors.New("该审批已处理，无法编辑")
+	}
+
+	updates := make(map[string]interface{})
+	if param.EnvName != "" {
+		updates["env_name"] = param.EnvName
+	}
+	if param.Image != "" {
+		updates["image"] = param.Image
+	}
+	if param.ImageDigest != "" {
+		updates["image_digest"] = param.ImageDigest
+	}
+	if param.RequestReason != "" {
+		updates["request_reason"] = param.RequestReason
+	}
+
+	if len(updates) == 0 {
+		return errors.New("无有效的更新字段")
+	}
+
+	return s.dao.ApprovalUpdate(ctx, param.ID, updates)
+}
+
+// ApprovalDelete 删除审批记录
+func (s *Services) ApprovalDelete(ctx context.Context, id int64) error {
+	approval, err := s.dao.ApprovalGetByID(ctx, id)
+	if err != nil {
+		return errors.New("审批记录不存在")
+	}
+
+	// 已通过的审批不允许删除（保护已执行的审批流程）
+	if approval.Status == models.ApprovalStatusApproved {
+		return errors.New("已通过的审批不允许删除")
+	}
+
+	return s.dao.ApprovalDelete(ctx, id)
 }
 
 // CheckAndCreateApproval 检查是否需要审批，如果需要则创建审批记录

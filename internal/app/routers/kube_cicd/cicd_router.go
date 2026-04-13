@@ -57,6 +57,9 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		release.POST("/create", r.releaseCtrl.Create)     // 创建发布单
 		release.GET("/detail", r.releaseCtrl.Detail)      // 发布单详情
 		release.GET("/list", r.releaseCtrl.List)          // 发布单列表
+		release.GET("/stats", r.releaseCtrl.Stats)        // 发布单统计
+		release.POST("/update", r.releaseCtrl.Update)     // 编辑发布单
+		release.POST("/delete", r.releaseCtrl.Delete)     // 删除发布单
 		release.POST("/cancel", r.releaseCtrl.Cancel)     // 取消发布（智能判断回滚/取消）
 		release.POST("/rollback", r.releaseCtrl.Rollback) // 回滚发布
 		release.POST("/retry", r.releaseCtrl.Retry)       // 重试发布
@@ -92,7 +95,10 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		approval.GET("/list", r.approvalCtrl.List)       // 获取审批列表
 		approval.GET("/detail", r.approvalCtrl.Detail)   // 获取审批详情
 		approval.GET("/pending", r.approvalCtrl.Pending) // 获取待审批列表
+		approval.GET("/stats", r.approvalCtrl.Stats)     // 获取审批统计
 		approval.POST("/create", r.approvalCtrl.Create)  // 创建审批申请
+		approval.POST("/update", r.approvalCtrl.Update)  // 更新审批记录
+		approval.POST("/delete", r.approvalCtrl.Delete)  // 删除审批记录
 		approval.POST("/action", r.approvalCtrl.Action)  // 审批操作
 	}
 

@@ -13,6 +13,8 @@ var (
 	ErrorCicdReleaseCancelFail   *Error // 取消发布单失败
 	ErrorCicdReleaseRollbackFail *Error // 回滚发布单失败
 	ErrorCicdReleaseRetryFail    *Error // 重试发布失败
+	ErrorCicdReleaseUpdateFail   *Error // 更新发布单失败
+	ErrorCicdReleaseDeleteFail   *Error // 删除发布单失败
 
 	// ========== CICD Task（按集群任务执行）==========
 	ErrorCicdTaskEnqueueFail *Error // 入队失败（Redis Stream）
@@ -43,6 +45,8 @@ func register_cicd() {
 	ErrorCicdReleaseCancelFail = NewError(500122, "取消CICD发布失败")
 	ErrorCicdReleaseRollbackFail = NewError(500123, "回滚CICD发布失败")
 	ErrorCicdReleaseRetryFail = NewError(500124, "重试CICD发布失败")
+	ErrorCicdReleaseUpdateFail = NewError(500125, "更新CICD发布单失败")
+	ErrorCicdReleaseDeleteFail = NewError(500126, "删除CICD发布单失败")
 
 	// 50013x：Task
 	ErrorCicdTaskEnqueueFail = NewError(500130, "CICD任务入队失败")

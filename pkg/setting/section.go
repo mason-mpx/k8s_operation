@@ -229,3 +229,41 @@ type PlatformAboutSettings struct {
 	DBType     string `mapstructure:"DBType"`
 	K8sSupport string `mapstructure:"K8sSupport"`
 }
+
+// AIAssistantSettingS AI 助手配置（支持多模型提供商）
+type AIAssistantSettingS struct {
+	Enabled         bool              `mapstructure:"Enabled"`         // 是否启用 AI 助手
+	DefaultProvider string            `mapstructure:"DefaultProvider"` // 默认提供商 ID
+	SystemPrompt    string            `mapstructure:"SystemPrompt"`    // 全局 System Prompt
+	ApprovalExpire  int               `mapstructure:"ApprovalExpire"`  // 审批过期时间(分钟)，默认 30
+	MaxHistoryRound int               `mapstructure:"MaxHistoryRound"` // 会话最大历史轮数，默认 20
+	Providers       []AIProviderConfig `mapstructure:"Providers"`       // 多提供商配置
+
+	// === 兼容旧版单提供商配置（如果 Providers 为空则回退） ===
+	APIKey      string  `mapstructure:"APIKey"`
+	BaseURL     string  `mapstructure:"BaseURL"`
+	Model       string  `mapstructure:"Model"`
+	MaxTokens   int     `mapstructure:"MaxTokens"`
+	Temperature float32 `mapstructure:"Temperature"`
+}
+
+// AIProviderConfig AI 提供商配置
+type AIProviderConfig struct {
+	ID          string          `mapstructure:"ID"`          // 提供商唯一标识: openai / deepseek / zhipu / qwen / moonshot
+	Name        string          `mapstructure:"Name"`        // 显示名称
+	Icon        string          `mapstructure:"Icon"`        // 图标标识
+	APIKey      string          `mapstructure:"APIKey"`      // API Key
+	BaseURL     string          `mapstructure:"BaseURL"`     // API 地址
+	MaxTokens   int             `mapstructure:"MaxTokens"`   // 默认最大 Token
+	Temperature float32         `mapstructure:"Temperature"` // 默认温度
+	Models      []AIModelConfig `mapstructure:"Models"`      // 可用模型列表
+}
+
+// AIModelConfig 模型配置
+type AIModelConfig struct {
+	ID          string `mapstructure:"ID"`          // 模型 ID（传给 API 的）
+	Name        string `mapstructure:"Name"`        // 显示名称
+	MaxTokens   int    `mapstructure:"MaxTokens"`   // 最大 Token（可选，覆盖 Provider 默认值）
+	Description string `mapstructure:"Description"` // 模型描述
+	Capability  string `mapstructure:"Capability"`  // 能力标签: chat / reasoning / code / vision
+}

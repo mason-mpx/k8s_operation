@@ -137,12 +137,46 @@ func ValidApprovalActionRequest(data interface{}, ctx *gin.Context) map[string][
 	return valid.ValidateOptions(data, rules, messages)
 }
 
+// ApprovalUpdateRequest 更新审批请求
+type ApprovalUpdateRequest struct {
+	ID            int64  `json:"id" valid:"id"`
+	EnvName       string `json:"env_name"`          // 目标环境
+	Image         string `json:"image"`             // 镜像地址
+	ImageDigest   string `json:"image_digest"`      // 镜像摘要
+	RequestReason string `json:"request_reason"`    // 申请原因
+}
+
+func ValidApprovalUpdateRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"id": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"id": []string{"required:审批ID不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
 // ApprovalIDRequest 审批ID请求
 type ApprovalIDRequest struct {
 	ID int64 `json:"id" valid:"id"`
 }
 
 func ValidApprovalIDRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"id": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"id": []string{"required:审批ID不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ApprovalDeleteRequest 删除审批请求
+type ApprovalDeleteRequest struct {
+	ID int64 `json:"id" valid:"id"`
+}
+
+func ValidApprovalDeleteRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
 		"id": []string{"required"},
 	}

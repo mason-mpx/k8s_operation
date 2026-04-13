@@ -298,6 +298,62 @@ func (c *ApprovalController) Action(ctx *gin.Context) {
 	rsp.Success(gin.H{"message": message})
 }
 
+// Update godoc
+// @Summary 更新审批记录
+// @Description 更新待审批记录的字段信息
+// @Tags CICD Approval
+// @Accept json
+// @Produce json
+// @Param body body requests.ApprovalUpdateRequest true "更新参数"
+// @Success 200 {object} map[string]any "更新成功"
+// @Router /api/v1/k8s/cicd/approval/update [post]
+func (c *ApprovalController) Update(ctx *gin.Context) {
+	param := &requests.ApprovalUpdateRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidApprovalUpdateRequest); !ok {
+		return
+	}
+
+	svc := services.NewServices()
+	err := svc.ApprovalUpdate(ctx.Request.Context(), param)
+	if err != nil {
+		global.Logger.Error("ApprovalUpdate error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(gin.H{"message": "更新成功"})
+}
+
+// Delete godoc
+// @Summary 删除审批记录
+// @Description 删除审批记录（已通过的不允许删除）
+// @Tags CICD Approval
+// @Accept json
+// @Produce json
+// @Param body body requests.ApprovalDeleteRequest true "删除参数"
+// @Success 200 {object} map[string]any "删除成功"
+// @Router /api/v1/k8s/cicd/approval/delete [post]
+func (c *ApprovalController) Delete(ctx *gin.Context) {
+	param := &requests.ApprovalDeleteRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidApprovalDeleteRequest); !ok {
+		return
+	}
+
+	svc := services.NewServices()
+	err := svc.ApprovalDelete(ctx.Request.Context(), param.ID)
+	if err != nil {
+		global.Logger.Error("ApprovalDelete error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(gin.H{"message": "删除成功"})
+}
+
 // Pending godoc
 // @Summary 获取待审批列表
 // @Description 获取当前用户待审批的申请列表
@@ -321,4 +377,25 @@ func (c *ApprovalController) Pending(ctx *gin.Context) {
 	}
 
 	rsp.SuccessList(list, total)
+}
+
+// Stats godoc
+// @Summary 获取审批统计
+// @Description 获取各状态审批数量统计
+// @Tags CICD Approval
+// @Produce json
+// @Success 200 {object} map[string]any "返回统计数据"
+// @Router /api/v1/k8s/cicd/approval/stats [get]
+func (c *ApprovalController) Stats(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+
+	svc := services.NewServices()
+	stats, err := svc.ApprovalStats(ctx.Request.Context())
+	if err != nil {
+		global.Logger.Error("ApprovalStats error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(gin.H{"stats": stats})
 }

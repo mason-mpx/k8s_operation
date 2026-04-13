@@ -121,6 +121,13 @@ export const getReleases = (params = {}) => {
 }
 
 /**
+ * 获取发布单统计
+ */
+export const getReleaseStats = () => {
+  return http.get(`${RELEASE_BASE}/stats`)
+}
+
+/**
  * 获取发布单详情
  * @param {number} id - 发布单ID
  */
@@ -149,6 +156,23 @@ export const createRelease = (data) => {
  */
 export const cancelRelease = (id) => {
   return http.post(`${RELEASE_BASE}/cancel`, { id })
+}
+
+/**
+ * 编辑发布单
+ * @param {Object} data - 更新参数
+ * @param {number} data.id - 发布单ID
+ */
+export const updateRelease = (data) => {
+  return http.post(`${RELEASE_BASE}/update`, data)
+}
+
+/**
+ * 删除发布单
+ * @param {number} id - 发布单ID
+ */
+export const deleteRelease = (id) => {
+  return http.post(`${RELEASE_BASE}/delete`, { id })
 }
 
 /**

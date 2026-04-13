@@ -32,6 +32,515 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/ai/approvals": {
+            "get": {
+                "description": "获取所有高危操作审批请求，支持按状态筛选",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "获取审批列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "状态筛选: 1=待审批 2=已通过 3=已拒绝 4=已过期 5=已取消",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/mine": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "获取我的审批申请",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/pending-count": {
+            "get": {
+                "description": "用于前端侧边栏 Badge 显示",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "获取待审批数量",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "获取审批详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/{id}/approve": {
+            "post": {
+                "description": "管理员通过高危操作审批",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "通过审批",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "审批备注",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/{id}/cancel": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "取消审批",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/{id}/reject": {
+            "post": {
+                "description": "管理员拒绝高危操作审批",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "拒绝审批",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "拒绝原因",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/chat": {
+            "post": {
+                "description": "向 AI 助手发送消息并获取回复，高危操作会自动触发审批流程",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "AI 对话",
+                "parameters": [
+                    {
+                        "description": "聊天请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.AIChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/services.AIChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/chat/stream": {
+            "post": {
+                "description": "向 AI 助手发送消息，通过 SSE 流式接收回复",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "AI 流式对话",
+                "parameters": [
+                    {
+                        "description": "聊天请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.AIChatRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/ai/conversations": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "获取 AI 会话列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/conversations/{id}": {
+            "delete": {
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "删除 AI 会话",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "会话ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/conversations/{id}/messages": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "获取会话消息列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "会话ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/intent": {
+            "post": {
+                "description": "分析用户输入的操作意图，返回风险等级和是否需要审批",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "AI 意图分析",
+                "parameters": [
+                    {
+                        "description": "请求体",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/logs": {
+            "get": {
+                "description": "获取 AI 助手的最近日志记录，用于排查大模型问题",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "AI 日志查询",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "返回行数",
+                        "name": "lines",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "\"\"",
+                        "description": "级别过滤(error/warn/info)",
+                        "name": "level",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键字搜索",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/quick-ask": {
+            "post": {
+                "description": "无需会话上下文的快捷提问，适用于全局 AI 入口",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 助手"
+                ],
+                "summary": "AI 快捷问答",
+                "parameters": [
+                    {
+                        "description": "请求体",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/forgot_password": {
             "post": {
                 "description": "根据用户名重置密码",
@@ -1374,6 +1883,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/approval/delete": {
+            "post": {
+                "description": "删除审批记录（已通过的不允许删除）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Approval"
+                ],
+                "summary": "删除审批记录",
+                "parameters": [
+                    {
+                        "description": "删除参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.ApprovalDeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/approval/detail": {
             "get": {
                 "description": "获取单个审批记录的详细信息",
@@ -1478,6 +2022,62 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "返回待审批列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/approval/stats": {
+            "get": {
+                "description": "获取各状态审批数量统计",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Approval"
+                ],
+                "summary": "获取审批统计",
+                "responses": {
+                    "200": {
+                        "description": "返回统计数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/approval/update": {
+            "post": {
+                "description": "更新待审批记录的字段信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Approval"
+                ],
+                "summary": "更新审批记录",
+                "parameters": [
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.ApprovalUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2531,6 +3131,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/release/delete": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Release"
+                ],
+                "summary": "删除发布单",
+                "parameters": [
+                    {
+                        "description": "删除参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.CicdReleaseIDRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/release/detail": {
             "get": {
                 "produces": [
@@ -2675,6 +3309,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/release/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Release"
+                ],
+                "summary": "获取发布单统计",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/release/tasks": {
             "get": {
                 "produces": [
@@ -2691,6 +3345,40 @@ const docTemplate = `{
                         "name": "release_id",
                         "in": "query",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/release/update": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Release"
+                ],
+                "summary": "编辑发布单",
+                "parameters": [
+                    {
+                        "description": "编辑参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.CicdReleaseUpdateRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -15047,6 +15735,38 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.ApprovalDeleteRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "requests.ApprovalUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "description": "目标环境",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image": {
+                    "description": "镜像地址",
+                    "type": "string"
+                },
+                "image_digest": {
+                    "description": "镜像摘要",
+                    "type": "string"
+                },
+                "request_reason": {
+                    "description": "申请原因",
+                    "type": "string"
+                }
+            }
+        },
         "requests.AuthForgotPasswordRequest": {
             "type": "object",
             "properties": {
@@ -15211,6 +15931,47 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "integer"
+                }
+            }
+        },
+        "requests.CicdReleaseUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "app_name": {
+                    "type": "string"
+                },
+                "concurrency": {
+                    "type": "integer"
+                },
+                "container_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image_repo": {
+                    "type": "string"
+                },
+                "image_tag": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "strategy": {
+                    "type": "string"
+                },
+                "timeout_sec": {
+                    "type": "integer"
+                },
+                "workload_kind": {
+                    "type": "string"
+                },
+                "workload_name": {
+                    "type": "string"
                 }
             }
         },
@@ -17528,6 +18289,57 @@ const docTemplate = `{
                 }
             }
         },
+        "services.AIChatRequest": {
+            "type": "object",
+            "properties": {
+                "conversation_id": {
+                    "description": "可选，0 = 新建会话",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "description": "可选，指定模型",
+                    "type": "string"
+                },
+                "provider_id": {
+                    "description": "可选，指定 AI 提供商",
+                    "type": "string"
+                }
+            }
+        },
+        "services.AIChatResponse": {
+            "type": "object",
+            "properties": {
+                "approval_id": {
+                    "type": "integer"
+                },
+                "conversation_id": {
+                    "type": "integer"
+                },
+                "need_approval": {
+                    "type": "boolean"
+                },
+                "pending_tools": {
+                    "description": "等待审批的工具",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.PendingToolInfo"
+                    }
+                },
+                "reply": {
+                    "type": "string"
+                },
+                "tools_called": {
+                    "description": "本次对话调用了哪些工具",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "services.AlertSummary": {
             "type": "object",
             "properties": {
@@ -17835,6 +18647,23 @@ const docTemplate = `{
                 "worker": {
                     "description": "Worker 节点",
                     "type": "integer"
+                }
+            }
+        },
+        "services.PendingToolInfo": {
+            "type": "object",
+            "properties": {
+                "approval_id": {
+                    "type": "integer"
+                },
+                "risk_level": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "tool_name": {
+                    "type": "string"
                 }
             }
         },

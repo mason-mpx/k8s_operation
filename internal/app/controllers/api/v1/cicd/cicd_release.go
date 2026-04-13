@@ -109,6 +109,74 @@ func (c *CicdReleaseController) List(ctx *gin.Context) {
 	rsp.SuccessList(list, total)
 }
 
+// Stats godoc
+// @Summary 获取发布单统计
+// @Tags CICD Release
+// @Produce json
+// @Success 200 {object} map[string]any
+// @Router /api/v1/k8s/cicd/release/stats [get]
+func (c *CicdReleaseController) Stats(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+	svc := services.NewServices()
+	stats, err := svc.CicdReleaseStats(ctx.Request.Context())
+	if err != nil {
+		global.Logger.Error("CicdReleaseStats error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ErrorCicdReleaseQueryFail.WithDetails(err.Error()))
+		return
+	}
+	rsp.Success(gin.H{"stats": stats})
+}
+
+// Update godoc
+// @Summary 编辑发布单
+// @Tags CICD Release
+// @Accept json
+// @Produce json
+// @Param body body requests.CicdReleaseUpdateRequest true "编辑参数"
+// @Success 200 {object} map[string]any
+// @Router /api/v1/k8s/cicd/release/update [post]
+func (c *CicdReleaseController) Update(ctx *gin.Context) {
+	param := &requests.CicdReleaseUpdateRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidCicdReleaseUpdateRequest); !ok {
+		return
+	}
+
+	svc := services.NewServices()
+	if err := svc.CicdReleaseUpdate(ctx.Request.Context(), param); err != nil {
+		global.Logger.Error("CicdReleaseUpdate error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ErrorCicdReleaseUpdateFail.WithDetails(err.Error()))
+		return
+	}
+	rsp.Success(gin.H{"message": "更新成功"})
+}
+
+// Delete godoc
+// @Summary 删除发布单
+// @Tags CICD Release
+// @Accept json
+// @Produce json
+// @Param body body requests.CicdReleaseIDRequest true "删除参数"
+// @Success 200 {object} map[string]any
+// @Router /api/v1/k8s/cicd/release/delete [post]
+func (c *CicdReleaseController) Delete(ctx *gin.Context) {
+	param := &requests.CicdReleaseIDRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidCicdReleaseIDRequest); !ok {
+		return
+	}
+
+	svc := services.NewServices()
+	if err := svc.CicdReleaseDelete(ctx.Request.Context(), param.ID); err != nil {
+		global.Logger.Error("CicdReleaseDelete error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ErrorCicdReleaseDeleteFail.WithDetails(err.Error()))
+		return
+	}
+	rsp.Success(gin.H{"message": "删除成功"})
+}
+
 // Cancel godoc
 // @Summary 取消发布单
 // @Description 智能取消：已部署成功/运行中的会触发回滚，未部署的直接取消
