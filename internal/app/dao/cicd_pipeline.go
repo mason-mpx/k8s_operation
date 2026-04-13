@@ -426,14 +426,26 @@ func (d *Dao) ApprovalGetByID(ctx context.Context, id int64) (*models.CicdApprov
 	return &approval, err
 }
 
-// ApprovalList 获取审批列表
-func (d *Dao) ApprovalList(ctx context.Context, page, pageSize int, status string) ([]*models.CicdApproval, int64, error) {
-	var list []*models.CicdApproval
+// ApprovalList 获取审批列表（含流水线名称和用户名）
+func (d *Dao) ApprovalList(ctx context.Context, page, pageSize int, status string, pipelineID int64) ([]*models.ApprovalListItem, int64, error) {
+	var list []*models.ApprovalListItem
 	var total int64
 
-	query := d.db.WithContext(ctx).Model(&models.CicdApproval{})
+	query := d.db.WithContext(ctx).
+		Table("cicd_approval AS a").
+		Select(`a.*, 
+			COALESCE(p.name, '') AS pipeline_name,
+			COALESCE(u1.username, '') AS request_username,
+			COALESCE(u2.username, '') AS approve_username`).
+		Joins("LEFT JOIN cicd_pipeline AS p ON a.pipeline_id = p.id").
+		Joins("LEFT JOIN `user` AS u1 ON a.request_user_id = u1.id").
+		Joins("LEFT JOIN `user` AS u2 ON a.approve_user_id = u2.id")
+
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("a.status = ?", status)
+	}
+	if pipelineID > 0 {
+		query = query.Where("a.pipeline_id = ?", pipelineID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -441,11 +453,41 @@ func (d *Dao) ApprovalList(ctx context.Context, page, pageSize int, status strin
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Order("id DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := query.Order("a.id DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 
 	return list, total, nil
+}
+
+// ApprovalStats 获取各状态审批数量统计
+func (d *Dao) ApprovalStats(ctx context.Context) (map[string]int64, error) {
+	type StatusCount struct {
+		Status string `gorm:"column:status"`
+		Count  int64  `gorm:"column:cnt"`
+	}
+	var rows []StatusCount
+	err := d.db.WithContext(ctx).
+		Model(&models.CicdApproval{}).
+		Select("status, COUNT(*) AS cnt").
+		Group("status").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	stats := map[string]int64{
+		"pending":  0,
+		"approved": 0,
+		"rejected": 0,
+		"expired":  0,
+		"total":    0,
+	}
+	for _, r := range rows {
+		stats[r.Status] = r.Count
+		stats["total"] += r.Count
+	}
+	return stats, nil
 }
 
 // ApprovalUpdateStatus 更新审批状态
@@ -463,12 +505,37 @@ func (d *Dao) ApprovalUpdateStatus(ctx context.Context, id int64, status string,
 		}).Error
 }
 
+// ApprovalUpdate 更新审批记录字段
+func (d *Dao) ApprovalUpdate(ctx context.Context, id int64, updates map[string]interface{}) error {
+	updates["modified_at"] = time.Now().Unix()
+	return d.db.WithContext(ctx).
+		Model(&models.CicdApproval{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+// ApprovalDelete 删除审批记录
+func (d *Dao) ApprovalDelete(ctx context.Context, id int64) error {
+	return d.db.WithContext(ctx).
+		Where("id = ?", id).
+		Delete(&models.CicdApproval{}).Error
+}
+
 // ApprovalGetPendingByPipeline 获取流水线待审批记录
 func (d *Dao) ApprovalGetPendingByPipeline(ctx context.Context, pipelineID int64) (*models.CicdApproval, error) {
 	var approval models.CicdApproval
 	err := d.db.WithContext(ctx).
 		Where("pipeline_id = ? AND status = ?", pipelineID, models.ApprovalStatusPending).
 		Order("id DESC").
+		First(&approval).Error
+	return &approval, err
+}
+
+// ApprovalGetByStageID 根据StageID获取审批记录
+func (d *Dao) ApprovalGetByStageID(ctx context.Context, stageID int64) (*models.CicdApproval, error) {
+	var approval models.CicdApproval
+	err := d.db.WithContext(ctx).
+		Where("stage_id = ? AND status = ?", stageID, models.ApprovalStatusPending).
 		First(&approval).Error
 	return &approval, err
 }
@@ -619,4 +686,23 @@ func (d *Dao) StageDeleteByRunID(ctx context.Context, runID int64) error {
 	return d.db.WithContext(ctx).
 		Where("run_id = ?", runID).
 		Delete(&models.CicdPipelineStage{}).Error
+}
+
+// StageListApprovalAll 获取所有审批类型的阶段记录（用于数据补全）
+func (d *Dao) StageListApprovalAll(ctx context.Context) ([]*models.CicdPipelineStage, error) {
+	var list []*models.CicdPipelineStage
+	err := d.db.WithContext(ctx).
+		Where("stage_type = ?", models.StageTypeApproval).
+		Find(&list).Error
+	return list, err
+}
+
+// ApprovalExistsByStageID 检查指定 stage_id 是否已有审批记录
+func (d *Dao) ApprovalExistsByStageID(ctx context.Context, stageID int64) (bool, error) {
+	var count int64
+	err := d.db.WithContext(ctx).
+		Model(&models.CicdApproval{}).
+		Where("stage_id = ?", stageID).
+		Count(&count).Error
+	return count > 0, err
 }

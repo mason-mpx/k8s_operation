@@ -473,6 +473,26 @@ func (s *Services) UpdateBuildStagesComplete(ctx context.Context, runID int64, s
 	approvalStage, err := s.dao.StageGetByRunIDAndType(ctx, runID, models.StageTypeApproval)
 	if err == nil && approvalStage != nil && status == models.PipelineRunStatusSuccess {
 		_ = s.dao.StageUpdateStatus(ctx, approvalStage.ID, models.StageStatusWaiting)
+
+		// 同步创建审批记录到 cicd_approval 表，对接审批管理页面
+		run, _ := s.dao.PipelineRunGetByID(ctx, runID)
+		if run != nil {
+			approval := &models.CicdApproval{
+				PipelineID:    approvalStage.PipelineID,
+				PipelineRunID: runID,
+				StageID:       approvalStage.ID,
+				Status:        models.ApprovalStatusPending,
+				Image:         imageURL,
+				RequestUserID: run.TriggerUserID,
+				RequestReason: "流水线构建完成，等待人工审批",
+			}
+			_, _ = s.dao.ApprovalCreate(ctx, approval)
+			global.Logger.Info("[流水线] 自动创建审批记录",
+				zap.Int64("stage_id", approvalStage.ID),
+				zap.Int64("pipeline_id", approvalStage.PipelineID),
+				zap.Int64("approval_id", approval.ID),
+			)
+		}
 	}
 
 	// 如果不需要审批但需要部署，将部署阶段设为待执行
@@ -511,6 +531,11 @@ func (s *Services) ApproveStage(ctx context.Context, stageID int64, userID int64
 	// 更新审批信息
 	if err := s.dao.StageUpdateApproval(ctx, stageID, userID, "approved", comment); err != nil {
 		return err
+	}
+
+	// 同步更新 cicd_approval 表（如果存在关联记录）
+	if approval, err := s.dao.ApprovalGetByStageID(ctx, stageID); err == nil && approval != nil {
+		_ = s.dao.ApprovalUpdateStatus(ctx, approval.ID, models.ApprovalStatusApproved, userID, comment)
 	}
 
 	global.Logger.Info("[流水线] 阶段审批通过",
@@ -552,6 +577,11 @@ func (s *Services) RejectStage(ctx context.Context, stageID int64, userID int64,
 	// 更新审批信息
 	if err := s.dao.StageUpdateApproval(ctx, stageID, userID, "rejected", reason); err != nil {
 		return err
+	}
+
+	// 同步更新 cicd_approval 表（如果存在关联记录）
+	if approval, err := s.dao.ApprovalGetByStageID(ctx, stageID); err == nil && approval != nil {
+		_ = s.dao.ApprovalUpdateStatus(ctx, approval.ID, models.ApprovalStatusRejected, userID, reason)
 	}
 
 	global.Logger.Info("[流水线] 阶段审批拒绝",

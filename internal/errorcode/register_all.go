@@ -30,5 +30,7 @@ func Register() {
 	registerRBAC()
 	// 应用商城
 	registerAppStore()
+	// AI 助手
+	registerAIAssistant()
 	// 后续可以继续扩展
 }

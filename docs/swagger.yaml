@@ -368,6 +368,28 @@ definitions:
       request_reason:
         type: string
     type: object
+  requests.ApprovalDeleteRequest:
+    properties:
+      id:
+        type: integer
+    type: object
+  requests.ApprovalUpdateRequest:
+    properties:
+      env_name:
+        description: 目标环境
+        type: string
+      id:
+        type: integer
+      image:
+        description: 镜像地址
+        type: string
+      image_digest:
+        description: 镜像摘要
+        type: string
+      request_reason:
+        description: 申请原因
+        type: string
+    type: object
   requests.AuthForgotPasswordRequest:
     properties:
       confirm:
@@ -478,6 +500,33 @@ definitions:
     properties:
       id:
         type: integer
+    type: object
+  requests.CicdReleaseUpdateRequest:
+    properties:
+      app_name:
+        type: string
+      concurrency:
+        type: integer
+      container_name:
+        type: string
+      id:
+        type: integer
+      image_repo:
+        type: string
+      image_tag:
+        type: string
+      message:
+        type: string
+      namespace:
+        type: string
+      strategy:
+        type: string
+      timeout_sec:
+        type: integer
+      workload_kind:
+        type: string
+      workload_name:
+        type: string
     type: object
   requests.ClusterPermissionCreateRequest:
     properties:
@@ -2063,6 +2112,41 @@ definitions:
         example: OK
         type: string
     type: object
+  services.AIChatRequest:
+    properties:
+      conversation_id:
+        description: 可选，0 = 新建会话
+        type: integer
+      message:
+        type: string
+      model_id:
+        description: 可选，指定模型
+        type: string
+      provider_id:
+        description: 可选，指定 AI 提供商
+        type: string
+    type: object
+  services.AIChatResponse:
+    properties:
+      approval_id:
+        type: integer
+      conversation_id:
+        type: integer
+      need_approval:
+        type: boolean
+      pending_tools:
+        description: 等待审批的工具
+        items:
+          $ref: '#/definitions/services.PendingToolInfo'
+        type: array
+      reply:
+        type: string
+      tools_called:
+        description: 本次对话调用了哪些工具
+        items:
+          type: string
+        type: array
+    type: object
   services.AlertSummary:
     properties:
       acknowledged:
@@ -2271,6 +2355,17 @@ definitions:
         description: Worker 节点
         type: integer
     type: object
+  services.PendingToolInfo:
+    properties:
+      approval_id:
+        type: integer
+      risk_level:
+        type: string
+      summary:
+        type: string
+      tool_name:
+        type: string
+    type: object
   services.PlatformHealthStatus:
     properties:
       go_version:
@@ -2464,6 +2559,340 @@ paths:
       summary: HelloWorld
       tags:
       - HelloWorld
+  /api/v1/ai/approvals:
+    get:
+      description: 获取所有高危操作审批请求，支持按状态筛选
+      parameters:
+      - default: 0
+        description: '状态筛选: 1=待审批 2=已通过 3=已拒绝 4=已过期 5=已取消'
+        in: query
+        name: status
+        type: integer
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取审批列表
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/{id}:
+    get:
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取审批详情
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/{id}/approve:
+    post:
+      consumes:
+      - application/json
+      description: 管理员通过高危操作审批
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 审批备注
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 通过审批
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/{id}/cancel:
+    post:
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 取消审批
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: 管理员拒绝高危操作审批
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 拒绝原因
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 拒绝审批
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/mine:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取我的审批申请
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/pending-count:
+    get:
+      description: 用于前端侧边栏 Badge 显示
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取待审批数量
+      tags:
+      - AI 审批管理
+  /api/v1/ai/chat:
+    post:
+      consumes:
+      - application/json
+      description: 向 AI 助手发送消息并获取回复，高危操作会自动触发审批流程
+      parameters:
+      - description: 聊天请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services.AIChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AIChatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: AI 对话
+      tags:
+      - AI 助手
+  /api/v1/ai/chat/stream:
+    post:
+      consumes:
+      - application/json
+      description: 向 AI 助手发送消息，通过 SSE 流式接收回复
+      parameters:
+      - description: 聊天请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/services.AIChatRequest'
+      produces:
+      - text/event-stream
+      responses: {}
+      summary: AI 流式对话
+      tags:
+      - AI 助手
+  /api/v1/ai/conversations:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取 AI 会话列表
+      tags:
+      - AI 助手
+  /api/v1/ai/conversations/{id}:
+    delete:
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 删除 AI 会话
+      tags:
+      - AI 助手
+  /api/v1/ai/conversations/{id}/messages:
+    get:
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取会话消息列表
+      tags:
+      - AI 助手
+  /api/v1/ai/intent:
+    post:
+      consumes:
+      - application/json
+      description: 分析用户输入的操作意图，返回风险等级和是否需要审批
+      parameters:
+      - description: 请求体
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: AI 意图分析
+      tags:
+      - AI 助手
+  /api/v1/ai/logs:
+    get:
+      description: 获取 AI 助手的最近日志记录，用于排查大模型问题
+      parameters:
+      - default: 100
+        description: 返回行数
+        in: query
+        name: lines
+        type: integer
+      - default: '""'
+        description: 级别过滤(error/warn/info)
+        in: query
+        name: level
+        type: string
+      - description: 关键字搜索
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: AI 日志查询
+      tags:
+      - AI 助手
+  /api/v1/ai/quick-ask:
+    post:
+      consumes:
+      - application/json
+      description: 无需会话上下文的快捷提问，适用于全局 AI 入口
+      parameters:
+      - description: 请求体
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: AI 快捷问答
+      tags:
+      - AI 助手
   /api/v1/auth/forgot_password:
     post:
       description: 根据用户名重置密码
@@ -3325,6 +3754,29 @@ paths:
       summary: 创建审批申请
       tags:
       - CICD Approval
+  /api/v1/k8s/cicd/approval/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除审批记录（已通过的不允许删除）
+      parameters:
+      - description: 删除参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.ApprovalDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除审批记录
+      tags:
+      - CICD Approval
   /api/v1/k8s/cicd/approval/detail:
     get:
       description: 获取单个审批记录的详细信息
@@ -3397,6 +3849,43 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取待审批列表
+      tags:
+      - CICD Approval
+  /api/v1/k8s/cicd/approval/stats:
+    get:
+      description: 获取各状态审批数量统计
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回统计数据
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取审批统计
+      tags:
+      - CICD Approval
+  /api/v1/k8s/cicd/approval/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新待审批记录的字段信息
+      parameters:
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.ApprovalUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新审批记录
       tags:
       - CICD Approval
   /api/v1/k8s/cicd/callback/build:
@@ -4100,6 +4589,28 @@ paths:
       summary: 取消发布单
       tags:
       - CICD Release
+  /api/v1/k8s/cicd/release/delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 删除参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.CicdReleaseIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除发布单
+      tags:
+      - CICD Release
   /api/v1/k8s/cicd/release/detail:
     get:
       parameters:
@@ -4194,6 +4705,19 @@ paths:
       summary: 回滚发布单
       tags:
       - CICD Release
+  /api/v1/k8s/cicd/release/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取发布单统计
+      tags:
+      - CICD Release
   /api/v1/k8s/cicd/release/tasks:
     get:
       parameters:
@@ -4211,6 +4735,28 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取发布单下的任务列表
+      tags:
+      - CICD Release
+  /api/v1/k8s/cicd/release/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 编辑参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.CicdReleaseUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 编辑发布单
       tags:
       - CICD Release
   /api/v1/k8s/cicd/resource/approval/{id}:

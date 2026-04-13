@@ -88,3 +88,15 @@ Jenkins:
   MaxBuildTime: 30
   # 钉钉通知配置
   DingTalkWebhook: "xxxx"
+
+# AI 助手配置（基于 ChatGPT）
+AIAssistant:
+  Enabled: false                          # 是否启用 AI 助手
+  APIKey: "sk-xxxxxxxxxxxx"               # OpenAI API Key
+  BaseURL: ""                             # 自定义 API 地址（留空则用官方，国内可填代理地址）
+  Model: "gpt-4o"                         # 模型名称
+  MaxTokens: 2048                         # 最大 Token 数
+  Temperature: 0.7                        # 温度参数 (0-2)
+  SystemPrompt: ""                        # 自定义 System Prompt（留空用默认）
+  ApprovalExpire: 30                      # 高危操作审批过期时间(分钟)
+  MaxHistoryRound: 20                     # 会话最大保留历史轮数

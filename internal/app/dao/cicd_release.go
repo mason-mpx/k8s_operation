@@ -99,6 +99,34 @@ func (d *Dao) CicdReleaseList(ctx context.Context, keyword, appName, status stri
 	return list, total, nil
 }
 
+// CicdReleaseStats 按状态统计发布单数量
+func (d *Dao) CicdReleaseStats(ctx context.Context) (map[string]int64, error) {
+	type statusCount struct {
+		Status string `gorm:"column:status"`
+		Cnt    int64  `gorm:"column:cnt"`
+	}
+	var rows []statusCount
+	err := d.db.WithContext(ctx).
+		Model(&models.CicdRelease{}).
+		Select("status, COUNT(*) AS cnt").
+		Where("is_del = 0").
+		Group("status").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	stats := map[string]int64{
+		"Pending": 0, "Queued": 0, "Running": 0,
+		"Succeeded": 0, "Failed": 0, "Canceled": 0, "Rollback": 0,
+		"total": 0,
+	}
+	for _, r := range rows {
+		stats[r.Status] = r.Cnt
+		stats["total"] += r.Cnt
+	}
+	return stats, nil
+}
+
 // CicdReleaseCancel 取消发布单
 func (d *Dao) CicdReleaseCancel(ctx context.Context, releaseID int64) (bool, error) {
 	return d.CicdReleaseUpdateStatusCAS(ctx, releaseID,
@@ -118,6 +146,28 @@ func (d *Dao) CicdReleaseGetByBuildID(ctx context.Context, buildID int64) (*mode
 		return nil, err
 	}
 	return &rel, nil
+}
+
+// CicdReleaseUpdate 编辑发布单（仅 Pending 状态可编辑）
+func (d *Dao) CicdReleaseUpdate(ctx context.Context, releaseID int64, updates map[string]any) error {
+	updates["modified_at"] = time.Now().Unix()
+	return d.db.WithContext(ctx).
+		Model(&models.CicdRelease{}).
+		Where("id = ? AND is_del = 0 AND status IN ?", releaseID, []string{models.CicdReleaseStatusPending, models.CicdReleaseStatusFailed, models.CicdReleaseStatusCanceled}).
+		Updates(updates).Error
+}
+
+// CicdReleaseDelete 软删除发布单
+func (d *Dao) CicdReleaseDelete(ctx context.Context, releaseID int64) error {
+	now := time.Now().Unix()
+	return d.db.WithContext(ctx).
+		Model(&models.CicdRelease{}).
+		Where("id = ? AND is_del = 0", releaseID).
+		Updates(map[string]any{
+			"is_del":     1,
+			"deleted_at":  now,
+			"modified_at": now,
+		}).Error
 }
 
 // CicdReleaseUpdateImage 更新发布单的镜像信息

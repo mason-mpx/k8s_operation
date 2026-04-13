@@ -57,6 +57,7 @@ const needsClusterID = (url = '') => {
     '/user/',           // 用户管理
     '/platform/',       // 平台功能
     '/image/',          // 镜像管理
+    '/ai/',             // AI 助手
     '/helloworld',      // 健康检查
   ]
   return !skipPrefixes.some(prefix => url.includes(prefix))
@@ -118,21 +119,18 @@ http.interceptors.response.use(
     const status = error.response?.status
     const data = error.response?.data
 
-    // 非 401：按你原逻辑弹错
+    // 非 401：按你原逻辑弹错（支持 _silent 静默模式）
     if (status !== 401 && data?.code !== 401) {
-      const msg =
-        (Array.isArray(data?.details) && data.details[0]) ||
-        data?.msg ||
-        data?.message ||
-        error?.message ||
-        '请求失败'
-      Message.error({content: msg, duration: 2000})
+      if (!original._silent) {
+        const msg =
+          (Array.isArray(data?.details) && data.details[0]) ||
+          data?.msg ||
+          data?.message ||
+          error?.message ||
+          '请求失败'
+        Message.error({content: msg, duration: 2000})
+      }
       return Promise.reject(data || error)
-    }
-
-
-    if (status !== 401 && data?.code !== 401) {
-      return Promise.reject(error)
     }
 
     // 401：login/register/refresh 自己不要 refresh（否则无限循环）

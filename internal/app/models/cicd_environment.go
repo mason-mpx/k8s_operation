@@ -34,9 +34,10 @@ type CicdApproval struct {
 	ID            int64  `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
 	PipelineID    int64  `gorm:"column:pipeline_id" json:"pipeline_id"`       // 流水线ID
 	PipelineRunID int64  `gorm:"column:pipeline_run_id" json:"pipeline_run_id"` // 运行记录ID
+	StageID       int64  `gorm:"column:stage_id" json:"stage_id"`             // 关联流水线阶段ID
 	ReleaseID     int64  `gorm:"column:release_id" json:"release_id"`         // 发布单ID
 	EnvName       string `gorm:"column:env_name" json:"env_name"`             // 目标环境
-	Status        string `gorm:"column:status" json:"status"`                 // 状态
+	Status        string `gorm:"column:status;size:50" json:"status"`                 // 状态
 	Image         string `gorm:"column:image" json:"image"`                   // 待部署镜像
 	ImageDigest   string `gorm:"column:image_digest" json:"image_digest"`     // 镜像摘要
 	RequestUserID int64  `gorm:"column:request_user_id" json:"request_user_id"` // 申请人
@@ -50,6 +51,14 @@ type CicdApproval struct {
 }
 
 func (CicdApproval) TableName() string { return "cicd_approval" }
+
+// ApprovalListItem 审批列表项（包含流水线名称和申请人名称）
+type ApprovalListItem struct {
+	CicdApproval
+	PipelineName    string `json:"pipeline_name"`     // 流水线名称
+	RequestUsername string `json:"request_username"`  // 申请人用户名
+	ApproveUsername string `json:"approve_username"`  // 审批人用户名
+}
 
 // EnvironmentListItem 环境列表项（包含集群名称）
 type EnvironmentListItem struct {

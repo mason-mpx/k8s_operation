@@ -36,6 +36,11 @@ export function getApprovalList(params) {
   return http.get(`${API_BASE}/k8s/cicd/approval/list`, { params })
 }
 
+// 获取审批统计
+export function getApprovalStats() {
+  return http.get(`${API_BASE}/k8s/cicd/approval/stats`)
+}
+
 // 获取审批详情
 export function getApprovalDetail(id) {
   return http.get(`${API_BASE}/k8s/cicd/approval/detail`, { params: { id } })
@@ -56,6 +61,16 @@ export function approvalAction(data) {
   return http.post(`${API_BASE}/k8s/cicd/approval/action`, data)
 }
 
+// 更新审批记录
+export function updateApproval(data) {
+  return http.post(`${API_BASE}/k8s/cicd/approval/update`, data)
+}
+
+// 删除审批记录
+export function deleteApproval(id) {
+  return http.post(`${API_BASE}/k8s/cicd/approval/delete`, { id })
+}
+
 export default {
   getEnvironmentList,
   getEnvironmentDetail,
@@ -63,8 +78,11 @@ export default {
   updateEnvironment,
   deleteEnvironment,
   getApprovalList,
+  getApprovalStats,
   getApprovalDetail,
   getPendingApprovals,
   createApproval,
-  approvalAction
+  approvalAction,
+  updateApproval,
+  deleteApproval
 }

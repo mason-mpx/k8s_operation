@@ -147,6 +147,9 @@
         <router-view/>
       </div>
     </main>
+
+    <!-- AI 助手悬浮组件 -->
+    <AiAssistant />
   </div>
 </template>
 
@@ -155,6 +158,7 @@ import {computed, ref, reactive, watch, onMounted} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {logout} from '@/api/auth'
 import permissionStore from '@/stores/permission'
+import AiAssistant from '@/components/AiAssistant.vue'
 
 const router = useRouter()
 const route = useRoute()

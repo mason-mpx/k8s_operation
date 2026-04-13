@@ -5,6 +5,7 @@ import (
 
 	"k8soperation/global"
 	"k8soperation/internal/errorcode"
+	"k8soperation/pkg/openai"
 	"k8soperation/pkg/setting"
 	"k8soperation/pkg/utils"
 )
@@ -179,6 +180,30 @@ func SetupSetting() error {
 		log.Println("[PlatformSettings] 配置加载成功（数据库设置优先级更高）")
 	}
 
+	// 读取 AI 助手配置
+	// 对应 config.yaml 中的：
+	// AIAssistant:
+	if err = s.ReadSection("AIAssistant", &global.AISetting); err != nil {
+		log.Println("[AIAssistant] 配置块未找到，AI 助手功能将不可用")
+		global.AISetting = &setting.AIAssistantSettingS{Enabled: false}
+	} else if global.AISetting != nil && global.AISetting.Enabled {
+		// 初始化多模型Provider注册中心
+		global.AIRegistry = openai.NewRegistry(global.AISetting)
+		providers := global.AIRegistry.ListProviders()
+		if len(providers) == 0 {
+			log.Println("[AIAssistant] 警告: 无有效的 AI 提供商配置（检查 APIKey），AI 助手功能将不可用")
+			global.AISetting.Enabled = false
+		} else {
+			var modelCount int
+			for _, p := range providers {
+				modelCount += len(p.Models)
+			}
+			log.Printf("[AIAssistant] AI 助手已启用: %d 个提供商, %d 个模型, 默认: %s/%s\n",
+				len(providers), modelCount,
+				global.AIRegistry.GetDefaultProviderID(),
+				global.AIRegistry.GetDefaultModelID())
+		}
+	}
 	// 将 ErrorCode 配置注入 errorcode 包
 	// - AllowOverride=true：开发环境，允许错误码覆盖
 	// - AllowOverride=false：生产环境，发现重复直接 panic

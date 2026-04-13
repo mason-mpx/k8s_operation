@@ -82,6 +82,24 @@ func SetupLogger() error {
 		bizOpts...,
 	)
 
+	// —— 初始化 AI 助手专属日志（独立文件，方便排查大模型问题）
+	aiLogFile := "storage/logs/ai.log"
+	if err := ensureDir(aiLogFile); err != nil {
+		return err
+	}
+	global.AILogger = logger2.NewLogger(
+		logger2.DebugLevel, // AI 日志默认 Debug 级别，记录所有详情
+		logger2.RotateOptions{
+			FileName:   aiLogFile,
+			MaxSize:    global.AppSetting.LogMaxSize,
+			MaxBackups: global.AppSetting.LogMaxBackup,
+			MaxAge:     global.AppSetting.LogMaxAge,
+			Compress:   global.AppSetting.LogCompress,
+		},
+		logger2.AddCaller(),
+		logger2.AddCallerSkip(1),
+	)
+
 	// —— 镜像开关
 	global.MirrorBizToSys = global.AppSetting.MirrorBusinessToSystem
 

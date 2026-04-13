@@ -3,6 +3,7 @@ package initialize
 import (
 	"context"
 	"fmt"
+	"log"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm/logger"
 	"k8soperation/global"
@@ -69,13 +70,36 @@ func SetupDB() error {
 
 // autoMigrateTables 自动迁移表结构
 func autoMigrateTables() error {
-	return global.DB.AutoMigrate(
+	// 平台基础表
+	if err := global.DB.AutoMigrate(
 		&models.PlatformSettings{},
 		&models.AppStoreApp{},
 		&models.AppStoreInstall{},
 		&models.AppStoreComponent{},
-		// 其他需要自动迁移的表可以加在这里
-	)
+		&models.CicdApproval{},
+	); err != nil {
+		return fmt.Errorf("migrate base tables: %w", err)
+	}
+
+	// AI 助手模块（逐表迁移，确保每张表都成功）
+	aiModels := []struct {
+		name  string
+		model interface{}
+	}{
+		{"ai_conversations", &models.AIConversation{}},
+		{"ai_messages", &models.AIMessage{}},
+		{"ai_approval_requests", &models.AIApprovalRequest{}},
+		{"ai_approval_logs", &models.AIApprovalLog{}},
+	}
+	for _, m := range aiModels {
+		if err := global.DB.AutoMigrate(m.model); err != nil {
+			log.Printf("[AutoMigrate] 创建表 %s 失败: %v", m.name, err)
+			return fmt.Errorf("migrate %s: %w", m.name, err)
+		}
+		log.Printf("[AutoMigrate] 表 %s 迁移成功", m.name)
+	}
+
+	return nil
 }
 
 // initDefaultData 初始化默认数据
