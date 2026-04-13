@@ -248,6 +248,9 @@
 <p align="center">
   <img src="docs/images/25.png" width="900"/>
 </p>
+<p align="center">
+  <img src="docs/images/26.png" width="900"/>
+</p>
 
 </details>
 
