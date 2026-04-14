@@ -57,9 +57,10 @@ type Client struct {
 
 // Message 对话消息
 type Message struct {
-	Role       string `json:"role"`    // system / user / assistant / tool
-	Content    string `json:"content"`
-	ToolCallID string `json:"tool_call_id,omitempty"` // tool 角色时需要
+	Role       string     `json:"role"`                  // system / user / assistant / tool
+	Content    string     `json:"content"`
+	ToolCallID string     `json:"tool_call_id,omitempty"` // tool 角色时需要
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // assistant 角色时携带的工具调用
 }
 
 // ToolCall 工具调用信息
@@ -371,6 +372,19 @@ func (c *Client) buildMessages(messages []Message) []goopenai.ChatCompletionMess
 		}
 		if m.ToolCallID != "" {
 			msg.ToolCallID = m.ToolCallID
+		}
+		// assistant 消息携带 tool_calls（Function Calling 协议要求）
+		if len(m.ToolCalls) > 0 {
+			for _, tc := range m.ToolCalls {
+				msg.ToolCalls = append(msg.ToolCalls, goopenai.ToolCall{
+					ID:   tc.ID,
+					Type: goopenai.ToolTypeFunction,
+					Function: goopenai.FunctionCall{
+						Name:      tc.Function,
+						Arguments: tc.Args,
+					},
+				})
+			}
 		}
 		msgs = append(msgs, msg)
 	}

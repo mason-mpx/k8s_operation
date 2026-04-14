@@ -132,6 +132,59 @@
 
 > 建议生产环境尽量使用与 client-go 主版本号一致的 Kubernetes 版本，以获得最佳兼容性。
 
+------
+
+## 🖥️ 多架构支持（amd64 / arm64）
+
+本项目 **完整支持 ARM64 架构部署**，后端基于 Go 纯静态编译（`CGO_ENABLED=0`），所有依赖均为纯 Go 实现，无 C 库依赖。
+
+### 支持的目标架构
+
+| 架构 | 说明 | 典型场景 |
+|------|------|----------|
+| `linux/amd64` | x86_64，默认架构 | 传统云服务器、PC 开发机 |
+| `linux/arm64` | AArch64 | 华为鲲鹏、AWS Graviton、Apple M 系列、树莓派 4/5 |
+
+### 构建方式
+
+**方式一：本地交叉编译（Go 原生支持）**
+
+```bash
+# 编译 arm64 二进制
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o bin/k8soperation-arm64 ./cmd/k8soperation
+
+# 编译 amd64 二进制（默认）
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/k8soperation-amd64 ./cmd/k8soperation
+```
+
+**方式二：Docker 单架构构建**
+
+```bash
+# 构建 arm64 镜像
+docker build --build-arg TARGETARCH=arm64 -t k8soperation:arm64 .
+
+# 构建 amd64 镜像（默认）
+docker build -t k8soperation:amd64 .
+```
+
+**方式三：Docker Buildx 多架构镜像（推荐生产使用）**
+
+```bash
+# 一次构建同时生成 amd64 + arm64 镜像并推送到仓库
+make docker-buildx IMAGE=registry.example.com/k8soperation:latest
+
+# 或手动执行
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t registry.example.com/k8soperation:latest . --push
+```
+
+### 技术保障
+
+- **纯 Go 编译**：`CGO_ENABLED=0`，无 C 依赖，交叉编译零配置
+- **依赖全兼容**：`client-go`、`gin`、`gorm`、`go-openai` 等均为纯 Go 库，天然支持多架构
+- **Dockerfile 适配**：使用 `BUILDPLATFORM` + `TARGETARCH` 实现 BuildKit 多架构构建
+- **前端无架构依赖**：Vue3 + Vite 构建产物为静态 HTML/JS/CSS，任何架构通用
+
 ## 🖥️ 系统界面展示
 
 > 以下为真实系统运行截图
@@ -247,6 +300,9 @@
 
 <p align="center">
   <img src="docs/images/25.png" width="900"/>
+</p>
+<p align="center">
+  <img src="docs/images/26.png" width="900"/>
 </p>
 <p align="center">
   <img src="docs/images/26.png" width="900"/>
@@ -619,7 +675,7 @@ https://gitee.com/jay-kim/k8s_operation/blob/master/docs/%E5%89%8D%E7%AB%AF%E7%A
 ### 后端部署文档内容包括：
 
 - 构建后端二进制
-- Docker / Containerd 镜像构建
+- Docker / Containerd 镜像构建（支持 **amd64 / arm64** 多架构）
 - 使用 Systemd 管理服务
 - Kubernetes Deployment / Service 部署示例
 - 参数说明与优化建议

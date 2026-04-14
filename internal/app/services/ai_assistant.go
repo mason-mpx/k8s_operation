@@ -233,10 +233,11 @@ func (s *Services) AIChat(ctx context.Context, req *AIChatRequest, factory *Clus
 			break
 		}
 
-		// 将 assistant 的 tool_calls 消息加入上下文
+		// 将 assistant 的 tool_calls 消息加入上下文（必须携带 ToolCalls，否则 API 报错）
 		messages = append(messages, openai.Message{
-			Role:    "assistant",
-			Content: result.Content,
+			Role:      "assistant",
+			Content:   result.Content,
+			ToolCalls: result.ToolCalls,
 		})
 
 		// 逐个处理工具调用
@@ -622,6 +623,11 @@ func (s *Services) buildHistoryMessages(convID uint32) ([]openai.Message, error)
 
 	var messages []openai.Message
 	for _, msg := range history[start:] {
+		// 跳过 tool 角色消息（中间态 Function Calling 结果，无法在历史中重放，
+		// 因为对应的 assistant tool_calls 已丢失，API 会报 400 错误）
+		if msg.Role == "tool" {
+			continue
+		}
 		messages = append(messages, openai.Message{
 			Role:    msg.Role,
 			Content: msg.Content,
