@@ -82,12 +82,12 @@ func SetupLogger() error {
 		bizOpts...,
 	)
 
-	// —— 初始化 AI 助手专属日志（独立文件，方便排查大模型问题）
+	// —— 初始化 AI 助手专属日志（独立文件 + 控制台，方便排查大模型问题）
 	aiLogFile := "storage/logs/ai.log"
 	if err := ensureDir(aiLogFile); err != nil {
 		return err
 	}
-	global.AILogger = logger2.NewLogger(
+	aiBaseLogger := logger2.NewLogger(
 		logger2.DebugLevel, // AI 日志默认 Debug 级别，记录所有详情
 		logger2.RotateOptions{
 			FileName:   aiLogFile,
@@ -99,6 +99,8 @@ func SetupLogger() error {
 		logger2.AddCaller(),
 		logger2.AddCallerSkip(1),
 	)
+	// 给 AI 日志加上 [AI] 命名前缀，控制台输出时一眼可辨
+	global.AILogger = aiBaseLogger.WithName("AI")
 
 	// —— 镜像开关
 	global.MirrorBizToSys = global.AppSetting.MirrorBusinessToSystem

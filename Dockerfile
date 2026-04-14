@@ -1,12 +1,14 @@
 # ---------- builder ----------
 ARG GO_VERSION=1.24
-FROM swr.cn-east-3.myhuaweicloud.com/kubesre/docker.io/golang:${GO_VERSION} AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} swr.cn-east-3.myhuaweicloud.com/kubesre/docker.io/golang:${GO_VERSION} AS builder
+
+# 多架构支持：TARGETARCH 由 docker buildx 自动注入（amd64 / arm64）
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 
 WORKDIR /src
 ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
 ENV CGO_ENABLED=0
-ENV GOOS=linux
-ENV GOARCH=amd64
 
 ARG BIN_NAME=k8s_operation
 
@@ -19,6 +21,7 @@ COPY . .
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags="-s -w" -o /out/${BIN_NAME} ./cmd/k8soperation
 
 

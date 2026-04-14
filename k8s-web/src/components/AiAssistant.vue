@@ -281,6 +281,7 @@
 import { ref, reactive, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { aiChat, getAIStatus, getAIModels, getConversations, getConversationMessages, deleteConversation, getApprovals, approveApproval, rejectApproval, getPendingApprovalCount } from '@/api/ai'
 import { Message } from '@arco-design/web-vue'
+import MarkdownIt from 'markdown-it'
 
 const isOpen = ref(false)
 const activeTab = ref('chat')
@@ -313,6 +314,14 @@ const capabilityLabel = {
   code: '代码',
   vision: '视觉',
 }
+
+// Markdown 渲染器
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+  typographer: true,
+})
 
 const messages = reactive([])
 const conversations = reactive([])
@@ -573,11 +582,16 @@ const getIntentTag = (toolsCalled, pendingTools) => {
 
 const formatMessage = (text) => {
   if (!text) return ''
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br/>')
+  try {
+    return md.render(text)
+  } catch {
+    // 回退到简单格式化
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br/>')
+  }
 }
 
 const formatTime = (d) => {
@@ -826,14 +840,16 @@ onBeforeUnmount(() => {
 .msg-avatar { width: 1.75rem; height: 1.75rem; flex-shrink: 0; margin-top: 0.125rem; }
 .msg-avatar svg { width: 100%; height: 100%; }
 .msg-bubble {
-  max-width: 80%; padding: 0.75rem 1rem;
+  max-width: 88%; padding: 0.75rem 1rem;
   border-radius: 1rem; position: relative;
   font-size: 0.8125rem; line-height: 1.6;
   word-break: break-word;
 }
 .msg-bubble.assistant {
-  background: #f1f5f9; color: #1e293b;
+  background: #ffffff; color: #1e293b;
   border-bottom-left-radius: 0.25rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 .msg-bubble.user {
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -841,10 +857,100 @@ onBeforeUnmount(() => {
   border-bottom-right-radius: 0.25rem;
 }
 .msg-text :deep(code) {
-  background: rgba(99, 102, 241, 0.1); padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem; font-size: 0.75rem; font-family: 'Fira Code', monospace;
+  background: rgba(99, 102, 241, 0.08); padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem; font-size: 0.75rem; font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: #6366f1;
 }
-.msg-bubble.user .msg-text :deep(code) { background: rgba(255,255,255,0.2); }
+.msg-bubble.user .msg-text :deep(code) { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* === Markdown 渲染样式（大厂风格） === */
+.msg-text :deep(p) { margin: 0 0 0.5rem 0; line-height: 1.6; }
+.msg-text :deep(p:last-child) { margin-bottom: 0; }
+
+/* 表格：企业级数据展示 */
+.msg-text :deep(table) {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  margin: 0.625rem 0; font-size: 0.75rem;
+  border: 1px solid #e2e8f0; border-radius: 0.5rem;
+  overflow: hidden;
+}
+.msg-text :deep(thead) {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+}
+.msg-text :deep(th) {
+  padding: 0.5rem 0.75rem; text-align: left;
+  font-weight: 700; color: #475569; font-size: 0.6875rem;
+  text-transform: uppercase; letter-spacing: 0.3px;
+  border-bottom: 2px solid #e2e8f0;
+}
+.msg-text :deep(td) {
+  padding: 0.4375rem 0.75rem; color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+.msg-text :deep(tr:last-child td) { border-bottom: none; }
+.msg-text :deep(tr:hover td) { background: #f8fafc; }
+.msg-text :deep(tbody tr:nth-child(even) td) { background: #fafbfc; }
+
+/* 代码块：暗色主题 */
+.msg-text :deep(pre) {
+  margin: 0.625rem 0; padding: 0.875rem 1rem;
+  background: #1e293b; color: #e2e8f0;
+  border-radius: 0.625rem; overflow-x: auto;
+  font-size: 0.75rem; line-height: 1.7;
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  border: 1px solid #334155;
+}
+.msg-text :deep(pre code) {
+  background: transparent !important; color: inherit;
+  padding: 0; font-size: inherit;
+}
+.msg-bubble.user .msg-text :deep(pre) {
+  background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2);
+  color: #f1f5f9;
+}
+
+/* 列表 */
+.msg-text :deep(ul), .msg-text :deep(ol) {
+  margin: 0.375rem 0; padding-left: 1.25rem;
+}
+.msg-text :deep(li) {
+  margin-bottom: 0.25rem; line-height: 1.6; color: #334155;
+}
+.msg-text :deep(li::marker) { color: #6366f1; }
+
+/* 引用块 */
+.msg-text :deep(blockquote) {
+  margin: 0.5rem 0; padding: 0.5rem 0.75rem;
+  border-left: 3px solid #6366f1;
+  background: #f8fafc; border-radius: 0 0.375rem 0.375rem 0;
+  color: #64748b; font-size: 0.8125rem;
+}
+
+/* 分割线 */
+.msg-text :deep(hr) {
+  border: none; border-top: 1px solid #e2e8f0;
+  margin: 0.75rem 0;
+}
+
+/* 链接 */
+.msg-text :deep(a) {
+  color: #6366f1; text-decoration: none;
+  border-bottom: 1px dashed #6366f1;
+}
+.msg-text :deep(a:hover) { border-bottom-style: solid; }
+
+/* 标题 */
+.msg-text :deep(h1), .msg-text :deep(h2), .msg-text :deep(h3),
+.msg-text :deep(h4), .msg-text :deep(h5), .msg-text :deep(h6) {
+  margin: 0.75rem 0 0.375rem 0; font-weight: 700; color: #1e293b; line-height: 1.3;
+}
+.msg-text :deep(h1) { font-size: 1rem; }
+.msg-text :deep(h2) { font-size: 0.9375rem; }
+.msg-text :deep(h3) { font-size: 0.875rem; }
+
+/* 加粗 */
+.msg-text :deep(strong) { color: #1e293b; font-weight: 700; }
+.msg-bubble.user .msg-text :deep(strong) { color: #fff; }
 .msg-time {
   display: block; font-size: 0.625rem; opacity: 0.5; margin-top: 0.375rem; text-align: right;
 }
@@ -964,34 +1070,40 @@ onBeforeUnmount(() => {
   color: #6366f1; font-weight: 600;
 }
 
-/* ===== 意图标签 ===== */
+/* ===== 意图标签（大厂风格） ===== */
 .intent-tag {
-  display: inline-flex; align-items: center; gap: 0.25rem;
-  padding: 0.1875rem 0.5rem; border-radius: 0.75rem;
-  font-size: 0.5625rem; font-weight: 600;
-  margin-bottom: 0.375rem; line-height: 1;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.25rem 0.625rem; border-radius: 1rem;
+  font-size: 0.625rem; font-weight: 600;
+  margin-bottom: 0.5rem; line-height: 1;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.intent-icon { font-size: 0.6875rem; line-height: 1; }
-.intent-label { white-space: nowrap; }
+.intent-icon { font-size: 0.75rem; line-height: 1; }
+.intent-label { white-space: nowrap; letter-spacing: 0.3px; }
 .intent-tools {
   font-weight: 400; opacity: 0.7; font-family: 'Fira Code', monospace;
-  font-size: 0.5rem; max-width: 10rem; overflow: hidden;
+  font-size: 0.5625rem; max-width: 10rem; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
 .intent-tag.general {
-  background: #f1f5f9; color: #64748b;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0); color: #475569;
 }
 .intent-tag.platform {
-  background: #e0f2fe; color: #0369a1;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e40af;
+  border: 1px solid rgba(59, 130, 246, 0.15);
 }
 .intent-tag.approval {
-  background: #fef3c7; color: #92400e;
+  background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 .intent-tag.danger {
-  background: #fee2e2; color: #991b1b;
+  background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 .intent-tag.error {
-  background: #fee2e2; color: #dc2626;
+  background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 /* ===== 错误消息样式 ===== */

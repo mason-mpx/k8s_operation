@@ -152,6 +152,16 @@ func NewLogger(level zapcore.Level, ropt RotateOptions, options ...Option) *Logg
 func (l *Logger) Logger() *zap.Logger    { return l.logger }
 func (l *Logger) StdLogger() *log.Logger { return zap.NewStdLog(l.logger) }
 
+// WithName 返回带命名前缀的 Logger 副本（控制台会显示为 [name] 前缀，方便区分）
+func (l *Logger) WithName(name string) *Logger {
+	named := l.logger.Named(name)
+	return &Logger{
+		logger: named,
+		sugar:  named.Sugar(),
+		level:  l.level,
+	}
+}
+
 // —— 兜底，避免 sugar 为空再次 panic —— //
 func (l *Logger) sugarSafe() *zap.SugaredLogger {
 	if l == nil {

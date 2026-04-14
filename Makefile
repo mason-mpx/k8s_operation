@@ -77,7 +77,7 @@ VOL_DOCS     := $(strip $(VOL_DOCS))
 
 .PHONY: all build run run-local test fmt lint clean \
         swag swag-clean swagger-ui swagger-ui-stop \
-        docker-build bk-build docker-run docker-logs docker-stop docker-rm docker-push \
+        docker-build docker-buildx bk-build docker-run docker-logs docker-stop docker-rm docker-push \
         help
 
 # ====== Go 基本命令 ======
@@ -148,6 +148,12 @@ bk-build: swag
 	@echo ">> Building (BuildKit) image $(IMAGE) with $(DOCKER)"
 	DOCKER_BUILDKIT=1 $(DOCKER) build -f build/containerd/Dockerfile -t $(IMAGE) $(CONTEXT)
 
+# 多架构构建（amd64 + arm64）—— 需要 docker buildx
+docker-buildx: swag
+	@echo ">> Building multi-arch image $(IMAGE) (linux/amd64,linux/arm64)"
+	$(DOCKER) buildx build --platform linux/amd64,linux/arm64 \
+		-f $(DOCKERFILE) -t $(IMAGE) $(CONTEXT) --push
+
 docker-run:
 	@echo ">> Running container $(APP_NAME)  (configs: $(VOL_CONFIGS))"
 	$(DOCKER_RUN_PREFIX) $(DOCKER) run -d --name $(APP_NAME) \
@@ -173,13 +179,13 @@ docker-push:
 	$(DOCKER) push $(REGISTRY)/$(IMAGE)
 
 help:
-	@echo "Targets:"
 	@echo "  build / run / run-local / test / fmt / lint / clean"
 	@echo "  swag / swag-clean / swagger-ui / swagger-ui-stop"
-	@echo "  docker-build / bk-build / docker-run / docker-logs / docker-stop / docker-rm / docker-push"
+	@echo "  docker-build / docker-buildx / bk-build / docker-run / docker-logs / docker-stop / docker-rm / docker-push"
 	@echo ""
 	@echo "Hints:"
 	@echo "  * build / run / docker-build 会自动先生成 Swagger 文档"
+	@echo "  * docker-buildx    多架构构建 (amd64 + arm64)，需 docker buildx + push"
 	@echo "  * swagger-ui 在 8081 端口起官方 UI（Windows Git Bash 路径已处理）"
 	@echo "  * 若未安装 swag，会自动 go install github.com/swaggo/swag/cmd/swag@latest"
 	@echo "  DOCKER=nerdctl make docker-build   # 使用 nerdctl"
