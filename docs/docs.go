@@ -34,7 +34,7 @@ const docTemplate = `{
         },
         "/api/v1/ai/approvals": {
             "get": {
-                "description": "获取所有高危操作审批请求，支持按状态筛选",
+                "description": "管理员获取所有审批，普通用户仅看自己的申请",
                 "produces": [
                     "application/json"
                 ],
@@ -112,7 +112,7 @@ const docTemplate = `{
         },
         "/api/v1/ai/approvals/pending-count": {
             "get": {
-                "description": "用于前端侧边栏 Badge 显示",
+                "description": "管理员看全局待审批数，普通用户看自己的",
                 "produces": [
                     "application/json"
                 ],
@@ -120,6 +120,25 @@ const docTemplate = `{
                     "AI 审批管理"
                 ],
                 "summary": "获取待审批数量",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ai/approvals/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "获取审批统计数据",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -156,11 +175,77 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "description": "仅待审批状态的记录可编辑备注",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "更新审批备注",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "管理员可删除任何记录，普通用户只能删除自己的非已通过记录",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI 审批管理"
+                ],
+                "summary": "删除审批记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "审批ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/ai/approvals/{id}/approve": {
             "post": {
-                "description": "管理员通过高危操作审批",
+                "description": "管理员通过高危操作审批（不可自审）",
                 "consumes": [
                     "application/json"
                 ],
@@ -229,7 +314,7 @@ const docTemplate = `{
         },
         "/api/v1/ai/approvals/{id}/reject": {
             "post": {
-                "description": "管理员拒绝高危操作审批",
+                "description": "管理员拒绝高危操作审批（不可自审）",
                 "consumes": [
                     "application/json"
                 ],
@@ -18656,11 +18741,25 @@ const docTemplate = `{
                 "approval_id": {
                     "type": "integer"
                 },
+                "cluster_id": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "resource_name": {
+                    "type": "string"
+                },
                 "risk_level": {
                     "type": "string"
                 },
                 "summary": {
                     "type": "string"
+                },
+                "tool_args": {
+                    "description": "完整参数",
+                    "type": "object",
+                    "additionalProperties": true
                 },
                 "tool_name": {
                     "type": "string"

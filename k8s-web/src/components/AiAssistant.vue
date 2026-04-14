@@ -96,7 +96,7 @@
       <div class="panel-tabs" v-if="activeTab !== 'chat'">
         <button :class="['tab-btn', { active: activeTab === 'history' }]" @click="activeTab = 'history'">历史会话</button>
         <button :class="['tab-btn', { active: activeTab === 'approvals' }]" @click="activeTab = 'approvals'">
-          待审批
+          {{ isApprovalAdmin ? '待审批' : '我的申请' }}
           <span v-if="pendingCount > 0" class="tab-badge">{{ pendingCount }}</span>
         </button>
       </div>
@@ -182,8 +182,33 @@
               <div class="approval-info">
                 <span class="approval-label">需要审批</span>
                 <div v-for="pt in msg.pendingTools" :key="pt.approval_id" class="approval-item">
-                  <span class="tool-name">{{ pt.tool_name }}</span>
-                  <span :class="['risk-tag', pt.risk_level]">{{ pt.risk_level }}</span>
+                  <div class="approval-item-header">
+                    <span class="tool-name">{{ pt.tool_name }}</span>
+                    <span :class="['risk-tag', pt.risk_level]">{{ pt.risk_level }}</span>
+                  </div>
+                  <div v-if="pt.tool_args" class="approval-params">
+                    <div v-if="pt.tool_args.namespace" class="param-row">
+                      <span class="param-label">命名空间:</span>
+                      <span class="param-value">{{ pt.tool_args.namespace }}</span>
+                    </div>
+                    <div v-if="pt.resource_name" class="param-row">
+                      <span class="param-label">资源名:</span>
+                      <span class="param-value">{{ pt.resource_name }}</span>
+                    </div>
+                    <div v-if="pt.cluster_id" class="param-row">
+                      <span class="param-label">集群ID:</span>
+                      <span class="param-value">{{ pt.cluster_id }}</span>
+                    </div>
+                    <div v-if="pt.tool_args.replicas != null" class="param-row">
+                      <span class="param-label">目标副本数:</span>
+                      <span class="param-value">{{ pt.tool_args.replicas }}</span>
+                    </div>
+                    <div v-if="pt.tool_args.image" class="param-row">
+                      <span class="param-label">目标镜像:</span>
+                      <span class="param-value">{{ pt.tool_args.image }}</span>
+                    </div>
+                  </div>
+                  <div class="approval-item-id">审批ID: {{ pt.approval_id }}</div>
                 </div>
               </div>
             </div>
@@ -227,19 +252,84 @@
 
       <!-- 审批列表 -->
       <div v-show="activeTab === 'approvals'" class="panel-body approval-list">
+        <!-- 角色标识条 -->
+        <div class="approval-role-bar">
+          <div :class="['role-indicator', isApprovalAdmin ? 'admin' : 'user']">
+            <span class="role-dot"></span>
+            <span class="role-text">{{ isApprovalAdmin ? '审批管理员' : '我的申请' }}</span>
+          </div>
+          <span class="role-hint" v-if="!isApprovalAdmin">只有管理员角色可审批操作</span>
+        </div>
+
         <div v-if="approvals.length === 0" class="empty-state">
-          <span class="empty-icon">✅</span>
-          <span>暂无待审批操作</span>
+          <span class="empty-icon">{{ isApprovalAdmin ? '✅' : '📋' }}</span>
+          <span>{{ isApprovalAdmin ? '暂无待审批操作' : '暂无待处理的申请' }}</span>
         </div>
         <div v-for="ap in approvals" :key="ap.id" class="approval-card">
           <div class="approval-card-header">
             <span class="tool-name">{{ ap.tool_name || ap.action }}</span>
             <span :class="['risk-tag', ap.risk_level || 'write']">{{ ap.risk_level || 'write' }}</span>
+            <span v-if="ap.can_approve" class="can-approve-badge">可审批</span>
           </div>
-          <div class="approval-card-desc">{{ ap.description }}</div>
-          <div class="approval-card-actions">
-            <button class="approve-btn" @click="handleApprove(ap.id)">通过</button>
-            <button class="reject-btn" @click="handleReject(ap.id)">拒绝</button>
+          <div class="approval-card-desc">{{ ap.summary || ap.description }}</div>
+          <!-- 申请人信息 -->
+          <div class="approval-requester">
+            <div class="requester-avatar">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" fill="#94a3b8"/>
+                <path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8" fill="#94a3b8" opacity="0.3"/>
+              </svg>
+            </div>
+            <div class="requester-info">
+              <span class="requester-name">{{ ap.request_user_name || '未知用户' }}</span>
+              <span class="requester-label">申请人</span>
+            </div>
+            <span class="requester-time">{{ formatApprovalTime(ap.created_at) }}</span>
+          </div>
+          <div class="approval-card-detail">
+            <div v-if="ap.namespace" class="detail-row">
+              <span class="detail-label">命名空间:</span>
+              <span class="detail-value">{{ ap.namespace }}</span>
+            </div>
+            <div v-if="ap.resource_name" class="detail-row">
+              <span class="detail-label">资源名:</span>
+              <span class="detail-value">{{ ap.resource_name }}</span>
+            </div>
+            <div v-if="ap.cluster_id" class="detail-row">
+              <span class="detail-label">集群ID:</span>
+              <span class="detail-value">{{ ap.cluster_id }}</span>
+            </div>
+            <div v-if="ap.operation_json" class="detail-row">
+              <span class="detail-label">操作参数:</span>
+              <span class="detail-value param-json">{{ formatToolArgs(ap.operation_json) }}</span>
+            </div>
+          </div>
+          <!-- 操作按钮：管理员且非自己提交的才能审批 -->
+          <div v-if="ap.can_approve" class="approval-card-actions">
+            <button class="approve-btn" @click="handleApprove(ap.id)">
+              <svg viewBox="0 0 16 16" fill="currentColor" class="action-icon"><path d="M12.736 3.97a.733.733 0 011.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 01-1.065.02L3.217 8.384a.757.757 0 010-1.06.733.733 0 011.047 0l3.052 3.093 5.4-6.425z"/></svg>
+              通过
+            </button>
+            <button class="reject-btn" @click="handleReject(ap.id)">
+              <svg viewBox="0 0 16 16" fill="currentColor" class="action-icon"><path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/></svg>
+              拒绝
+            </button>
+          </div>
+          <!-- 普通用户视角：只能取消自己的申请 -->
+          <div v-else-if="!isApprovalAdmin" class="approval-card-actions">
+            <div class="approval-status-hint">
+              <svg viewBox="0 0 16 16" fill="currentColor" class="status-icon"><path d="M8 16A8 8 0 108 0a8 8 0 000 16zm.93-9.412l-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.399l-.244.003.028-.307 2.136-.235zm.375-3.38a.77.77 0 11-1.54 0 .77.77 0 011.54 0z"/></svg>
+              等待管理员审批
+            </div>
+            <button class="cancel-btn" @click="handleCancel(ap.id)">取消申请</button>
+          </div>
+          <!-- 管理员但是自己的申请 -->
+          <div v-else class="approval-card-actions">
+            <div class="approval-status-hint self-hint">
+              <svg viewBox="0 0 16 16" fill="currentColor" class="status-icon"><path d="M8 15A7 7 0 118 1a7 7 0 010 14zm0 1A8 8 0 108 0a8 8 0 000 16z"/><path d="M7.002 11a1 1 0 112 0 1 1 0 01-2 0zM7.1 4.995a.905.905 0 111.8 0l-.35 3.507a.552.552 0 01-1.1 0L7.1 4.995z"/></svg>
+              不可自审
+            </div>
+            <button class="cancel-btn" @click="handleCancel(ap.id)">取消申请</button>
           </div>
         </div>
       </div>
@@ -279,9 +369,10 @@
 
 <script setup>
 import { ref, reactive, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
-import { aiChat, getAIStatus, getAIModels, getConversations, getConversationMessages, deleteConversation, getApprovals, approveApproval, rejectApproval, getPendingApprovalCount } from '@/api/ai'
+import { aiChat, getAIStatus, getAIModels, getConversations, getConversationMessages, deleteConversation, getApprovals, approveApproval, rejectApproval, cancelApproval, getPendingApprovalCount } from '@/api/ai'
 import { Message } from '@arco-design/web-vue'
 import MarkdownIt from 'markdown-it'
+import permissionStore from '@/stores/permission'
 
 const isOpen = ref(false)
 const activeTab = ref('chat')
@@ -292,6 +383,7 @@ const chatBody = ref(null)
 const aiEnabled = ref(false)
 const conversationId = ref(null)
 const pendingCount = ref(0)
+const isApprovalAdmin = ref(false)  // 后端返回的审批管理员标识
 
 // 多模型选择器状态
 const showModelPicker = ref(false)
@@ -411,9 +503,11 @@ const loadPendingCount = async () => {
   try {
     const res = await getPendingApprovalCount()
     pendingCount.value = res?.data?.count ?? 0
+    isApprovalAdmin.value = res?.data?.is_admin ?? false
   } catch (err) {
     // 静默处理：token 过期、后端未启动、网络错误等都忽略
     pendingCount.value = 0
+    isApprovalAdmin.value = false
   }
 }
 
@@ -520,7 +614,13 @@ const loadApprovals = async () => {
   try {
     const res = await getApprovals({ status: 'pending' })
     approvals.length = 0
-    ;(res?.data?.list || res?.data || []).forEach(a => approvals.push(a))
+    const data = res?.data
+    // 后端新格式: { list: [...], total: N, is_admin: bool }
+    const list = data?.list || data || []
+    list.forEach(a => approvals.push(a))
+    if (data?.is_admin !== undefined) {
+      isApprovalAdmin.value = data.is_admin
+    }
   } catch { /* ignore */ }
 }
 
@@ -530,7 +630,10 @@ const handleApprove = async (id) => {
     Message.success('已通过')
     loadApprovals()
     loadPendingCount()
-  } catch { Message.error('操作失败') }
+  } catch (e) {
+    const detail = e?.data?.details || e?.msg || '操作失败'
+    Message.error(detail)
+  }
 }
 
 const handleReject = async (id) => {
@@ -539,7 +642,22 @@ const handleReject = async (id) => {
     Message.success('已拒绝')
     loadApprovals()
     loadPendingCount()
-  } catch { Message.error('操作失败') }
+  } catch (e) {
+    const detail = e?.data?.details || e?.msg || '操作失败'
+    Message.error(detail)
+  }
+}
+
+const handleCancel = async (id) => {
+  try {
+    await cancelApproval(id)
+    Message.success('已取消')
+    loadApprovals()
+    loadPendingCount()
+  } catch (e) {
+    const detail = e?.data?.details || e?.msg || '操作失败'
+    Message.error(detail)
+  }
 }
 
 const scrollToBottom = () => {
@@ -606,6 +724,28 @@ const formatDate = (d) => {
   const now = new Date()
   if (date.toDateString() === now.toDateString()) return '今天'
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+const formatToolArgs = (jsonStr) => {
+  try {
+    const obj = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr
+    return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join(', ')
+  } catch {
+    return jsonStr
+  }
+}
+
+const formatApprovalTime = (ts) => {
+  if (!ts) return ''
+  const date = new Date(ts * 1000)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return '刚刚'
+  if (diffMin < 60) return `${diffMin} 分钟前`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour} 小时前`
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 watch(activeTab, (tab) => {
@@ -964,8 +1104,23 @@ onBeforeUnmount(() => {
 .approval-icon { font-size: 1rem; }
 .approval-label { font-size: 0.75rem; font-weight: 600; color: #92400e; }
 .approval-item {
-  display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem;
+  display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.375rem;
+  padding: 0.375rem 0;
+  border-top: 1px dashed #fde68a;
 }
+.approval-item:first-child { border-top: none; padding-top: 0; }
+.approval-item-header {
+  display: flex; align-items: center; gap: 0.375rem;
+}
+.approval-params {
+  padding: 0.25rem 0;
+}
+.param-row {
+  display: flex; gap: 0.25rem; font-size: 0.6875rem; line-height: 1.5;
+}
+.param-label { color: #92400e; font-weight: 500; flex-shrink: 0; }
+.param-value { color: #78716c; font-family: 'Fira Code', monospace; font-size: 0.6875rem; word-break: break-all; }
+.approval-item-id { font-size: 0.625rem; color: #b8860b; font-style: italic; }
 .tool-name { font-size: 0.75rem; color: #78716c; font-family: monospace; }
 .risk-tag {
   padding: 0.0625rem 0.375rem; border-radius: 0.25rem;
@@ -1015,21 +1170,107 @@ onBeforeUnmount(() => {
 .history-delete svg { width: 0.875rem; height: 0.875rem; }
 
 /* ===== 审批卡片 ===== */
+.approval-role-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.75rem; margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-radius: 0.625rem;
+  border: 1px solid #e2e8f0;
+}
+.role-indicator {
+  display: flex; align-items: center; gap: 0.375rem;
+}
+.role-dot {
+  width: 0.5rem; height: 0.5rem; border-radius: 50%;
+  animation: role-pulse 2s infinite;
+}
+.role-indicator.admin .role-dot { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); }
+.role-indicator.user .role-dot { background: #6366f1; box-shadow: 0 0 6px rgba(99, 102, 241, 0.4); }
+@keyframes role-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+.role-text {
+  font-size: 0.6875rem; font-weight: 700;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.role-indicator.admin .role-text { color: #059669; }
+.role-indicator.user .role-text { color: #6366f1; }
+.role-hint {
+  font-size: 0.5625rem; color: #94a3b8; font-style: italic;
+}
+.can-approve-badge {
+  padding: 0.0625rem 0.375rem; border-radius: 0.25rem;
+  font-size: 0.5625rem; font-weight: 600;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.approval-requester {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.625rem; margin: 0.375rem 0;
+  background: #fafbfc; border-radius: 0.5rem;
+  border: 1px solid #f3f4f6;
+}
+.requester-avatar {
+  width: 1.75rem; height: 1.75rem; flex-shrink: 0;
+  background: #f1f5f9; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.requester-avatar svg { width: 1.25rem; height: 1.25rem; }
+.requester-info {
+  display: flex; flex-direction: column; flex: 1; gap: 0.0625rem;
+}
+.requester-name {
+  font-size: 0.75rem; font-weight: 600; color: #1e293b;
+}
+.requester-label {
+  font-size: 0.5625rem; color: #94a3b8; text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.requester-time {
+  font-size: 0.5625rem; color: #94a3b8; flex-shrink: 0;
+}
 .approval-card {
   padding: 0.875rem; border: 1px solid #e5e7eb; border-radius: 0.75rem;
   margin-bottom: 0.625rem; background: #fff;
 }
 .approval-card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; }
-.approval-card-desc { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.75rem; }
+.approval-card-desc { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem; }
+.approval-card-detail {
+  padding: 0.5rem; margin-bottom: 0.625rem;
+  background: #f9fafb; border-radius: 0.375rem;
+  border: 1px solid #f3f4f6;
+}
+.detail-row {
+  display: flex; gap: 0.375rem; font-size: 0.6875rem; line-height: 1.6;
+}
+.detail-label { color: #6b7280; font-weight: 500; flex-shrink: 0; min-width: 4rem; }
+.detail-value { color: #1f2937; font-family: 'Fira Code', monospace; font-size: 0.6875rem; word-break: break-all; }
+.detail-value.param-json { font-size: 0.625rem; color: #6366f1; }
 .approval-card-actions { display: flex; gap: 0.5rem; }
 .approve-btn, .reject-btn {
   flex: 1; padding: 0.4rem; border: none; border-radius: 0.5rem;
   font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 0.25rem;
 }
+.action-icon { width: 0.75rem; height: 0.75rem; }
 .approve-btn { background: #dcfce7; color: #16a34a; }
 .approve-btn:hover { background: #16a34a; color: #fff; }
 .reject-btn { background: #fee2e2; color: #dc2626; }
 .reject-btn:hover { background: #dc2626; color: #fff; }
+.cancel-btn {
+  padding: 0.375rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.5rem;
+  background: #fff; color: #6b7280; font-size: 0.6875rem; font-weight: 500;
+  cursor: pointer; transition: all 0.2s;
+}
+.cancel-btn:hover { border-color: #f87171; color: #dc2626; background: #fff5f5; }
+.approval-status-hint {
+  flex: 1; display: flex; align-items: center; gap: 0.25rem;
+  font-size: 0.6875rem; color: #94a3b8; font-style: italic;
+}
+.approval-status-hint.self-hint { color: #f59e0b; }
+.status-icon { width: 0.75rem; height: 0.75rem; }
 
 /* ===== 输入区 ===== */
 .panel-footer { padding: 0.75rem 1rem; border-top: 1px solid #f1f5f9; background: #fff; }

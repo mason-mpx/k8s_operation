@@ -658,7 +658,7 @@ watch(() => route.query, (q) => {
   justify-content: space-between;
   position: relative;
   z-index: 1;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
 }
 .banner-left {
@@ -722,7 +722,7 @@ watch(() => route.query, (q) => {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   padding: 20px 32px 0;
-  max-width: 1400px;
+  max-width: 100%;
   margin: -20px auto 0;
   position: relative;
   z-index: 2;
@@ -795,7 +795,7 @@ watch(() => route.query, (q) => {
 /* ---- 内容面板 ---- */
 .content-panel {
   margin: 20px 32px 32px;
-  max-width: 1400px;
+  max-width: 100%;
   margin-left: auto;
   margin-right: auto;
   padding: 0 32px;

@@ -1737,7 +1737,7 @@ export default {
 /* ==================== 主体布局 ==================== */
 .wizard-body {
   display: flex;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 24px;
   gap: 24px;

@@ -947,9 +947,10 @@ onUnmounted(() => {
 <style scoped>
 /* 基础布局 */
 .resource-view {
-  padding: 20px;
-  max-width: 1800px;
-  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {

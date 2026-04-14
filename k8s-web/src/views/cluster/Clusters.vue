@@ -728,10 +728,9 @@ const formatCheckAt = (ts) => {
 /* ===== 容器 ===== */
 .cluster-view {
   width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 24px;
-  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   box-sizing: border-box;
 }
 

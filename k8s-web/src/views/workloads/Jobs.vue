@@ -2921,9 +2921,10 @@ const createJobFromYaml = async () => {
 <style scoped>
 /* 与 Deployments.vue 相同的样式，这里只列出关键样式 */
 .resource-view {
-  padding: 24px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
-  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {
@@ -3196,7 +3197,7 @@ const createJobFromYaml = async () => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1600px;
+  min-width: 0;
   table-layout: auto;
 }
 

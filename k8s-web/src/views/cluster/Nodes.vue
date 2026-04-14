@@ -1735,9 +1735,10 @@ const applyYamlChanges = async () => {
 <style scoped>
 /* 参考 Pods.vue 样式，部分简化 */
 .resource-view {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {
@@ -1920,7 +1921,7 @@ const applyYamlChanges = async () => {
   width: 100%;
   border-collapse: collapse;
   table-layout: auto;
-  min-width: 1400px;
+  min-width: 0;
 }
 
 .resource-table th {

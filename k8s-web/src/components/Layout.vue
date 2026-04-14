@@ -243,6 +243,7 @@ const menuPermissions = {
   
   // ==================== 安全审计 ====================
   '/security/audit': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/ai-approvals': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
   '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
   '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
   '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
@@ -331,6 +332,7 @@ const menuGroupsConfig = reactive([
       { path: '/security/roles', label: '角色管理' },
       { path: '/security/authorization', label: '授权管理' },
       { path: '/security/audit', label: '审计日志' },
+      { path: '/security/ai-approvals', label: 'AI 审批管理' },
       { path: '/security/diagnosis', label: '权限诊断' },
     ],
   },
@@ -813,8 +815,10 @@ watch(
 .page-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: clamp(1rem, 3vw, 1.5rem);
+  padding: 16px 20px;
+  background: #f8fafc;
 }
 
 /* ===== 响应式断点 ===== */

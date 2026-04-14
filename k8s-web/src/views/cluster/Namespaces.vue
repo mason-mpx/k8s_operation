@@ -1169,9 +1169,10 @@ const applyYamlChanges = async () => {
 <style scoped>
 /* ========== 基础布局 ========== */
 .resource-view {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0 1rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* ========== 页面头部 - Rancher 风格 ========== */
