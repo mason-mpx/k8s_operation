@@ -2,10 +2,12 @@ package ai
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -80,8 +82,14 @@ func (c *AIAssistantController) Chat(ctx *gin.Context) {
 	}
 
 	req.UserID = userID
+
+	// 使用独立 context，防止前端超时导致请求被取消
+	// 工具调用场景可能需要多轮 AI 请求，给足超时时间
+	aiCtx, aiCancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer aiCancel()
+
 	svc := services.NewServices()
-	result, err := svc.AIChat(ctx.Request.Context(), &req, c.factory)
+	result, err := svc.AIChat(aiCtx, &req, c.factory)
 	if err != nil {
 		global.Logger.Error("AI 对话失败", zap.Error(err))
 		resp.ToErrorResponse(errorcode.AIRequestFailed.WithDetails(err.Error()))
@@ -129,6 +137,7 @@ func (c *AIAssistantController) ChatStream(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
 
+	// SSE 流式使用 request context（连接断开自动停止）
 	svc := services.NewServices()
 	result, err := svc.AIChatStream(ctx.Request.Context(), &req, func(chunk string) error {
 		ctx.SSEvent("message", chunk)
@@ -286,10 +295,14 @@ func (c *AIAssistantController) QuickAsk(ctx *gin.Context) {
 		return
 	}
 
+	// 使用独立 context，防止前端超时导致请求被取消
+	aiCtx, aiCancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer aiCancel()
+
 	messages := []openai.Message{
 		{Role: "user", Content: body.Message},
 	}
-	reply, callErr := client.Chat(ctx.Request.Context(), messages)
+	reply, callErr := client.Chat(aiCtx, messages)
 	if callErr != nil {
 		global.Logger.Error("AI 快捷问答失败", zap.Error(callErr))
 		resp.ToErrorResponse(errorcode.AIRequestFailed.WithDetails(callErr.Error()))
@@ -404,7 +417,11 @@ func (c *AIAssistantController) IntentAnalyze(ctx *gin.Context) {
 		return
 	}
 
-	intentJSON, err := client.AnalyzeIntent(ctx.Request.Context(), body.Message)
+	// 使用独立 context，防止前端超时导致请求被取消
+	aiCtx2, aiCancel2 := context.WithTimeout(context.Background(), 120*time.Second)
+	defer aiCancel2()
+
+	intentJSON, err := client.AnalyzeIntent(aiCtx2, body.Message)
 	if err != nil {
 		resp.ToErrorResponse(errorcode.AIIntentParseFailed.WithDetails(err.Error()))
 		return

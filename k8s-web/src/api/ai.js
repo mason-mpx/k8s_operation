@@ -3,6 +3,9 @@ import http from './http'
 
 const BASE = '/api/v1/ai'
 
+// AI 请求超时时间（毫秒）—— AI 调用通常较慢（Function Calling 可能需要多轮），单独设置更长超时
+const AI_TIMEOUT = 200000
+
 // AI 状态检查
 export const getAIStatus = () => http.get(`${BASE}/status`)
 
@@ -10,10 +13,10 @@ export const getAIStatus = () => http.get(`${BASE}/status`)
 export const getAIModels = () => http.get(`${BASE}/models`)
 
 // 普通对话
-export const aiChat = (data) => http.post(`${BASE}/chat`, data)
+export const aiChat = (data) => http.post(`${BASE}/chat`, data, { timeout: AI_TIMEOUT })
 
 // 快捷问答
-export const aiQuickAsk = (data) => http.post(`${BASE}/quick-ask`, data)
+export const aiQuickAsk = (data) => http.post(`${BASE}/quick-ask`, data, { timeout: AI_TIMEOUT })
 
 // 会话列表
 export const getConversations = () => http.get(`${BASE}/conversations`)
