@@ -9,7 +9,7 @@ Server:
 Database:
   DBType: mysql
   Username: root
-  Password: 123456
+  Password: admin123
   Host: localhost
   Port: 3306
   DBName: k8s-platform
@@ -24,7 +24,7 @@ Cache:
   Name: sk_sid
   Address: 127.0.0.1:6379
   Username: "root"
-  Password: "123456"
+  Password: "admin123"
   MaxConnect: 10
   Network: tcp
   Secret: "k8smana"

@@ -623,40 +623,92 @@ k8soperation/
 
 ## ⚙️ 快速启动
 
-### 1️⃣ 克隆仓库
+> 📖 **完整操作手册**：[QUICK_START.md](QUICK_START.md) — 包含详细的环境准备、配置说明、Docker 部署、常见问题等
+
+### 🚀 一键启动（推荐）
+
+项目提供一键脚本，自动完成 **环境检查 → 数据库初始化 → 配置生成 → 编译 → 启动**：
 
 ```bash
+# Linux / macOS
 git clone https://gitee.com/jay-kim/k8s_operation.git
 cd k8s_operation
+chmod +x scripts/*.sh
+bash scripts/quick-start.sh
 ```
 
-### 2️⃣ 数据库初始化
-
-```bash
-# 数据库要求：MySQL 8.0+，字符集 utf8mb4
-mysql -h 127.0.0.1 -u root -p < docs/sql/k8s-platform.sql
+```powershell
+# Windows (PowerShell)
+git clone https://gitee.com/jay-kim/k8s_operation.git
+cd k8s_operation
+powershell -ExecutionPolicy Bypass -File scripts\quick-start.ps1
 ```
 
-### 3️⃣ 启动后端
+> 💡 所有配置均可通过环境变量覆盖：`DB_HOST`、`DB_PASS`、`REDIS_HOST`、`REDIS_PASS` 等，详见 [QUICK_START.md](QUICK_START.md#七脚本工具一览)
+
+### 📋 环境要求
+
+| 组件 | 最低版本 | 说明 |
+|------|---------|------|
+| **Go** | 1.21+ | 后端编译（必须） |
+| **MySQL** | 5.7+ | 主数据库（必须） |
+| **Redis** | 5.0+ | Session/缓存（必须） |
+| Node.js | 20+ | 前端编译（可选） |
+| Docker | 20+ | 容器化部署（可选） |
+
+### 🔧 手动分步启动
 
 ```bash
+# 1. 克隆仓库
+git clone https://gitee.com/jay-kim/k8s_operation.git
+cd k8s_operation
+
+# 2. 初始化数据库（MySQL 8.0+，含 34 张表 + RBAC 权限 + CICD 模板）
+mysql -u root -padmin123 --default-character-set=utf8mb4 < docs/sql/k8s_platform_full_init.sql
+# 或使用脚本：bash scripts/init-db.sh
+
+# 3. 生成配置文件
+cp configs/config.yaml.example configs/config.yaml
+# 编辑 configs/config.yaml 修改数据库/Redis 连接信息
+
+# 4. 编译 & 启动后端
 make build
 ./bin/k8soperation
-```
+# 后端运行在 http://localhost:8080
 
-### 4️⃣ 启动前端
-
-```bash
+# 5. 编译 & 启动前端
 cd k8s-web
 npm install
 npm run dev
+# 前端运行在 http://localhost:5173
 ```
 
-### 5️⃣ 访问系统
+### 🐳 Docker 一键部署
 
-- 前端界面：`http://localhost:5173`
-- Swagger API：`http://localhost:8080/swagger`
-- 默认账号：`admin / admin123`
+```bash
+# 单架构构建
+make docker-build && make docker-run
+
+# 多架构构建（amd64 + arm64）
+make docker-buildx IMAGE=registry.example.com/k8soperation:latest
+```
+
+### 🔑 访问系统
+
+| 服务 | 地址 |
+|------|------|
+| 前端界面 | http://localhost:5173 |
+| 后端 API | http://localhost:8080 |
+| Swagger 文档 | http://localhost:8080/swagger |
+| 默认账号 | `admin` / `admin123` |
+
+### 🛠 脚本工具
+
+| 脚本 | 平台 | 用途 |
+|------|------|------|
+| `scripts/quick-start.sh` / `.ps1` | Linux/Mac / Windows | 一键启动（全自动） |
+| `scripts/check-env.sh` / `.ps1` | Linux/Mac / Windows | 仅检查环境依赖 |
+| `scripts/init-db.sh` / `.ps1` | Linux/Mac / Windows | 独立数据库初始化 |
 
 ------
 
