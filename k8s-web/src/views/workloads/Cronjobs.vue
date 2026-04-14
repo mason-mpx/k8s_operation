@@ -2209,9 +2209,10 @@ onUnmounted(() => {
 <style scoped>
 /* 基础布局 */
 .resource-view {
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {
@@ -2396,7 +2397,7 @@ onUnmounted(() => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1400px;
+  min-width: 0;
 }
 
 .resource-table thead {

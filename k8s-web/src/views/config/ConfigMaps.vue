@@ -1927,9 +1927,10 @@ onUnmounted(() => {
 <style scoped>
 /* 复用 Deployment 的样式 */
 .resource-view {
-  padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {

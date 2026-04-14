@@ -49,5 +49,14 @@ export const rejectApproval = (id, data) => http.post(`${BASE}/approvals/${id}/r
 // 取消审批
 export const cancelApproval = (id) => http.post(`${BASE}/approvals/${id}/cancel`)
 
+// 删除审批记录
+export const deleteApproval = (id) => http.delete(`${BASE}/approvals/${id}`)
+
+// 更新审批备注
+export const updateApproval = (id, data) => http.put(`${BASE}/approvals/${id}`, data)
+
+// 审批统计数据
+export const getApprovalStats = () => http.get(`${BASE}/approvals/stats`)
+
 // AI 日志查询（排查问题）
 export const getAILogs = (params) => http.get(`${BASE}/logs`, { params })

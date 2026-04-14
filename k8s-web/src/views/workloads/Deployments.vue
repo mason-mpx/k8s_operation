@@ -119,15 +119,15 @@
                 ref="selectAllCheckbox"
               />
             </th>
-            <th style="width: 90px;">状态</th>
-            <th style="min-width: 160px;">名称</th>
-            <th style="width: 110px;">命名空间</th>
-            <th style="width: 180px;">副本数</th>
-            <th style="min-width: 280px;">镜像</th>
-            <th style="min-width: 200px;">选择器</th>
-            <th style="width: 110px;">更新策略</th>
-            <th style="width: 160px; white-space: nowrap;">创建时间</th>
-            <th style="width: 180px;">操作</th>
+            <th>状态</th>
+            <th>名称</th>
+            <th>命名空间</th>
+            <th>副本数</th>
+            <th>镜像</th>
+            <th>选择器</th>
+            <th>更新策略</th>
+            <th>创建时间</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -5280,8 +5280,10 @@ const downloadYaml = () => {
 @import '@/assets/styles/resizable-modal.css';
 
 .resource-view {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {
@@ -5443,8 +5445,8 @@ const downloadYaml = () => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1600px; /* 确保表格有足够宽度避免挤压 */
-  table-layout: auto; /* 根据内容自动调整 */
+  min-width: 0;
+  table-layout: auto;
 }
 
 .resource-table th {

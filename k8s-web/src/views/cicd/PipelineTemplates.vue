@@ -650,9 +650,10 @@ onMounted(() => {
 
 <style scoped>
 .pipeline-templates-container {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* 视图头部 */

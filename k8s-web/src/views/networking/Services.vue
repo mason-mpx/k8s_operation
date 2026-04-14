@@ -1122,7 +1122,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.resource-view { max-width: 1600px; margin: 0 auto; padding: 20px; }
+.resource-view { width: 100%; display: flex; flex-direction: column; min-height: 0; }
 .view-header { margin-bottom: 24px; }
 .view-header h1 { font-size: 28px; font-weight: 700; color: #2d3748; margin-bottom: 8px; }
 .view-header p { font-size: 14px; color: #718096; }
@@ -1164,7 +1164,7 @@ onMounted(() => {
 .batch-btn.danger { background: #e53e3e; }
 
 .table-container { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
-.resource-table { width: 100%; border-collapse: collapse; table-layout: auto; min-width: 1400px; }
+.resource-table { width: 100%; border-collapse: collapse; table-layout: auto; min-width: 0; }
 .resource-table th { background: #f7fafc; text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
 .resource-table td { padding: 14px 16px; font-size: 13px; color: #2d3748; border-bottom: 1px solid #f7fafc; }
 .resource-table tbody tr:hover { background: #f7fafc; }

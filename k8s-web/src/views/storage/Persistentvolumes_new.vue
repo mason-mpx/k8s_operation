@@ -1014,9 +1014,10 @@ onUnmounted(() => {
 <style scoped>
 /* 基础布局 */
 .resource-view {
-  padding: 20px;
-  background: #f5f7fa;
-  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {

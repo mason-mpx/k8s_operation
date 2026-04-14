@@ -2748,7 +2748,7 @@ const createStatefulSetFromYaml = async () => {
 <style scoped>
 @import '@/assets/styles/resizable-modal.css';
 
-.resource-view { max-width: 1400px; margin: 0 auto; }
+.resource-view { width: 100%; display: flex; flex-direction: column; min-height: 0; }
 .view-header { margin-bottom: 24px; }
 .view-header h1 { font-size: 32px; font-weight: 700; color: #2d3748; margin-bottom: 8px; }
 .view-header p { font-size: 16px; color: #718096; }
@@ -2794,7 +2794,7 @@ const createStatefulSetFromYaml = async () => {
 .batch-btn.danger { background: rgba(239, 68, 68, 0.8); }
 
 .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); overflow-x: auto; /* 支持横向滚动 */ overflow-y: visible; }
-.resource-table { width: 100%; border-collapse: collapse; min-width: 1600px; /* 确保表格有足够宽度避免挤压 */ table-layout: auto; /* 根据内容自动调整列宽 */ }
+.resource-table { width: 100%; border-collapse: collapse; min-width: 0; table-layout: auto; }
 .resource-table th { background-color: #f7fafc; text-align: left; padding: 16px 20px; font-size: 14px; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0; }
 .resource-table td { padding: 16px 20px; font-size: 14px; color: #2d3748; border-bottom: 1px solid #f7fafc; vertical-align: middle; }
 .resource-table tbody tr:hover { background-color: #f7fafc; }

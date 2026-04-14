@@ -2359,10 +2359,20 @@ definitions:
     properties:
       approval_id:
         type: integer
+      cluster_id:
+        type: integer
+      namespace:
+        type: string
+      resource_name:
+        type: string
       risk_level:
         type: string
       summary:
         type: string
+      tool_args:
+        additionalProperties: true
+        description: 完整参数
+        type: object
       tool_name:
         type: string
     type: object
@@ -2561,7 +2571,7 @@ paths:
       - HelloWorld
   /api/v1/ai/approvals:
     get:
-      description: 获取所有高危操作审批请求，支持按状态筛选
+      description: 管理员获取所有审批，普通用户仅看自己的申请
       parameters:
       - default: 0
         description: '状态筛选: 1=待审批 2=已通过 3=已拒绝 4=已过期 5=已取消'
@@ -2589,6 +2599,24 @@ paths:
       tags:
       - AI 审批管理
   /api/v1/ai/approvals/{id}:
+    delete:
+      description: 管理员可删除任何记录，普通用户只能删除自己的非已通过记录
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 删除审批记录
+      tags:
+      - AI 审批管理
     get:
       parameters:
       - description: 审批ID
@@ -2606,11 +2634,37 @@ paths:
       summary: 获取审批详情
       tags:
       - AI 审批管理
+    put:
+      consumes:
+      - application/json
+      description: 仅待审批状态的记录可编辑备注
+      parameters:
+      - description: 审批ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新内容
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 更新审批备注
+      tags:
+      - AI 审批管理
   /api/v1/ai/approvals/{id}/approve:
     post:
       consumes:
       - application/json
-      description: 管理员通过高危操作审批
+      description: 管理员通过高危操作审批（不可自审）
       parameters:
       - description: 审批ID
         in: path
@@ -2655,7 +2709,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 管理员拒绝高危操作审批
+      description: 管理员拒绝高危操作审批（不可自审）
       parameters:
       - description: 审批ID
         in: path
@@ -2703,7 +2757,7 @@ paths:
       - AI 审批管理
   /api/v1/ai/approvals/pending-count:
     get:
-      description: 用于前端侧边栏 Badge 显示
+      description: 管理员看全局待审批数，普通用户看自己的
       produces:
       - application/json
       responses:
@@ -2712,6 +2766,18 @@ paths:
           schema:
             $ref: '#/definitions/response.SuccessResponse'
       summary: 获取待审批数量
+      tags:
+      - AI 审批管理
+  /api/v1/ai/approvals/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 获取审批统计数据
       tags:
       - AI 审批管理
   /api/v1/ai/chat:

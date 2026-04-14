@@ -40,9 +40,12 @@ func (r *AIAssistantRouter) Inject(router *gin.RouterGroup) {
 		g.GET("/approvals", approvalCtrl.List)                         // 审批列表（管理员）
 		g.GET("/approvals/mine", approvalCtrl.MyList)                  // 我的审批申请
 		g.GET("/approvals/pending-count", approvalCtrl.PendingCount)   // 待审批数量
+		g.GET("/approvals/stats", approvalCtrl.Stats)                  // 审批统计数据
 		g.GET("/approvals/:id", approvalCtrl.Detail)                   // 审批详情
 		g.POST("/approvals/:id/approve", approvalCtrl.Approve)        // 通过审批
 		g.POST("/approvals/:id/reject", approvalCtrl.Reject)          // 拒绝审批
 		g.POST("/approvals/:id/cancel", approvalCtrl.Cancel)          // 取消审批
+		g.PUT("/approvals/:id", approvalCtrl.Update)                   // 更新审批备注
+		g.DELETE("/approvals/:id", approvalCtrl.Delete)                // 删除审批记录
 	}
 }

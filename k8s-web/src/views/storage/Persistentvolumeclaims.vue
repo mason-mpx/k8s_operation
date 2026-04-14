@@ -1387,8 +1387,10 @@ onUnmounted(() => {
 @import '@/assets/styles/resizable-modal.css';
 
 .resource-view {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {
@@ -1597,7 +1599,7 @@ onUnmounted(() => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1400px;
+  min-width: 0;
 }
 
 .resource-table th {

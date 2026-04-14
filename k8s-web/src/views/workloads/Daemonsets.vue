@@ -2292,9 +2292,10 @@ const downloadYaml = () => {
 
 <style scoped>
 .resource-view {
-  padding: 24px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {
@@ -2542,7 +2543,7 @@ const downloadYaml = () => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1600px;
+  min-width: 0;
 }
 
 .resource-table th {

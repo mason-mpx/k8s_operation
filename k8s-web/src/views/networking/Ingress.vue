@@ -1231,9 +1231,10 @@ onMounted(() => {
 <style scoped>
 /* 使用与 Services.vue 相同的样式 */
 .resource-view {
-  padding: 20px;
-  background: #f5f7fa;
-  min-height: calc(100vh - 60px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .view-header {

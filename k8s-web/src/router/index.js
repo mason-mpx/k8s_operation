@@ -37,6 +37,7 @@ const routePermissions = {
   
   // ==================== 安全审计 ====================
   '/security/audit': ['super_admin', 'platform_admin', 'cluster_admin'],
+  '/security/ai-approvals': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
   '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
   '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
   '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
@@ -103,6 +104,7 @@ const router = createRouter({
         { path: 'security/roles', component: () => import('@/views/security/RoleManagement.vue') },
         { path: 'security/authorization', component: () => import('@/views/security/AuthorizationManagement.vue') },
         { path: 'security/audit', component: () => import('@/views/security/audit/AuditLog.vue') },
+        { path: 'security/ai-approvals', component: () => import('@/views/security/AIApprovals.vue') },
         { path: 'security/diagnosis', component: () => import('@/views/security/rbac/PermissionCheck.vue') },
         
         // 兼容旧路径

@@ -949,11 +949,10 @@ export default {
 
 <style scoped>
 .pipeline-view {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-  min-height: 100vh;
-  background: #f5f7fa;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* 页面头部 */
