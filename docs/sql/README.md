@@ -4,12 +4,12 @@
 
 ### 一键初始化
 ```bash
-mysql -u root -p123456 < k8s_platform_init.sql
+mysql -u root -padmin123 < k8s_platform_init.sql
 ```
 
 ### 指定主机初始化
 ```bash
-mysql -h 127.0.0.1 -P 3306 -u root -p123456 < k8s_platform_init.sql
+mysql -h 127.0.0.1 -P 3306 -u root -padmin123 < k8s_platform_init.sql
 ```
 
 ## 文件说明
@@ -50,7 +50,7 @@ mysql -h 127.0.0.1 -P 3306 -u root -p123456 < k8s_platform_init.sql
 
 执行验证脚本检查表结构：
 ```bash
-mysql -u root -p123456 < verify_tables.sql
+mysql -u root -padmin123 < verify_tables.sql
 ```
 
 或在 MySQL 命令行中执行：

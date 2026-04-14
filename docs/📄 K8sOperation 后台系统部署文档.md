@@ -157,7 +157,7 @@ systemctl restart redis
 
 ```bash
 redis-cli
-ACL SETUSER root on >123456 ~* &* +@all
+ACL SETUSER root on >admin123 ~* &* +@all
 ACL SAVE
 ```
 
@@ -172,7 +172,7 @@ Cache:
   Name: sk_sid
   Address: localhost:6379     # 修改为你的 Redis 地址
   Username: "root"            # Redis 用户名
-  Password: "123456"          # Redis 密码
+  Password: "admin123"          # Redis 密码
   MaxConnect: 10
   Network: tcp
   Secret: "k8smana"           # 自定义密钥
