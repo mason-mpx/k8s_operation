@@ -133,7 +133,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="approval in displayedApprovals" :key="approval.id" :class="[`row-${approval.status}`]">
+            <tr v-for="approval in paginatedApprovals" :key="approval.id" :class="[`row-${approval.status}`]">
               <td class="col-id">
                 <span class="id-badge">#{{ approval.id }}</span>
               </td>
@@ -201,6 +201,33 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 分页（现代化三段式布局） -->
+      <div v-if="displayedApprovals.length > 0" class="pagination-wrapper">
+        <div class="pagination-left">
+          <span class="pagination-summary">共 <strong>{{ displayedApprovals.length }}</strong> 条</span>
+        </div>
+        <div class="pagination-center">
+          <button class="pagination-btn" @click="goToPage(1)" :disabled="currentPage === 1" title="首页">«</button>
+          <button class="pagination-btn" @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" title="上一页">‹</button>
+          <template v-for="page in visiblePages" :key="page">
+            <button v-if="typeof page === 'number'" class="pagination-btn page-number" :class="{ active: currentPage === page }" @click="goToPage(page)">{{ page }}</button>
+            <span v-else class="pagination-ellipsis">...</span>
+          </template>
+          <button class="pagination-btn" @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages" title="下一页">›</button>
+          <button class="pagination-btn" @click="goToPage(totalPages)" :disabled="currentPage === totalPages" title="尾页">»</button>
+        </div>
+        <div class="pagination-right">
+          <select v-model.number="pageSize" @change="onPageSizeChange" class="page-size-select">
+            <option :value="10">10 条/页</option>
+            <option :value="20">20 条/页</option>
+            <option :value="50">50 条/页</option>
+            <option :value="100">100 条/页</option>
+          </select>
+          <span class="pagination-goto">前往</span>
+          <input v-model.number="jumpPage" type="number" min="1" :max="totalPages" class="page-jump-input" @keyup.enter="jumpToPage" />
+        </div>
       </div>
     </div>
 
@@ -376,6 +403,11 @@ const statusFilter = ref('')
 const pipelineIdFilter = ref(null)
 const searchQuery = ref('')
 
+// 分页
+const currentPage = ref(1)
+const pageSize = ref(10)
+const jumpPage = ref(1)
+
 // 弹窗状态
 const showActionModal = ref(false)
 const currentApproval = ref(null)
@@ -424,8 +456,60 @@ const displayedApprovals = computed(() => {
   )
 })
 
+// 分页计算属性
+const totalPages = computed(() => Math.ceil(displayedApprovals.value.length / pageSize.value) || 1)
+
+const paginatedApprovals = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return displayedApprovals.value.slice(start, start + pageSize.value)
+})
+
+const visiblePages = computed(() => {
+  const tp = totalPages.value
+  const current = currentPage.value
+  const pages = []
+  if (tp <= 7) {
+    for (let i = 1; i <= tp; i++) pages.push(i)
+  } else {
+    if (current <= 4) {
+      for (let i = 1; i <= 5; i++) pages.push(i)
+      pages.push('...')
+      pages.push(tp)
+    } else if (current >= tp - 3) {
+      pages.push(1)
+      pages.push('...')
+      for (let i = tp - 4; i <= tp; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      pages.push('...')
+      for (let i = current - 1; i <= current + 1; i++) pages.push(i)
+      pages.push('...')
+      pages.push(tp)
+    }
+  }
+  return pages
+})
+
+const goToPage = (page) => {
+  if (page < 1 || page > totalPages.value) return
+  currentPage.value = page
+  jumpPage.value = page
+}
+
+const jumpToPage = () => {
+  const page = parseInt(jumpPage.value)
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+
+const onPageSizeChange = () => {
+  currentPage.value = 1
+}
+
 const setFilter = (status) => {
   statusFilter.value = statusFilter.value === status ? '' : status
+  currentPage.value = 1
 }
 
 // 加载审批列表
@@ -1340,4 +1424,43 @@ watch(() => route.query, (q) => {
   .panel-toolbar { flex-direction: column; gap: 12px; align-items: stretch; }
   .approval-table-wrapper { overflow-x: auto; }
 }
+
+/* ---- Pagination (Modern) ---- */
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding: 14px 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.pagination-left { display: flex; align-items: center; }
+.pagination-summary { font-size: 13px; color: #64748b; }
+.pagination-summary strong { color: #1e293b; font-weight: 600; }
+.pagination-center { display: flex; align-items: center; gap: 4px; }
+.pagination-btn {
+  min-width: 34px; height: 34px; border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #fff; color: #475569; font-size: 14px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.pagination-btn:hover:not(:disabled) { border-color: #4e7cf6; color: #4e7cf6; background: #f0f5ff; }
+.pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-btn.page-number.active { background: #4e7cf6; color: #fff; border-color: #4e7cf6; font-weight: 600; }
+.pagination-ellipsis { color: #94a3b8; font-size: 14px; padding: 0 4px; }
+.pagination-right { display: flex; align-items: center; gap: 8px; }
+.page-size-select {
+  padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px;
+  font-size: 12px; color: #475569; background: #fff; cursor: pointer;
+}
+.page-size-select:focus { outline: none; border-color: #4e7cf6; }
+.pagination-goto { font-size: 12px; color: #64748b; }
+.page-jump-input {
+  width: 50px; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 6px;
+  font-size: 12px; text-align: center; color: #475569;
+}
+.page-jump-input:focus { outline: none; border-color: #4e7cf6; }
 </style>

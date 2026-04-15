@@ -189,15 +189,31 @@
         </table>
       </div>
 
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="pagination">
-        <button class="pg-btn" :disabled="currentPage <= 1" @click="currentPage--">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <span class="pg-info">{{ currentPage }} / {{ totalPages }}</span>
-        <button class="pg-btn" :disabled="currentPage >= totalPages" @click="currentPage++">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
+      <!-- 分页（现代化三段式布局） -->
+      <div v-if="total > 0" class="pagination-wrapper">
+        <div class="pagination-left">
+          <span class="pagination-summary">共 <strong>{{ total }}</strong> 条</span>
+        </div>
+        <div class="pagination-center">
+          <button class="pagination-btn" @click="goToPage(1)" :disabled="currentPage === 1" title="首页">«</button>
+          <button class="pagination-btn" @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" title="上一页">‹</button>
+          <template v-for="page in visiblePages" :key="page">
+            <button v-if="typeof page === 'number'" class="pagination-btn page-number" :class="{ active: currentPage === page }" @click="goToPage(page)">{{ page }}</button>
+            <span v-else class="pagination-ellipsis">...</span>
+          </template>
+          <button class="pagination-btn" @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages" title="下一页">›</button>
+          <button class="pagination-btn" @click="goToPage(totalPages)" :disabled="currentPage === totalPages" title="尾页">»</button>
+        </div>
+        <div class="pagination-right">
+          <select v-model.number="pageSizeRef" @change="onPageSizeChange" class="page-size-select">
+            <option :value="10">10 条/页</option>
+            <option :value="20">20 条/页</option>
+            <option :value="50">50 条/页</option>
+            <option :value="100">100 条/页</option>
+          </select>
+          <span class="pagination-goto">前往</span>
+          <input v-model.number="jumpPage" type="number" min="1" :max="totalPages" class="page-jump-input" @keyup.enter="jumpToPage" />
+        </div>
       </div>
     </div>
 
@@ -397,8 +413,9 @@ export default {
     const searchFocused = ref(false)
     const statusFilter = ref('')
     const currentPage = ref(1)
-    const pageSize = 10
+    const pageSizeRef = ref(10)
     const total = ref(0)
+    const jumpPage = ref(1)
 
     // 后端动态统计数据
     const statsData = ref({ total: 0, deploying: 0, success: 0, failed: 0, rollback: 0 })
@@ -410,7 +427,52 @@ export default {
 
     const setFilter = (s) => { statusFilter.value = statusFilter.value === s ? '' : s }
 
-    const totalPages = computed(() => Math.ceil(total.value / pageSize))
+    const totalPages = computed(() => Math.ceil(total.value / pageSizeRef.value) || 1)
+
+    // 智能页码显示
+    const visiblePages = computed(() => {
+      const tp = totalPages.value
+      const current = currentPage.value
+      const pages = []
+      if (tp <= 7) {
+        for (let i = 1; i <= tp; i++) pages.push(i)
+      } else {
+        if (current <= 4) {
+          for (let i = 1; i <= 5; i++) pages.push(i)
+          pages.push('...')
+          pages.push(tp)
+        } else if (current >= tp - 3) {
+          pages.push(1)
+          pages.push('...')
+          for (let i = tp - 4; i <= tp; i++) pages.push(i)
+        } else {
+          pages.push(1)
+          pages.push('...')
+          for (let i = current - 1; i <= current + 1; i++) pages.push(i)
+          pages.push('...')
+          pages.push(tp)
+        }
+      }
+      return pages
+    })
+
+    const goToPage = (page) => {
+      if (page < 1 || page > totalPages.value) return
+      currentPage.value = page
+      jumpPage.value = page
+    }
+
+    const jumpToPage = () => {
+      const page = parseInt(jumpPage.value)
+      if (page >= 1 && page <= totalPages.value) {
+        currentPage.value = page
+      }
+    }
+
+    const onPageSizeChange = () => {
+      currentPage.value = 1
+      loadReleases()
+    }
 
     // 加载统计
     const loadStats = async () => {
@@ -437,7 +499,7 @@ export default {
       try {
         const statusMap = { deploying: 'Running', success: 'Succeeded', failed: 'Failed', rollback: 'Rollback', pending: 'Pending' }
         const backendStatus = statusFilter.value ? statusMap[statusFilter.value] : undefined
-        const response = await getReleases({ page: currentPage.value, page_size: pageSize, keyword: searchKeyword.value || undefined, status: backendStatus })
+        const response = await getReleases({ page: currentPage.value, page_size: pageSizeRef.value, keyword: searchKeyword.value || undefined, status: backendStatus })
         if (response.code === 0) {
           releases.value = response.data?.list || []
           total.value = response.data?.total || 0
@@ -618,7 +680,8 @@ export default {
       showEditDialog, editing, editForm, editRelease, handleEdit, canEdit, canDelete, deleteRelease,
       showConfirmDialog, confirmTitle, confirmMessage, confirmBtnText, confirmType, confirming, confirmAction,
       viewRelease, cancelRelease, rollbackRelease, retryRelease, handleSearch, clearSearch,
-      statusText, normalizeStatus, strategyText, formatImage, getFullImage, formatDate, loadAll
+      statusText, normalizeStatus, strategyText, formatImage, getFullImage, formatDate, loadAll,
+      visiblePages, goToPage, jumpPage, jumpToPage, pageSizeRef, onPageSizeChange
     }
   }
 }
@@ -800,16 +863,44 @@ export default {
 .empty-state h3 { margin: 16px 0 6px; font-size: 16px; font-weight: 600; color: #475569; }
 .empty-state p { margin: 0; font-size: 13px; color: #94a3b8; }
 
-/* ---- Pagination ---- */
-.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
-.pg-btn {
-  width: 36px; height: 36px; border: 1px solid #e2e8f0; border-radius: 8px;
-  background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+/* ---- Pagination (Modern) ---- */
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding: 14px 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  flex-wrap: wrap;
+  gap: 14px;
 }
-.pg-btn:hover:not(:disabled) { border-color: #4e7cf6; color: #4e7cf6; }
-.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.pg-btn svg { width: 18px; height: 18px; }
-.pg-info { font-size: 13px; color: #64748b; }
+.pagination-left { display: flex; align-items: center; }
+.pagination-summary { font-size: 13px; color: #64748b; }
+.pagination-summary strong { color: #1e293b; font-weight: 600; }
+.pagination-center { display: flex; align-items: center; gap: 4px; }
+.pagination-btn {
+  min-width: 34px; height: 34px; border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #fff; color: #475569; font-size: 14px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.pagination-btn:hover:not(:disabled) { border-color: #4e7cf6; color: #4e7cf6; background: #f0f5ff; }
+.pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-btn.page-number.active { background: #4e7cf6; color: #fff; border-color: #4e7cf6; font-weight: 600; }
+.pagination-ellipsis { color: #94a3b8; font-size: 14px; padding: 0 4px; }
+.pagination-right { display: flex; align-items: center; gap: 8px; }
+.page-size-select {
+  padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px;
+  font-size: 12px; color: #475569; background: #fff; cursor: pointer;
+}
+.page-size-select:focus { outline: none; border-color: #4e7cf6; }
+.pagination-goto { font-size: 12px; color: #64748b; }
+.page-jump-input {
+  width: 50px; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 6px;
+  font-size: 12px; text-align: center; color: #475569;
+}
+.page-jump-input:focus { outline: none; border-color: #4e7cf6; }
 
 /* ---- Modal ---- */
 .modal-overlay {

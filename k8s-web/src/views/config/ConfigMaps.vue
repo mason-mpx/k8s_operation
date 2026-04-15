@@ -2148,19 +2148,24 @@ onUnmounted(() => {
 .table-container {
   background: white;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 320px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1200px;
+  min-width: 0;
 }
 
 .resource-table thead {
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .resource-table th {

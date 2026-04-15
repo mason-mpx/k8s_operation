@@ -279,7 +279,7 @@ func (c *AIAssistantController) QuickAsk(ctx *gin.Context) {
 	var clientErr error
 	if global.AIRegistry != nil {
 		client, clientErr = global.AIRegistry.GetClient(body.ProviderID, body.ModelID,
-			`你是 K8s 管理平台的智能助手。请简洁专业地用中文回答用户关于 Kubernetes 运维和管理的问题。`)
+			`你是 K8s 管理平台的智能助手，同时也是一个知识渊博的通用 AI 助手。请简洁专业地用中文回答用户的问题，包括但不限于 Kubernetes 运维、技术对比、编程知识、操作系统、日常生活等各类话题。`)
 	} else {
 		client = openai.NewClient(openai.Config{
 			APIKey:      global.AISetting.APIKey,
@@ -287,7 +287,7 @@ func (c *AIAssistantController) QuickAsk(ctx *gin.Context) {
 			Model:       global.AISetting.Model,
 			MaxTokens:   global.AISetting.MaxTokens,
 			Temperature: global.AISetting.Temperature,
-			SystemPrompt: `你是 K8s 管理平台的智能助手。请简洁专业地用中文回答用户关于 Kubernetes 运维和管理的问题。`,
+			SystemPrompt: `你是 K8s 管理平台的智能助手，同时也是一个知识渊博的通用 AI 助手。请简洁专业地用中文回答用户的问题，包括但不限于 Kubernetes 运维、技术对比、编程知识、操作系统、日常生活等各类话题。`,
 		})
 	}
 	if clientErr != nil {
