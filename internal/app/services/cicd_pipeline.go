@@ -499,6 +499,22 @@ func (s *Services) triggerJenkinsBuild(ctx context.Context, pipeline *models.Cic
 		zap.String("jenkins_user", client.Username),
 	)
 
+	// 自动同步 Jenkins Job 的 Script Path（根据语言类型自动设置正确的模板路径）
+	if scriptPath, ok := models.DefaultScriptPathMap[pipeline.LanguageType]; ok {
+		if err := client.UpdateJobScriptPath(ctx, pipeline.JenkinsJob, scriptPath); err != nil {
+			global.Logger.Warn("[流水线] 自动同步 Script Path 失败（不影响构建）",
+				zap.String("job_name", pipeline.JenkinsJob),
+				zap.String("target_script_path", scriptPath),
+				zap.Error(err),
+			)
+		} else {
+			global.Logger.Info("[流水线] Script Path 已同步",
+				zap.String("job_name", pipeline.JenkinsJob),
+				zap.String("script_path", scriptPath),
+			)
+		}
+	}
+
 	// 触发构建等待超时，优先使用配置，默认 60 秒
 	triggerTimeout := 60 * time.Second
 	if global.JenkinsSetting != nil && global.JenkinsSetting.TriggerTimeout > 0 {
@@ -1478,8 +1494,13 @@ func (s *Services) patchDaemonSetImage(ctx context.Context, kubeClient kubernete
 // ==================== 模板化发布支持 ====================
 
 // injectLanguageParams 根据语言类型自动注入 Jenkins 构建参数
-// 这是“一个模板服务 100 个项目”的核心：所有项目差异通过参数传入
+// 这是"一个模板服务 100 个项目"的核心：所有项目差异通过参数传入
 func (s *Services) injectLanguageParams(pipeline *models.CicdPipeline, params map[string]string) {
+	// 始终注入 LANGUAGE_TYPE，让 Jenkins 模板可交叉校验（防止自定义 Job 配错脚本）
+	if pipeline.LanguageType != "" {
+		params["LANGUAGE_TYPE"] = pipeline.LanguageType
+	}
+
 	switch pipeline.LanguageType {
 	case models.LanguageTypeGo:
 		// Go 特有参数

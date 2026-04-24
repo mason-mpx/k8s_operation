@@ -508,6 +508,74 @@ func (c *Client) GetPipelineRun(ctx context.Context, jobName string, buildNumber
 	return &run, nil
 }
 
+// UpdateJobScriptPath 更新 Pipeline Job 的 Script Path（通过 config.xml API）
+// 仅对 Pipeline SCM 类型的 Job 有效，自动将 <scriptPath> 替换为指定路径
+func (c *Client) UpdateJobScriptPath(ctx context.Context, jobName string, newScriptPath string) error {
+	// 1. 获取 Job 的 config.xml
+	configPath := fmt.Sprintf("/job/%s/config.xml", url.PathEscape(jobName))
+
+	resp, err := c.doRequest(ctx, http.MethodGet, configPath, nil)
+	if err != nil {
+		return fmt.Errorf("获取Job配置失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return fmt.Errorf("Job不存在: %s", jobName)
+		}
+		return fmt.Errorf("获取Job配置失败: HTTP %d", resp.StatusCode)
+	}
+
+	configXML, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取Job配置失败: %w", err)
+	}
+
+	configStr := string(configXML)
+
+	// 2. 检查是否包含 <scriptPath>，仅 Pipeline SCM Job 才有
+	scriptPathRe := regexp.MustCompile(`<scriptPath>[^<]*</scriptPath>`)
+	if !scriptPathRe.MatchString(configStr) {
+		// 非 Pipeline SCM Job，跳过（不报错，可能是 inline script 类型）
+		return nil
+	}
+
+	// 3. 检查当前 scriptPath 是否已正确
+	currentMatch := scriptPathRe.FindString(configStr)
+	expected := fmt.Sprintf("<scriptPath>%s</scriptPath>", newScriptPath)
+	if currentMatch == expected {
+		// 已经是正确路径，无需更新
+		return nil
+	}
+
+	// 4. 替换 scriptPath
+	newConfigStr := scriptPathRe.ReplaceAllString(configStr, expected)
+
+	// 5. POST 更新 config.xml
+	updateReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+configPath, strings.NewReader(newConfigStr))
+	if err != nil {
+		return fmt.Errorf("创建更新请求失败: %w", err)
+	}
+	if c.Username != "" && c.APIToken != "" {
+		updateReq.SetBasicAuth(c.Username, c.APIToken)
+	}
+	updateReq.Header.Set("Content-Type", "application/xml")
+
+	updateResp, err := c.HTTPClient.Do(updateReq)
+	if err != nil {
+		return fmt.Errorf("更新Job配置失败: %w", err)
+	}
+	defer updateResp.Body.Close()
+
+	if updateResp.StatusCode != http.StatusOK && updateResp.StatusCode != http.StatusFound {
+		bodyBytes, _ := io.ReadAll(updateResp.Body)
+		return fmt.Errorf("更新Job配置失败: HTTP %d, %s", updateResp.StatusCode, extractJenkinsError(string(bodyBytes)))
+	}
+
+	return nil
+}
+
 // GetNodeLog 获取 Pipeline 节点日志
 func (c *Client) GetNodeLog(ctx context.Context, jobName string, buildNumber int, nodeID string) (string, error) {
 	path := fmt.Sprintf("/job/%s/%d/execution/node/%s/wfapi/log", url.PathEscape(jobName), buildNumber, nodeID)
