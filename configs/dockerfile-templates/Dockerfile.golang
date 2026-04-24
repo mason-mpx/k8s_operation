@@ -25,8 +25,8 @@ RUN mkdir -p /app/storage/logs /app/configs
 
 # 接收平台编译好的二进制（由流水线 Build Binary 阶段产出）
 ARG BIN_NAME=server
-COPY bin/${BIN_NAME} /app/${BIN_NAME}
-RUN chmod +x /app/${BIN_NAME}
+COPY bin/${BIN_NAME} /app/server
+RUN chmod +x /app/server
 
 RUN chown -R app:app /app
 USER app
@@ -38,5 +38,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -qO- http://127.0.0.1:8080/healthz/live || exit 1
 
-# 使用 ARG 传入的二进制名作为入口
+# 使用固定路径作为入口（COPY 已统一重命名为 /app/server）
 ENTRYPOINT ["/app/server"]

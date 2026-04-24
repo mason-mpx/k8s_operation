@@ -1,8 +1,8 @@
-import {defineConfig} from 'vite'
+import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import {fileURLToPath, URL} from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [vue(), vueJsx(), vueDevTools()],
@@ -16,17 +16,22 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    host: '0.0.0.0', // 监听所有网络接口，支持外网访问
-    allowedHosts: ['james521.gnway.cc', 'localhost'], // 允许的域名
+    host: '0.0.0.0',
 
-    // ✅ 关键：开发代理
+    allowedHosts: [
+      '708iuyd54169.vicp.fun',
+      'james521.gnway.cc',
+      'localhost',
+      '127.0.0.1',
+      '192.168.124.9',
+    ],
+
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // Gin 后端
+        target: 'http://127.0.0.1:8080',
         changeOrigin: true,
-        ws: true, // 支持 WebSocket 代理（终端等功能需要）
+        ws: true,
       },
     },
   },
 })
-

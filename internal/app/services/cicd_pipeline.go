@@ -1508,7 +1508,9 @@ func (s *Services) injectLanguageParams(pipeline *models.CicdPipeline, params ma
 		setDefault(params, "SKIP_TESTS", "false")
 	}
 	// 通用参数
-	setDefault(params, "DOCKERFILE_PATH", "Dockerfile")
+	// 注意：DOCKERFILE_PATH 默认留空，让 Jenkins 模板自动生成纯运行时 Dockerfile
+	// 只有用户显式指定了自定义 Dockerfile 路径时才会使用
+	setDefault(params, "DOCKERFILE_PATH", "")
 	setDefault(params, "GIT_CREDENTIAL_ID", "gitee-id")
 }
 

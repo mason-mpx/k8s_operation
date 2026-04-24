@@ -5,43 +5,48 @@
 #   - 不包含 Maven/Gradle 编译环境
 #   - 仅接收平台 mvn package 产出的 JAR
 #   - 使用 JRE 而非 JDK，镜像更小
-#   - 支持 JVM 参数调优
+#   - 生产级 JVM 参数调优
 #
 # 配合流水线使用：
 #   Jenkins Package 阶段产出 target/*.jar
-#   Build Image 阶段执行 nerdctl build --build-arg JAVA_VERSION=17
+#   Build Image 阶段执行 nerdctl build
+#
+# 基础镜像说明：
+#   使用阿里云镜像源，国内拉取更快
+#   registry.cn-hangzhou.aliyuncs.com/k8s-gos/java:17-jre-alpine
 # ============================================
 
 ARG JAVA_VERSION=17
-FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine
+FROM registry.cn-hangzhou.aliyuncs.com/k8s-gos/java:${JAVA_VERSION}-jre-alpine
 
-# 安装时区
-RUN apk --no-cache add tzdata wget && \
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    echo "Asia/Shanghai" > /etc/timezone
-
-# 创建非 root 用户
-RUN addgroup -g 1000 -S app && \
-    adduser -u 1000 -S app -G app
-
-# 创建工作目录
+ENV TZ=Asia/Shanghai
 WORKDIR /app
-RUN mkdir -p /app/logs /app/config && \
-    chown -R app:app /app
 
-# 接收平台编译好的 JAR（由流水线 Package 阶段产出）
-COPY target/*.jar app.jar
-RUN chown app:app app.jar
+# 创建非 root 用户（Alpine 写法）
+RUN addgroup -S appgroup && adduser -S -G appgroup appuser
 
-USER app
+# 创建日志目录并授权
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
+
+# 复制 JAR（由流水线 Package 阶段产出）
+COPY target/*.jar /app/app.jar
+
+# 切换用户
+USER appuser
 
 EXPOSE 8080
 
-# JVM 参数（可通过环境变量覆盖）
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/logs/"
-ENV SPRING_PROFILES_ACTIVE=prod
+# 生产级 JVM 参数（可通过环境变量 JAVA_OPTS 覆盖）
+# - MaxRAMPercentage: 容器内存自适应，比固定 -Xmx 更适合 K8s
+# - G1GC: 低延迟垃圾回收
+# - HeapDump: OOM 时自动生成堆转储
+# - GC Log: 便于生产排查
+ENV JAVA_OPTS="\
+-XX:MaxRAMPercentage=75.0 \
+-XX:+UseG1GC \
+-XX:+HeapDumpOnOutOfMemoryError \
+-XX:HeapDumpPath=/app/logs \
+-Xlog:gc*:file=/app/logs/gc.log:time,uptime,level \
+-Djava.security.egd=file:/dev/./urandom"
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

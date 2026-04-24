@@ -342,6 +342,172 @@
                 </div>
               </div>
 
+              <!-- ==================== 构建核心参数 ==================== -->
+              <div class="build-params-section">
+                <div class="section-divider">
+                  <span class="divider-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;">
+                      <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    构建参数
+                  </span>
+                </div>
+
+                <!-- 镜像仓库地址（必填） -->
+                <div class="form-group">
+                  <label class="form-label">
+                    镜像仓库地址
+                    <span class="required">*</span>
+                  </label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                      <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                      <line x1="6" y1="6" x2="6.01" y2="6"/>
+                      <line x1="6" y1="18" x2="6.01" y2="18"/>
+                    </svg>
+                    <input
+                      type="text"
+                      v-model="pipelineData.image_repo"
+                      class="form-input with-icon"
+                      placeholder="harbor.example.com/project/app-name"
+                      required
+                    />
+                  </div>
+                  <div class="input-hint">Jenkins 构建后将镜像推送到此地址，格式：registry/project/app</div>
+                </div>
+
+                <!-- Dockerfile 构建策略 -->
+                <div class="form-group">
+                  <label class="form-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;vertical-align:middle;margin-right:4px;">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    Dockerfile 策略
+                  </label>
+                  <div class="dockerfile-mode-selector">
+                    <div
+                      :class="['df-mode-card', { active: dockerfileMode === 'auto' }]"
+                      @click="dockerfileMode = 'auto'"
+                    >
+                      <div class="df-mode-icon auto">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="11" cy="11" r="8"/>
+                          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                      </div>
+                      <div class="df-mode-info">
+                        <div class="df-mode-title">智能检测<span class="df-badge recommend">推荐</span></div>
+                        <div class="df-mode-desc">自动检测项目 Dockerfile，未找到则平台生成</div>
+                      </div>
+                      <div class="df-mode-check" v-if="dockerfileMode === 'auto'">&#10003;</div>
+                    </div>
+
+                    <div
+                      :class="['df-mode-card', { active: dockerfileMode === 'project' }]"
+                      @click="dockerfileMode = 'project'"
+                    >
+                      <div class="df-mode-icon project">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      </div>
+                      <div class="df-mode-info">
+                        <div class="df-mode-title">项目自带</div>
+                        <div class="df-mode-desc">使用仓库中已定义的 Dockerfile</div>
+                      </div>
+                      <div class="df-mode-check" v-if="dockerfileMode === 'project'">&#10003;</div>
+                    </div>
+
+                    <div
+                      :class="['df-mode-card', { active: dockerfileMode === 'platform' }]"
+                      @click="dockerfileMode = 'platform'"
+                    >
+                      <div class="df-mode-icon platform">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                          <line x1="8" y1="21" x2="16" y2="21"/>
+                          <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                      </div>
+                      <div class="df-mode-info">
+                        <div class="df-mode-title">平台生成</div>
+                        <div class="df-mode-desc">忽略项目文件，由平台生成最优 Dockerfile</div>
+                      </div>
+                      <div class="df-mode-check" v-if="dockerfileMode === 'platform'">&#10003;</div>
+                    </div>
+                  </div>
+
+                  <!-- 项目自带模式：路径输入 -->
+                  <div v-if="dockerfileMode === 'project'" class="df-path-input">
+                    <div class="input-wrapper">
+                      <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                      <input
+                        type="text"
+                        v-model="pipelineData.dockerfile_path"
+                        class="form-input with-icon"
+                        placeholder="Dockerfile"
+                      />
+                    </div>
+                    <div class="input-hint">相对于项目根目录的路径，例如 Dockerfile、docker/Dockerfile.prod</div>
+                  </div>
+
+                  <!-- 策略说明面板 -->
+                  <div class="df-info-panel">
+                    <div v-if="dockerfileMode === 'auto'" class="df-info-content">
+                      <div class="df-info-title">&#9889; 智能检测流程</div>
+                      <div class="df-info-steps">
+                        <div class="df-step"><span class="df-step-num">1</span>检查项目根目录是否存在 Dockerfile</div>
+                        <div class="df-step"><span class="df-step-num">2</span>存在则直接使用项目 Dockerfile 构建镜像</div>
+                        <div class="df-step"><span class="df-step-num">3</span>不存在则根据 {{ dockerfileLangLabel }} 自动生成纯运行时 Dockerfile</div>
+                      </div>
+                    </div>
+                    <div v-else-if="dockerfileMode === 'project'" class="df-info-content">
+                      <div class="df-info-title">&#128193; 项目 Dockerfile 说明</div>
+                      <div class="df-info-text">
+                        直接使用项目仓库中的 Dockerfile，适合已自定义好构建逻辑的项目。
+                        <br/>Jenkins 编译产物（如 <code>target/*.jar</code>、<code>bin/</code>）在同一工作目录，Dockerfile 可直接 COPY。
+                      </div>
+                    </div>
+                    <div v-else class="df-info-content">
+                      <div class="df-info-title">&#129302; 平台生成说明</div>
+                      <div class="df-info-text">
+                        平台根据 <strong>{{ dockerfileLangLabel }}</strong> 语言类型，自动生成生产级纯运行时 Dockerfile：
+                        <br/>&#8226; 阿里云镜像源加速 &#8226; 非 root 用户 &#8226; 最小化镜像层 &#8226; 生产 JVM / Runtime 参数
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Git 凭证 ID + 跳过测试 -->
+                <div class="form-row">
+                  <div class="form-group half">
+                    <label class="form-label">Git 凭证 ID</label>
+                    <input
+                      type="text"
+                      v-model="pipelineData.git_credential_id"
+                      class="form-input"
+                      placeholder="gitee-id"
+                    />
+                    <div class="input-hint">Jenkins 中配置的 Git 凭证 ID</div>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">跳过单元测试</label>
+                    <div class="toggle-row compact">
+                      <span class="toggle-desc">构建时跳过测试阶段</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" v-model="pipelineData.skip_tests" />
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 环境变量配置 -->
               <div class="env-section">
                 <div class="section-header" @click="toggleEnvVars">
@@ -1049,6 +1215,15 @@ export default {
     ])
     const selectedServiceType = ref('go')
     
+    // Dockerfile 构建策略模式：'auto' | 'project' | 'platform'
+    const dockerfileMode = ref('auto')
+    
+    // 语言类型显示名称（用于 Dockerfile 策略面板）
+    const dockerfileLangLabel = computed(() => {
+      const langMap = { java: 'Java', go: 'Go', frontend: 'Node.js', python: 'Python', custom: '自定义' }
+      return langMap[selectedServiceType.value] || selectedServiceType.value
+    })
+    
     // 命名空间列表
     const namespaces = ref([])
     const loadingNamespaces = ref(false)
@@ -1072,6 +1247,37 @@ export default {
       { value: 'DaemonSet', label: 'DaemonSet', description: '守护进程' }
     ])
 
+    // ==================== 语言类型 → 推荐环境变量默认值映射 ====================
+    const languageEnvDefaults = {
+      java: [
+        { name: 'IMAGE_REPO', value: 'harbor.example.com/project/app-name', _hint: '镜像仓库地址（必填）' },
+        { name: 'JAVA_VERSION', value: '17', _hint: 'Java 版本' },
+        { name: 'MAVEN_GOALS', value: 'clean package -DskipTests -B', _hint: 'Maven 构建命令' },
+        { name: 'GIT_CREDENTIAL_ID', value: 'gitee-id', _hint: 'Git 凭证 ID' },
+      ],
+      go: [
+        { name: 'IMAGE_REPO', value: 'harbor.example.com/project/app-name', _hint: '镜像仓库地址（必填）' },
+        { name: 'GO_VERSION', value: '1.24', _hint: 'Go 版本' },
+        { name: 'GIT_CREDENTIAL_ID', value: 'gitee-id', _hint: 'Git 凭证 ID' },
+      ],
+      frontend: [
+        { name: 'IMAGE_REPO', value: 'harbor.example.com/project/app-name', _hint: '镜像仓库地址（必填）' },
+        { name: 'NODE_VERSION', value: '18', _hint: 'Node.js 版本' },
+        { name: 'BUILD_COMMAND', value: 'npm run build', _hint: '构建命令' },
+        { name: 'BUILD_OUTPUT_DIR', value: 'dist', _hint: '构建产物目录' },
+        { name: 'GIT_CREDENTIAL_ID', value: 'gitee-id', _hint: 'Git 凭证 ID' },
+      ],
+      python: [
+        { name: 'IMAGE_REPO', value: 'harbor.example.com/project/app-name', _hint: '镜像仓库地址（必填）' },
+        { name: 'PYTHON_VERSION', value: '3.11', _hint: 'Python 版本' },
+        { name: 'GIT_CREDENTIAL_ID', value: 'gitee-id', _hint: 'Git 凭证 ID' },
+      ],
+      custom: [
+        { name: 'IMAGE_REPO', value: 'harbor.example.com/project/app-name', _hint: '镜像仓库地址（必填）' },
+        { name: 'GIT_CREDENTIAL_ID', value: 'gitee-id', _hint: 'Git 凭证 ID' },
+      ]
+    }
+
     // 表单数据
     const pipelineData = ref({
       name: '',
@@ -1081,6 +1287,11 @@ export default {
       jenkins_url: '',
       jenkins_job: '',
       language_type: 'go',  // 与 selectedServiceType 联动，后端据此自动推导 jenkins_job
+      // 构建核心参数（独立字段，不混入 env_vars）
+      image_repo: '',       // 镜像仓库地址（必填），如 harbor.example.com/project/app
+      skip_tests: false,    // 跳过单元测试
+      dockerfile_path: '',  // Dockerfile 路径（空则自动生成）
+      git_credential_id: 'gitee-id',  // Git 凭证 ID
       env_vars: [],
       enable_sonar: false,  // SonarQube 代码质量扫描开关（Java 项目默认启用）
       deploy_config: {
@@ -1144,6 +1355,10 @@ export default {
           // jenkins_job 仅在 language_type 为 custom 时必填，其他语言类型由后端自动推导
           if (pipelineData.value.language_type === 'custom' && !pipelineData.value.jenkins_job.trim()) {
             alert('自定义类型必须填写 Jenkins Job 名称')
+            return false
+          }
+          if (!pipelineData.value.image_repo.trim()) {
+            alert('请填写镜像仓库地址（IMAGE_REPO）')
             return false
           }
           break
@@ -1307,7 +1522,7 @@ export default {
       }
     }
     
-    // 服务类型变化 — 同步更新 language_type 并联动 SonarQube 开关
+    // 服务类型变化 — 同步更新 language_type 并联动 SonarQube 开关 + 自动填充推荐环境变量
     const onServiceTypeChange = (type) => {
       selectedServiceType.value = type
       pipelineData.value.language_type = type
@@ -1315,6 +1530,25 @@ export default {
       pipelineData.value.enable_sonar = (type === 'java')
       selectedResourceTemplate.value = ''
       loadResourceTemplates()
+
+      // 自动填充语言类型对应的推荐环境变量（保留用户已自定义的变量）
+      const defaults = languageEnvDefaults[type] || languageEnvDefaults.custom
+      // 收集已知的默认 key——确保不会重复添加
+      const allDefaultKeys = new Set()
+      Object.values(languageEnvDefaults).forEach(arr => arr.forEach(d => allDefaultKeys.add(d.name)))
+      // 保留用户自定义的（不在任何默认列表中的）
+      const userCustom = pipelineData.value.env_vars.filter(e => !allDefaultKeys.has(e.name))
+      // 将 IMAGE_REPO 提取到独立字段（如果之前在 env_vars 里）
+      const existingImageRepo = pipelineData.value.env_vars.find(e => e.name === 'IMAGE_REPO')
+      if (existingImageRepo && existingImageRepo.value && existingImageRepo.value !== 'harbor.example.com/project/app-name') {
+        pipelineData.value.image_repo = existingImageRepo.value
+      }
+      // 重组 env_vars：默认推荐变量（排除 IMAGE_REPO 等已有独立字段的） + 用户自定义
+      const promotedKeys = ['IMAGE_REPO', 'GIT_CREDENTIAL_ID', 'SKIP_TESTS', 'DOCKERFILE_PATH']
+      const newEnvVars = defaults
+        .filter(d => !promotedKeys.includes(d.name))
+        .map(d => ({ name: d.name, value: d.value }))
+      pipelineData.value.env_vars = [...newEnvVars, ...userCustom]
     }
     
     // 资源模板变化
@@ -1377,6 +1611,23 @@ export default {
             // 回显语言类型和 SonarQube 开关
             const langType = data.language_type || 'custom'
             const hasSonar = (data.env_vars || []).some(e => e.name === 'ENABLE_SONAR' && e.value === 'true')
+            // 从 env_vars 提取独立字段
+            const envArr = data.env_vars || []
+            const getEnv = (key, def) => {
+              const found = envArr.find(e => e.name === key)
+              return found ? found.value : def
+            }
+            const promotedKeys = ['IMAGE_REPO', 'SKIP_TESTS', 'DOCKERFILE_PATH', 'GIT_CREDENTIAL_ID']
+            const filteredEnvVars = envArr.filter(e => !promotedKeys.includes(e.name))
+            // 回显 Dockerfile 策略模式
+            const savedDfPath = getEnv('DOCKERFILE_PATH', '')
+            if (savedDfPath === '__PLATFORM_GENERATE__') {
+              dockerfileMode.value = 'platform'
+            } else if (savedDfPath) {
+              dockerfileMode.value = 'project'
+            } else {
+              dockerfileMode.value = 'auto'
+            }
             selectedServiceType.value = langType
             pipelineData.value = {
               name: data.name || '',
@@ -1386,7 +1637,12 @@ export default {
               jenkins_url: data.jenkins_url || '',
               jenkins_job: data.jenkins_job || '',
               language_type: langType,
-              env_vars: data.env_vars || [],
+              // 构建核心参数（从 env_vars 提取到独立字段）
+              image_repo: getEnv('IMAGE_REPO', ''),
+              skip_tests: getEnv('SKIP_TESTS', 'false') === 'true',
+              dockerfile_path: getEnv('DOCKERFILE_PATH', ''),
+              git_credential_id: getEnv('GIT_CREDENTIAL_ID', 'gitee-id'),
+              env_vars: filteredEnvVars,
               enable_sonar: hasSonar,
               deploy_config: data.deploy_config || pipelineData.value.deploy_config,
               // 自动部署配置
@@ -1420,9 +1676,32 @@ export default {
         submitting.value = true
         let response
 
-        // 构建提交数据：根据 enable_sonar 开关同步 env_vars
+        // 构建提交数据：将独立字段注入 env_vars + 根据 enable_sonar 开关同步
         const submitData = { ...pipelineData.value }
         const envVars = [...(submitData.env_vars || [])]
+
+        // 注入构建核心参数到 env_vars
+        const injectEnv = (key, val) => {
+          if (!val && val !== 'true' && val !== 'false') return
+          const idx = envVars.findIndex(e => e.name === key)
+          if (idx >= 0) { envVars[idx].value = String(val) }
+          else { envVars.push({ name: key, value: String(val) }) }
+        }
+        injectEnv('IMAGE_REPO', submitData.image_repo)
+        injectEnv('SKIP_TESTS', submitData.skip_tests ? 'true' : 'false')
+        // Dockerfile 策略映射：
+        //   auto     → 空（Jenkins 智能检测项目 Dockerfile → 回退平台生成）
+        //   project  → 用户指定的路径，默认 'Dockerfile'
+        //   platform → '__PLATFORM_GENERATE__'  强制平台生成
+        if (dockerfileMode.value === 'project') {
+          injectEnv('DOCKERFILE_PATH', submitData.dockerfile_path || 'Dockerfile')
+        } else if (dockerfileMode.value === 'platform') {
+          injectEnv('DOCKERFILE_PATH', '__PLATFORM_GENERATE__')
+        }
+        // auto 模式不发送 DOCKERFILE_PATH，由 Jenkins 智能检测
+        if (submitData.git_credential_id) injectEnv('GIT_CREDENTIAL_ID', submitData.git_credential_id)
+
+        // SonarQube 开关同步
         if (submitData.enable_sonar) {
           // 启用 SonarQube：确保 env_vars 中有 ENABLE_SONAR=true
           const idx = envVars.findIndex(e => e.name === 'ENABLE_SONAR')
@@ -1448,6 +1727,11 @@ export default {
         }
         submitData.env_vars = envVars
         delete submitData.enable_sonar  // 后端不需要此字段
+        // 清理前端独立字段，后端不需要
+        delete submitData.image_repo
+        delete submitData.skip_tests
+        delete submitData.dockerfile_path
+        delete submitData.git_credential_id
 
         if (isEdit) {
           response = await updatePipeline({
@@ -1683,6 +1967,8 @@ export default {
       canApprove,
       serviceTypeOptions,
       selectedServiceType,
+      dockerfileMode,
+      dockerfileLangLabel,
       onServiceTypeChange,
       onResourceTemplateChange,
       doValidateResource,
@@ -2484,6 +2770,50 @@ export default {
 }
 
 /* ==================== 部署策略卡片 ==================== */
+
+/* 构建参数分区 */
+.build-params-section {
+  margin-top: 20px;
+  padding-top: 4px;
+}
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.divider-text {
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+  white-space: nowrap;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-group.half {
+  flex: 1;
+  min-width: 0;
+}
+
+.toggle-row.compact {
+  padding: 10px 14px;
+  margin-top: 6px;
+}
+
 .strategy-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -3492,5 +3822,202 @@ export default {
   border-radius: 6px;
   font-size: 13px;
   color: #0369a1;
+}
+
+/* ==================== Dockerfile 策略选择器 ==================== */
+.dockerfile-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.df-mode-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.df-mode-card:hover {
+  border-color: #a0c4e8;
+  background: #f7fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(66, 153, 225, 0.1);
+}
+
+.df-mode-card.active {
+  border-color: #4299e1;
+  background: linear-gradient(135deg, #ebf8ff 0%, #f0f9ff 100%);
+  box-shadow: 0 4px 16px rgba(66, 153, 225, 0.2);
+}
+
+.df-mode-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.df-mode-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.df-mode-icon.auto {
+  background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+  color: #234e52;
+}
+
+.df-mode-icon.project {
+  background: linear-gradient(135deg, #fefcbf 0%, #fef08a 100%);
+  color: #744210;
+}
+
+.df-mode-icon.platform {
+  background: linear-gradient(135deg, #e9d8fd 0%, #d6bcfa 100%);
+  color: #44337a;
+}
+
+.df-mode-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.df-mode-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d3748;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-mode-desc {
+  font-size: 11px;
+  color: #a0aec0;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.df-badge.recommend {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.df-mode-check {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: popIn 0.2s ease;
+}
+
+@keyframes popIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.df-path-input {
+  margin-top: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Dockerfile 策略说明面板 */
+.df-info-panel {
+  margin-top: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  animation: fadeIn 0.2s ease;
+}
+
+.df-info-content {
+  padding: 14px 16px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #4a5568;
+}
+
+.df-info-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #2d3748;
+  margin-bottom: 8px;
+}
+
+.df-info-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #4a5568;
+}
+
+.df-step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.df-info-text {
+  font-size: 12px;
+  color: #4a5568;
+  line-height: 1.7;
+}
+
+.df-info-text code {
+  padding: 1px 5px;
+  background: #edf2f7;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #e53e3e;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+@media (max-width: 768px) {
+  .dockerfile-mode-selector {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
