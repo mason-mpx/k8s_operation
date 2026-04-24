@@ -483,9 +483,6 @@ func getStatefulSetStatus(sts *appv1.StatefulSet) (status, reason string) {
 		if readyReplicas == 0 && currentReplicas == 0 {
 			status = "Pending"
 			reason = fmt.Sprintf("等待 Pod 创建 (0/%d)", desiredReplicas)
-		} else if readyReplicas == 0 {
-			status = "Failed"
-			reason = fmt.Sprintf("0/%d Pod 就绪", desiredReplicas)
 		} else {
 			status = "Updating"
 			reason = fmt.Sprintf("%d/%d Pod 就绪", readyReplicas, desiredReplicas)

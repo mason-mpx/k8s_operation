@@ -993,6 +993,13 @@ definitions:
     type: object
   requests.KubeDeploymentCreateRequest:
     type: object
+  requests.KubeDeploymentPauseResumeRequest:
+    properties:
+      name:
+        type: string
+      namespace:
+        type: string
+    type: object
   requests.KubeDeploymentRestartRequest:
     properties:
       name:
@@ -1009,6 +1016,28 @@ definitions:
       replica_set:
         description: 指定回滚的 ReplicaSet
         type: string
+    type: object
+  requests.KubeDeploymentRollingUpdateRequest:
+    properties:
+      max_surge:
+        description: 最大超出副本数，如 "1" 或 "25%"
+        type: string
+      max_unavailable:
+        description: 最大不可用副本数
+        type: string
+      min_ready_seconds:
+        description: Pod 就绪后最少等待秒数
+        type: integer
+      name:
+        type: string
+      namespace:
+        type: string
+      progress_deadline_seconds:
+        description: 进度截止时间
+        type: integer
+      revision_history_limit:
+        description: 历史版本保留数
+        type: integer
     type: object
   requests.KubeDeploymentScaleRequest:
     properties:
@@ -1608,6 +1637,57 @@ definitions:
       new_image:
         type: string
     type: object
+  requests.PipelineBatchCreateRequest:
+    properties:
+      pipelines:
+        description: 流水线列表
+        items:
+          $ref: '#/definitions/requests.PipelineBatchItem'
+        type: array
+      skip_existing:
+        description: 跳过已存在的（按名称判重），否则报错
+        type: boolean
+    type: object
+  requests.PipelineBatchItem:
+    properties:
+      auto_deploy:
+        description: 自动部署配置（可选）
+        type: boolean
+      deploy_env:
+        type: string
+      description:
+        description: 可选：描述
+        type: string
+      env_vars:
+        description: 可选：环境变量
+        items:
+          $ref: '#/definitions/models.EnvVar'
+        type: array
+      git_branch:
+        description: 可选：分支，默认 main
+        type: string
+      git_repo:
+        description: 必填：Git 仓库地址
+        type: string
+      language_type:
+        description: 推荐：go/java/frontend/python/custom
+        type: string
+      name:
+        description: 必填：流水线名称
+        type: string
+      require_approval:
+        type: boolean
+      target_cluster_id:
+        type: integer
+      target_container:
+        type: string
+      target_namespace:
+        type: string
+      target_workload_kind:
+        type: string
+      target_workload_name:
+        type: string
+    type: object
   requests.PipelineBatchRunRequest:
     properties:
       ids:
@@ -1681,6 +1761,9 @@ definitions:
       jenkins_job:
         type: string
       jenkins_url:
+        type: string
+      language_type:
+        description: go/java/frontend/python/custom
         type: string
       name:
         type: string
@@ -1776,6 +1859,9 @@ definitions:
       jenkins_job:
         type: string
       jenkins_url:
+        type: string
+      language_type:
+        description: go/java/frontend/python/custom
         type: string
       name:
         type: string
@@ -3954,6 +4040,195 @@ paths:
       summary: 更新审批记录
       tags:
       - CICD Approval
+  /api/v1/k8s/cicd/artifact/attach:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 制品ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      - description: 制品文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses: {}
+      summary: 为已有制品补传文件
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/batch-delete:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: 批量删除制品
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/by-run:
+    get:
+      parameters:
+      - description: 运行记录ID
+        in: query
+        name: run_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取流水线某次运行产出的制品
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/create:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: 创建制品记录
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/delete:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: 删除制品
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/detail:
+    get:
+      parameters:
+      - description: 制品ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取制品详情
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/download:
+    get:
+      parameters:
+      - description: 制品ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      - description: 认证Token（用于 window.open 下载）
+        in: query
+        name: token
+        type: string
+      produces:
+      - application/octet-stream
+      responses: {}
+      summary: 下载制品文件
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 流水线ID
+        in: query
+        name: pipeline_id
+        type: integer
+      - description: 制品类型：jar/binary/dist/wheel/image
+        in: query
+        name: artifact_type
+        type: string
+      - description: 语言类型：go/java/frontend/python
+        in: query
+        name: language_type
+        type: string
+      - description: 状态：ready/expired
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取制品列表
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/stats:
+    get:
+      parameters:
+      - description: 流水线ID（不传则统计全部）
+        in: query
+        name: pipeline_id
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取制品统计数据
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/update:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses: {}
+      summary: 更新制品信息
+      tags:
+      - CICD Artifact
+  /api/v1/k8s/cicd/artifact/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 制品文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 流水线ID
+        in: formData
+        name: pipeline_id
+        type: integer
+      - description: 运行记录ID
+        in: formData
+        name: run_id
+        type: integer
+      - description: 版本号
+        in: formData
+        name: version
+        type: string
+      - description: 语言类型
+        in: formData
+        name: language_type
+        type: string
+      - description: 制品类型
+        in: formData
+        name: artifact_type
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: 上传制品文件
+      tags:
+      - CICD Artifact
   /api/v1/k8s/cicd/callback/build:
     post:
       consumes:
@@ -4158,6 +4433,39 @@ paths:
       summary: 验证 Git 仓库连接
       tags:
       - CICD Git
+  /api/v1/k8s/cicd/pipeline/batch-create:
+    post:
+      consumes:
+      - application/json
+      description: 一次性导入多个项目的流水线配置，支持跳过已存在项目
+      parameters:
+      - description: 批量创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.PipelineBatchCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回批量创建结果
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量创建流水线
+      tags:
+      - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/batch-run:
     post:
       consumes:
@@ -4502,6 +4810,46 @@ paths:
       summary: 运行流水线
       tags:
       - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/sonar-callback:
+    post:
+      consumes:
+      - application/json
+      description: 接收 Jenkins 回传的 SonarQube 扫描结果，存储代码质量报告
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+      summary: SonarQube 扫描结果回调
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/sonar-report:
+    get:
+      description: 返回指定流水线的代码质量扫描结果，包括 Bug、漏洞、覆盖率等指标
+      parameters:
+      - description: 流水线ID
+        in: query
+        name: pipeline_id
+        required: true
+        type: integer
+      - description: 运行记录ID（空则获取最新一次）
+        in: query
+        name: run_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回代码质量报告
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取流水线 SonarQube 代码质量报告
+      tags:
+      - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/stages:
     get:
       description: 获取 Jenkins Pipeline 的阶段执行数据（来自 Jenkins Workflow API）
@@ -4597,6 +4945,54 @@ paths:
             additionalProperties: true
             type: object
       summary: 停止流水线
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/template-simulate:
+    get:
+      description: 模拟完整发布流程，验证参数和 Jenkins 配置（不实际触发构建）
+      parameters:
+      - description: '语言类型: go/java/frontend/python'
+        in: query
+        name: language_type
+        required: true
+        type: string
+      - description: Git 仓库地址
+        in: query
+        name: git_repo
+        required: true
+        type: string
+      - description: Git 分支，默认 main
+        in: query
+        name: git_branch
+        type: string
+      - description: 镜像仓库地址
+        in: query
+        name: image_repo
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回模拟结果
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 模拟模板化发布流程
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/template-verify:
+    get:
+      description: 返回所有支持的语言模板信息，包括 Jenkins Job 名称、阶段、默认参数等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回模板列表
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 验证模板化发布配置
       tags:
       - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/update:
@@ -7022,6 +7418,38 @@ paths:
       summary: Patch 模板（JSONPatch / StrategicMergePatch）
       tags:
       - K8s Deployment 管理
+  /api/v1/k8s/deployment/pause:
+    post:
+      consumes:
+      - application/json
+      description: 暂停 Deployment 的滚动更新（等同于 kubectl rollout pause）
+      parameters:
+      - description: 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeDeploymentPauseResumeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 暂停 Rollout
+      tags:
+      - K8s Deployment 管理
   /api/v1/k8s/deployment/pods.js:
     get:
       parameters:
@@ -7086,6 +7514,38 @@ paths:
       summary: 滚动重启 Deployment
       tags:
       - K8s Deployment 管理
+  /api/v1/k8s/deployment/resume:
+    post:
+      consumes:
+      - application/json
+      description: 恢复 Deployment 的滚动更新（等同于 kubectl rollout resume）
+      parameters:
+      - description: 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeDeploymentPauseResumeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 恢复 Rollout
+      tags:
+      - K8s Deployment 管理
   /api/v1/k8s/deployment/rollback:
     post:
       consumes:
@@ -7115,6 +7575,40 @@ paths:
             additionalProperties: true
             type: object
       summary: 回滚到指定 ReplicaSet
+      tags:
+      - K8s Deployment 管理
+  /api/v1/k8s/deployment/rollout-status:
+    get:
+      description: 获取 Deployment 的滚动更新详细状态（副本进度、策略配置、RS 列表等）
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 Rollout 状态
       tags:
       - K8s Deployment 管理
   /api/v1/k8s/deployment/scale:
@@ -7177,6 +7671,38 @@ paths:
             additionalProperties: true
             type: object
       summary: 更新镜像（触发滚动升级）
+      tags:
+      - K8s Deployment 管理
+  /api/v1/k8s/deployment/update-strategy:
+    post:
+      consumes:
+      - application/json
+      description: 更新 Deployment 的滚动更新策略（maxSurge/maxUnavailable/minReadySeconds 等）
+      parameters:
+      - description: 滚动更新策略参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeDeploymentRollingUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新滚动更新策略
       tags:
       - K8s Deployment 管理
   /api/v1/k8s/deployment/yaml:
@@ -9193,6 +9719,44 @@ paths:
             additionalProperties: true
             type: object
       summary: 更新 Pod 容器镜像
+      tags:
+      - K8s Pod管理
+  /api/v1/k8s/pod/terminal:
+    get:
+      description: 通过 WebSocket 连接到 Pod 容器的交互式终端（类似 kubectl exec -it）
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Pod 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: 容器名称（多容器 Pod 建议指定）
+        in: query
+        name: container
+        type: string
+      - description: Shell 类型（bash/sh/zsh，默认自动检测）
+        in: query
+        name: shell
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols - WebSocket 握手成功
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 连接失败
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 容器终端（WebSocket）
       tags:
       - K8s Pod管理
   /api/v1/k8s/pod/update:

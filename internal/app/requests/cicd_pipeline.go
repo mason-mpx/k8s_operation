@@ -10,14 +10,15 @@ import (
 // ==================== 创建流水线 ====================
 
 type PipelineCreateRequest struct {
-	Name        string           `json:"name" valid:"name"`
-	Description string           `json:"description" valid:"description"`
-	GitRepo     string           `json:"git_repo" valid:"git_repo"`
-	GitBranch   string           `json:"git_branch" valid:"git_branch"`
-	JenkinsURL  string           `json:"jenkins_url" valid:"jenkins_url"`
-	JenkinsJob  string           `json:"jenkins_job" valid:"jenkins_job"`
-	EnvVars     []models.EnvVar  `json:"env_vars"`
-	DeployConfig map[string]any  `json:"deploy_config"`
+	Name         string           `json:"name" valid:"name"`
+	Description  string           `json:"description" valid:"description"`
+	GitRepo      string           `json:"git_repo" valid:"git_repo"`
+	GitBranch    string           `json:"git_branch" valid:"git_branch"`
+	JenkinsURL   string           `json:"jenkins_url" valid:"jenkins_url"`
+	JenkinsJob   string           `json:"jenkins_job" valid:"jenkins_job"`
+	LanguageType string           `json:"language_type" valid:"language_type"` // go/java/frontend/python/custom
+	EnvVars      []models.EnvVar  `json:"env_vars"`
+	DeployConfig map[string]any   `json:"deploy_config"`
 	
 	// 部署配置
 	AutoDeploy         bool   `json:"auto_deploy"`          // 是否自动部署
@@ -32,20 +33,61 @@ type PipelineCreateRequest struct {
 
 func NewPipelineCreateRequest() *PipelineCreateRequest {
 	return &PipelineCreateRequest{
-		GitBranch: "main",
+		GitBranch:    "main",
+		LanguageType: "custom",
 	}
 }
 
 func ValidPipelineCreateRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
-		"name":        []string{"required", "between:1,100"},
-		"git_repo":    []string{"required", "url"},
-		"jenkins_job": []string{"required", "between:1,100"},
+		"name":          []string{"required", "between:1,100"},
+		"git_repo":      []string{"required", "url"},
+		// jenkins_job 不再强制必填，模板化时可由 language_type 自动推导
+		"language_type": []string{"in:go,java,frontend,python,custom"},
 	}
 	messages := govalidator.MapData{
-		"name":        []string{"required:流水线名称不能为空", "between:流水线名称长度应在1-100之间"},
-		"git_repo":    []string{"required:Git仓库地址不能为空", "url:Git仓库地址格式无效"},
-		"jenkins_job": []string{"required:Jenkins Job名称不能为空", "between:Jenkins Job名称长度应在1-100之间"},
+		"name":          []string{"required:流水线名称不能为空", "between:流水线名称长度应在1-100之间"},
+		"git_repo":      []string{"required:Git仓库地址不能为空", "url:Git仓库地址格式无效"},
+		"language_type": []string{"in:语言类型无效，可选值: go, java, frontend, python, custom"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ==================== 批量创建流水线 ====================
+
+// PipelineBatchCreateRequest 批量创建流水线请求
+// 支持一次性导入多个项目的流水线配置
+type PipelineBatchCreateRequest struct {
+	Pipelines    []PipelineBatchItem `json:"pipelines" valid:"pipelines"`       // 流水线列表
+	SkipExisting bool                `json:"skip_existing"`                     // 跳过已存在的（按名称判重），否则报错
+}
+
+// PipelineBatchItem 批量创建的单个流水线配置
+type PipelineBatchItem struct {
+	Name         string          `json:"name"`          // 必填：流水线名称
+	Description  string          `json:"description"`   // 可选：描述
+	GitRepo      string          `json:"git_repo"`      // 必填：Git 仓库地址
+	GitBranch    string          `json:"git_branch"`    // 可选：分支，默认 main
+	LanguageType string          `json:"language_type"` // 推荐：go/java/frontend/python/custom
+	EnvVars      []models.EnvVar `json:"env_vars"`      // 可选：环境变量
+
+	// 自动部署配置（可选）
+	AutoDeploy         bool   `json:"auto_deploy"`
+	TargetClusterID    int64  `json:"target_cluster_id"`
+	TargetNamespace    string `json:"target_namespace"`
+	TargetWorkloadKind string `json:"target_workload_kind"`
+	TargetWorkloadName string `json:"target_workload_name"`
+	TargetContainer    string `json:"target_container"`
+	DeployEnv          string `json:"deploy_env"`
+	RequireApproval    bool   `json:"require_approval"`
+}
+
+func ValidPipelineBatchCreateRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"pipelines": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"pipelines": []string{"required:流水线列表不能为空"},
 	}
 	return valid.ValidateOptions(data, rules, messages)
 }
@@ -58,9 +100,10 @@ type PipelineUpdateRequest struct {
 	Description string           `json:"description" valid:"description"`
 	GitRepo     string           `json:"git_repo" valid:"git_repo"`
 	GitBranch   string           `json:"git_branch" valid:"git_branch"`
-	JenkinsURL  string           `json:"jenkins_url" valid:"jenkins_url"`
-	JenkinsJob  string           `json:"jenkins_job" valid:"jenkins_job"`
-	Status      string           `json:"status" valid:"status"`
+	JenkinsURL   string           `json:"jenkins_url" valid:"jenkins_url"`
+	JenkinsJob   string           `json:"jenkins_job" valid:"jenkins_job"`
+	LanguageType *string          `json:"language_type" valid:"language_type"` // go/java/frontend/python/custom
+	Status       string           `json:"status" valid:"status"`
 	EnvVars     []models.EnvVar  `json:"env_vars"`
 	DeployConfig map[string]any  `json:"deploy_config"`
 	
@@ -81,18 +124,20 @@ func NewPipelineUpdateRequest() *PipelineUpdateRequest {
 
 func ValidPipelineUpdateRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
-		"id":          []string{"required"},
-		"name":        []string{"between:1,100"},
-		"git_repo":    []string{"url"},
-		"jenkins_job": []string{"between:1,100"},
-		"status":      []string{"in:idle,running,disabled"},
+		"id":            []string{"required"},
+		"name":          []string{"between:1,100"},
+		"git_repo":      []string{"url"},
+		"jenkins_job":   []string{"between:1,100"},
+		"language_type": []string{"in:go,java,frontend,python,custom"},
+		"status":        []string{"in:idle,running,disabled"},
 	}
 	messages := govalidator.MapData{
-		"id":          []string{"required:流水线ID不能为空"},
-		"name":        []string{"between:流水线名称长度应在1-100之间"},
-		"git_repo":    []string{"url:Git仓库地址格式无效"},
-		"jenkins_job": []string{"between:Jenkins Job名称长度应在1-100之间"},
-		"status":      []string{"in:状态值无效，可选值: idle, running, disabled"},
+		"id":            []string{"required:流水线ID不能为空"},
+		"name":          []string{"between:流水线名称长度应在1-100之间"},
+		"git_repo":      []string{"url:Git仓库地址格式无效"},
+		"jenkins_job":   []string{"between:Jenkins Job名称长度应在1-100之间"},
+		"language_type": []string{"in:语言类型无效，可选值: go, java, frontend, python, custom"},
+		"status":        []string{"in:状态值无效，可选值: idle, running, disabled"},
 	}
 	return valid.ValidateOptions(data, rules, messages)
 }
@@ -348,7 +393,7 @@ func ValidStageCallbackRequest(data interface{}, ctx *gin.Context) map[string][]
 	rules := govalidator.MapData{
 		"job_name":     []string{"required"},
 		"build_number": []string{"required"},
-		"stage_type":   []string{"required", "in:clean,scm,checkout,dependencies,compile,test,lint,build,push,approval,deploy"},
+		"stage_type":   []string{"required", "in:clean,scm,checkout,dependencies,compile,test,lint,build,push,sonar,quality_gate,approval,deploy"},
 		"status":       []string{"required", "in:running,success,failed,waiting"},
 	}
 	messages := govalidator.MapData{

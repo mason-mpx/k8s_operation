@@ -347,6 +347,7 @@ const menuGroupsConfig = reactive([
       { path: '/cicd/pipelines', label: '流水线管理' },
       { path: '/cicd/releases', label: '发布管理' },
       { path: '/cicd/approvals', label: '审批管理' },
+      { path: '/cicd/artifacts', label: '制品管理' },
       { path: '/cicd/templates', label: '流水线模板' },
     ],
   },

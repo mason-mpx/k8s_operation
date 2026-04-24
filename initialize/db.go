@@ -81,6 +81,11 @@ func autoMigrateTables() error {
 		return fmt.Errorf("migrate base tables: %w", err)
 	}
 
+	// cicd_pipeline 表字段补全（不用 AutoMigrate 避免 GORM 与已有 UNIQUE KEY 冲突）
+	if err := ensurePipelineColumns(); err != nil {
+		log.Printf("[AutoMigrate] cicd_pipeline 字段补全失败: %v", err)
+	}
+
 	// AI 助手模块（逐表迁移，确保每张表都成功）
 	aiModels := []struct {
 		name  string
@@ -118,5 +123,43 @@ func initDefaultData() error {
 		return fmt.Errorf("init appstore seed data failed: %w", err)
 	}
 
+	return nil
+}
+
+// ensurePipelineColumns 检查并补全 cicd_pipeline 表缺失的列
+// 不使用 AutoMigrate 是因为 GORM 会尝试将 varchar 改为 longtext，与 UNIQUE KEY 冲突
+func ensurePipelineColumns() error {
+	// 检查 cicd_pipeline 表是否存在
+	var count int64
+	global.DB.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'cicd_pipeline'").Scan(&count)
+	if count == 0 {
+		return nil // 表不存在，跳过（全新安装由 SQL 初始化脚本负责）
+	}
+
+	// 所有可能缺失的列（模型新增但旧表可能没有的）
+	type colDef struct {
+		name string
+		sql  string
+	}
+	columns := []colDef{
+		{"language_type", "ALTER TABLE `cicd_pipeline` ADD COLUMN `language_type` varchar(20) NOT NULL DEFAULT 'custom' COMMENT '语言类型' AFTER `jenkins_credential_id`"},
+		{"enable_sonar", "ALTER TABLE `cicd_pipeline` ADD COLUMN `enable_sonar` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否启用SonarQube代码扫描' AFTER `require_approval`"},
+		{"last_deploy_image", "ALTER TABLE `cicd_pipeline` ADD COLUMN `last_deploy_image` varchar(500) DEFAULT '' COMMENT '最新部署镜像' AFTER `enable_sonar`"},
+		{"last_deploy_digest", "ALTER TABLE `cicd_pipeline` ADD COLUMN `last_deploy_digest` varchar(100) DEFAULT '' COMMENT '镜像摘要' AFTER `last_deploy_image`"},
+		{"last_deploy_time", "ALTER TABLE `cicd_pipeline` ADD COLUMN `last_deploy_time` bigint DEFAULT NULL COMMENT '最新部署时间' AFTER `last_deploy_digest`"},
+		{"last_deploy_status", "ALTER TABLE `cicd_pipeline` ADD COLUMN `last_deploy_status` varchar(32) DEFAULT '' COMMENT '最新部署状态' AFTER `last_deploy_time`"},
+		{"last_deploy_version", "ALTER TABLE `cicd_pipeline` ADD COLUMN `last_deploy_version` varchar(100) DEFAULT '' COMMENT '最新部署版本' AFTER `last_deploy_status`"},
+	}
+
+	for _, col := range columns {
+		var exists int64
+		global.DB.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'cicd_pipeline' AND column_name = ?", col.name).Scan(&exists)
+		if exists == 0 {
+			if err := global.DB.Exec(col.sql).Error; err != nil {
+				return fmt.Errorf("add column %s: %w", col.name, err)
+			}
+			log.Printf("[AutoMigrate] cicd_pipeline 补全列: %s", col.name)
+		}
+	}
 	return nil
 }

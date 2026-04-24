@@ -35,5 +35,6 @@ func (r *kubePodRouter) Inject(router *gin.RouterGroup) {
 	router.GET("/metrics/list", pod.MetricsList)                    // 批量获取命名空间下所有 Pod 的资源使用情况
 	router.GET("/yaml", pod.Yaml)                                   // 获取 Pod 的 YAML 配置
 	router.PUT("/apply_yaml", pod.ApplyYaml)                        // 应用 Pod YAML 配置
+	router.GET("/terminal", pod.Terminal)                              // 容器终端（WebSocket）
 
 }

@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS `cicd_pipeline` (
   `jenkins_url` varchar(500) NOT NULL DEFAULT '' COMMENT 'Jenkins服务地址',
   `jenkins_job` varchar(191) NOT NULL COMMENT 'Jenkins Job名称',
   `jenkins_credential_id` varchar(191) NOT NULL DEFAULT '' COMMENT 'Jenkins凭证ID',
+  `language_type` varchar(20) NOT NULL DEFAULT 'custom' COMMENT '语言类型:go/java/frontend/python/custom',
   -- 部署配置
   `auto_deploy` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动部署',
   `target_cluster_id` bigint DEFAULT NULL COMMENT '目标集群ID',
@@ -174,6 +175,7 @@ CREATE TABLE IF NOT EXISTS `cicd_pipeline` (
   `target_container` varchar(100) DEFAULT '' COMMENT '目标容器名称',
   `deploy_env` varchar(20) DEFAULT 'dev' COMMENT '部署环境',
   `require_approval` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否需要审批',
+  `enable_sonar` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否启用SonarQube代码扫描',
   -- 最新部署信息
   `last_deploy_image` varchar(500) DEFAULT '' COMMENT '最新部署镜像',
   `last_deploy_digest` varchar(100) DEFAULT '' COMMENT '镜像摘要',
@@ -247,7 +249,7 @@ CREATE TABLE IF NOT EXISTS `cicd_pipeline_stage` (
   `run_id` bigint NOT NULL COMMENT '运行记录ID',
   `pipeline_id` bigint NOT NULL COMMENT '流水线ID',
   `stage_order` int NOT NULL DEFAULT 0 COMMENT '阶段顺序',
-  `stage_type` varchar(32) NOT NULL COMMENT '阶段类型:checkout,build,test,push,approval,deploy',
+  `stage_type` varchar(32) NOT NULL COMMENT '阶段类型:checkout,dependencies,compile,test,lint,sonar,quality_gate,build_binary,upload_artifact,build,push,approval,deploy',
   `stage_name` varchar(100) NOT NULL COMMENT '阶段名称',
   `status` varchar(32) NOT NULL DEFAULT 'pending' COMMENT '状态',
   `started_at` bigint DEFAULT NULL COMMENT '开始时间',
@@ -1161,6 +1163,61 @@ CREATE TABLE IF NOT EXISTS cicd_resource_change_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD资源配置变更日志表';
 
 -- =====================================================
+-- 34. CI/CD - 制品库表
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `cicd_artifact` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `pipeline_id` bigint DEFAULT NULL COMMENT '关联流水线ID',
+  `run_id` bigint DEFAULT NULL COMMENT '关联运行记录ID',
+  `build_number` int DEFAULT 0 COMMENT 'Jenkins构建号',
+
+  -- 制品基本信息
+  `name` varchar(200) NOT NULL DEFAULT '' COMMENT '制品名称（如 order-service-1.0.0.jar）',
+  `artifact_type` varchar(20) NOT NULL DEFAULT '' COMMENT '制品类型：jar/war/binary/dist/wheel/image/archive',
+  `version` varchar(100) NOT NULL DEFAULT '' COMMENT '版本号',
+  `language_type` varchar(20) NOT NULL DEFAULT '' COMMENT '语言类型：go/java/frontend/python',
+
+  -- 存储信息
+  `file_path` varchar(500) NOT NULL DEFAULT '' COMMENT '文件存储路径',
+  `file_size` bigint NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
+  `sha256` varchar(64) NOT NULL DEFAULT '' COMMENT 'SHA256校验和',
+  `storage_type` varchar(20) NOT NULL DEFAULT 'local' COMMENT '存储类型：local/s3/oss',
+
+  -- Git 信息（构建来源追溯）
+  `git_repo` varchar(500) NOT NULL DEFAULT '' COMMENT 'Git仓库地址',
+  `git_branch` varchar(100) NOT NULL DEFAULT '' COMMENT 'Git分支',
+  `git_commit` varchar(40) NOT NULL DEFAULT '' COMMENT 'Git Commit SHA',
+
+  -- 镜像信息（如果制品已打包为镜像）
+  `image_repo` varchar(500) NOT NULL DEFAULT '' COMMENT '镜像仓库地址',
+  `image_tag` varchar(200) NOT NULL DEFAULT '' COMMENT '镜像标签',
+  `image_digest` varchar(100) NOT NULL DEFAULT '' COMMENT '镜像摘要',
+
+  -- 构建元数据
+  `build_duration` int NOT NULL DEFAULT 0 COMMENT '构建耗时（秒）',
+  `build_log` text COMMENT '构建摘要日志',
+  `metadata` json DEFAULT NULL COMMENT '扩展元数据',
+
+  -- 状态
+  `status` varchar(20) NOT NULL DEFAULT 'ready' COMMENT '状态：uploading/ready/expired/deleted',
+  `download_count` int NOT NULL DEFAULT 0 COMMENT '下载次数',
+
+  -- 元数据
+  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人',
+  `created_at` bigint unsigned NOT NULL DEFAULT 0,
+  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
+  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
+  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+
+  PRIMARY KEY (`id`),
+  KEY `idx_pipeline_id` (`pipeline_id`),
+  KEY `idx_run_id` (`run_id`),
+  KEY `idx_artifact_type` (`artifact_type`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD 制品库表';
+
+-- =====================================================
 -- CICD 资源模板初始数据
 -- =====================================================
 
@@ -1220,7 +1277,7 @@ SELECT 'K8s Platform 数据库初始化完成!';
 SELECT '=====================================================';
 SELECT CONCAT('表数量: ', COUNT(*)) as info FROM information_schema.tables WHERE table_schema = 'k8s-platform';
 SELECT '默认管理员账户: admin / admin123';
-SELECT '包含 34 张表 + 2 个视图: 用户表、集群表、RBAC表(4张)、CI/CD表(14张)、镜像表(3张)、IAM表(9张)、审计表';
+SELECT '包含 35 张表 + 2 个视图: 用户表、集群表、RBAC表(4张)、CI/CD表(14张+制品库)、镜像表(3张)、IAM表(9张)、审计表';
 SELECT '包含 4 条流水线模板: Vue3/Go/Java/Python';
 SELECT '包含 CICD资源模板(18条) + 环境规则(5条)';
 SELECT '=====================================================';

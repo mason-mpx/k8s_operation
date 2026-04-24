@@ -1,7 +1,9 @@
-﻿package statefulset
+package statefulset
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"k8soperation/global"
@@ -73,16 +75,27 @@ func (c *KubeStatefulSetController) CreateFromYaml(ctx *gin.Context) {
 	}
 	cli := middlewares.MustGetK8sClients(ctx)
 	service := services.NewServices()
-	sts, err := service.KubeStatefulSetCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
+	sts, createdResources, err := service.KubeStatefulSetCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
 	if err != nil {
 		ctx.Error(err)
 		global.Logger.Error("service.KubeStatefulSetCreateFromYaml error", zap.Error(err))
 		return
 	}
+
+	msg := "StatefulSet 创建成功"
+	if len(createdResources) > 0 {
+		resNames := make([]string, 0, len(createdResources))
+		for _, res := range createdResources {
+			resNames = append(resNames, res.Kind+"/"+res.Name)
+		}
+		msg = fmt.Sprintf("StatefulSet 创建成功，同时创建了: %s", strings.Join(resNames, ", "))
+	}
+
 	r.Success(gin.H{
-		"message":   "StatefulSet 创建成功",
-		"name":      sts.Name,
-		"namespace": sts.Namespace,
+		"message":           msg,
+		"name":              sts.Name,
+		"namespace":         sts.Namespace,
+		"created_resources": createdResources,
 	})
 }
 

@@ -2171,6 +2171,290 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/artifact/attach": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "为已有制品补传文件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "制品ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "制品文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/batch-delete": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "批量删除制品",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/by-run": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "获取流水线某次运行产出的制品",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "运行记录ID",
+                        "name": "run_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/create": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "创建制品记录",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/delete": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "删除制品",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/detail": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "获取制品详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "制品ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/download": {
+            "get": {
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "下载制品文件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "制品ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "认证Token（用于 window.open 下载）",
+                        "name": "token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/list": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "获取制品列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "制品类型：jar/binary/dist/wheel/image",
+                        "name": "artifact_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "语言类型：go/java/frontend/python",
+                        "name": "language_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态：ready/expired",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "获取制品统计数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流水线ID（不传则统计全部）",
+                        "name": "pipeline_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/update": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "更新制品信息",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/cicd/artifact/upload": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Artifact"
+                ],
+                "summary": "上传制品文件",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "制品文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "运行记录ID",
+                        "name": "run_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "版本号",
+                        "name": "version",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "语言类型",
+                        "name": "language_type",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "制品类型",
+                        "name": "artifact_type",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/api/v1/k8s/cicd/callback/build": {
             "post": {
                 "consumes": [
@@ -2457,6 +2741,55 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "验证结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/batch-create": {
+            "post": {
+                "description": "一次性导入多个项目的流水线配置，支持跳过已存在项目",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "批量创建流水线",
+                "parameters": [
+                    {
+                        "description": "批量创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.PipelineBatchCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回批量创建结果",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2989,6 +3322,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/pipeline/sonar-callback": {
+            "post": {
+                "description": "接收 Jenkins 回传的 SonarQube 扫描结果，存储代码质量报告",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "SonarQube 扫描结果回调",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/sonar-report": {
+            "get": {
+                "description": "返回指定流水线的代码质量扫描结果，包括 Bug、漏洞、覆盖率等指标",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "获取流水线 SonarQube 代码质量报告",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "运行记录ID（空则获取最新一次）",
+                        "name": "run_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回代码质量报告",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/pipeline/stages": {
             "get": {
                 "description": "获取 Jenkins Pipeline 的阶段执行数据（来自 Jenkins Workflow API）",
@@ -3124,6 +3517,77 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/template-simulate": {
+            "get": {
+                "description": "模拟完整发布流程，验证参数和 Jenkins 配置（不实际触发构建）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "模拟模板化发布流程",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "语言类型: go/java/frontend/python",
+                        "name": "language_type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Git 仓库地址",
+                        "name": "git_repo",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Git 分支，默认 main",
+                        "name": "git_branch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "镜像仓库地址",
+                        "name": "image_repo",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回模拟结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/template-verify": {
+            "get": {
+                "description": "返回所有支持的语言模板信息，包括 Jenkins Job 名称、阶段、默认参数等",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "验证模板化发布配置",
+                "responses": {
+                    "200": {
+                        "description": "返回模板列表",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -6781,6 +7245,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/deployment/pause": {
+            "post": {
+                "description": "暂停 Deployment 的滚动更新（等同于 kubectl rollout pause）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Deployment 管理"
+                ],
+                "summary": "暂停 Rollout",
+                "parameters": [
+                    {
+                        "description": "参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeDeploymentPauseResumeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/deployment/pods.js": {
             "get": {
                 "produces": [
@@ -6877,6 +7389,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/deployment/resume": {
+            "post": {
+                "description": "恢复 Deployment 的滚动更新（等同于 kubectl rollout resume）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Deployment 管理"
+                ],
+                "summary": "恢复 Rollout",
+                "parameters": [
+                    {
+                        "description": "参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeDeploymentPauseResumeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/deployment/rollback": {
             "post": {
                 "consumes": [
@@ -6898,6 +7458,56 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/requests.KubeDeploymentRollbackRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/deployment/rollout-status": {
+            "get": {
+                "description": "获取 Deployment 的滚动更新详细状态（副本进度、策略配置、RS 列表等）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Deployment 管理"
+                ],
+                "summary": "获取 Rollout 状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Deployment 名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -6991,6 +7601,54 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/requests.KubeDeploymentUpdateImageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/deployment/update-strategy": {
+            "post": {
+                "description": "更新 Deployment 的滚动更新策略（maxSurge/maxUnavailable/minReadySeconds 等）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Deployment 管理"
+                ],
+                "summary": "更新滚动更新策略",
+                "parameters": [
+                    {
+                        "description": "滚动更新策略参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeDeploymentRollingUpdateRequest"
                         }
                     }
                 ],
@@ -9999,6 +10657,62 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/pod/terminal": {
+            "get": {
+                "description": "通过 WebSocket 连接到 Pod 容器的交互式终端（类似 kubectl exec -it）",
+                "tags": [
+                    "K8s Pod管理"
+                ],
+                "summary": "容器终端（WebSocket）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Pod 名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "容器名称（多容器 Pod 建议指定）",
+                        "name": "container",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Shell 类型（bash/sh/zsh，默认自动检测）",
+                        "name": "shell",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols - WebSocket 握手成功"
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "连接失败",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -16753,6 +17467,17 @@ const docTemplate = `{
         "requests.KubeDeploymentCreateRequest": {
             "type": "object"
         },
+        "requests.KubeDeploymentPauseResumeRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
         "requests.KubeDeploymentRestartRequest": {
             "type": "object",
             "properties": {
@@ -16776,6 +17501,37 @@ const docTemplate = `{
                 "replica_set": {
                     "description": "指定回滚的 ReplicaSet",
                     "type": "string"
+                }
+            }
+        },
+        "requests.KubeDeploymentRollingUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "max_surge": {
+                    "description": "最大超出副本数，如 \"1\" 或 \"25%\"",
+                    "type": "string"
+                },
+                "max_unavailable": {
+                    "description": "最大不可用副本数",
+                    "type": "string"
+                },
+                "min_ready_seconds": {
+                    "description": "Pod 就绪后最少等待秒数",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "progress_deadline_seconds": {
+                    "description": "进度截止时间",
+                    "type": "integer"
+                },
+                "revision_history_limit": {
+                    "description": "历史版本保留数",
+                    "type": "integer"
                 }
             }
         },
@@ -17646,6 +18402,79 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.PipelineBatchCreateRequest": {
+            "type": "object",
+            "properties": {
+                "pipelines": {
+                    "description": "流水线列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.PipelineBatchItem"
+                    }
+                },
+                "skip_existing": {
+                    "description": "跳过已存在的（按名称判重），否则报错",
+                    "type": "boolean"
+                }
+            }
+        },
+        "requests.PipelineBatchItem": {
+            "type": "object",
+            "properties": {
+                "auto_deploy": {
+                    "description": "自动部署配置（可选）",
+                    "type": "boolean"
+                },
+                "deploy_env": {
+                    "type": "string"
+                },
+                "description": {
+                    "description": "可选：描述",
+                    "type": "string"
+                },
+                "env_vars": {
+                    "description": "可选：环境变量",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvVar"
+                    }
+                },
+                "git_branch": {
+                    "description": "可选：分支，默认 main",
+                    "type": "string"
+                },
+                "git_repo": {
+                    "description": "必填：Git 仓库地址",
+                    "type": "string"
+                },
+                "language_type": {
+                    "description": "推荐：go/java/frontend/python/custom",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "必填：流水线名称",
+                    "type": "string"
+                },
+                "require_approval": {
+                    "type": "boolean"
+                },
+                "target_cluster_id": {
+                    "type": "integer"
+                },
+                "target_container": {
+                    "type": "string"
+                },
+                "target_namespace": {
+                    "type": "string"
+                },
+                "target_workload_kind": {
+                    "type": "string"
+                },
+                "target_workload_name": {
+                    "type": "string"
+                }
+            }
+        },
         "requests.PipelineBatchRunRequest": {
             "type": "object",
             "properties": {
@@ -17749,6 +18578,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "jenkins_url": {
+                    "type": "string"
+                },
+                "language_type": {
+                    "description": "go/java/frontend/python/custom",
                     "type": "string"
                 },
                 "name": {
@@ -17884,6 +18717,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "jenkins_url": {
+                    "type": "string"
+                },
+                "language_type": {
+                    "description": "go/java/frontend/python/custom",
                     "type": "string"
                 },
                 "name": {

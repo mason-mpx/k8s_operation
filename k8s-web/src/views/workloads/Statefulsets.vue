@@ -138,6 +138,10 @@
             <td style="white-space: nowrap;">{{ sts.createdAt }}</td>
             <td>
               <div class="action-icons">
+                <!-- 终端按钮 -->
+                <button class="action-btn terminal" @click="openTerminalForStatefulSet(sts)" title="打开容器终端">
+                  >_ 终端
+                </button>
                 <!-- Pod 关联按钮（独立显示） -->
                 <button class="action-btn primary" @click="viewPods(sts)" title="查看此 StatefulSet 管理的所有 Pod">
                   📦 Pod 关联
@@ -838,6 +842,9 @@
                       <button class="icon-btn" title="查看日志" @click="openPodLogs(pod)">
                         📄 日志
                       </button>
+                      <button class="icon-btn" title="容器终端" @click="openTerminal(pod)">
+                        >_ 终端
+                      </button>
                       
                       <!-- 更多菜单 -->
                       <div class="more-btn">
@@ -1318,6 +1325,39 @@
         </div>
       </div>
     </div>
+
+    <!-- 容器终端 -->
+    <KubeTerminal
+      :visible="showTerminal"
+      :namespace="terminalPod.namespace"
+      :pod-name="terminalPod.name"
+      :container-name="terminalPod.container"
+      @close="closeTerminal"
+    />
+
+    <!-- 资源状态监听浮窗 -->
+    <transition name="watcher-slide">
+      <div v-if="watchingStatus" class="resource-watcher-panel">
+        <div class="watcher-header">
+          <span class="watcher-title">{{ phaseIcon(watchPhase) }} Rollout 监听</span>
+          <span class="watcher-elapsed">{{ formatElapsed(watchElapsed) }}</span>
+          <button class="watcher-close" @click="stopWatching" title="停止监听">×</button>
+        </div>
+        <div class="watcher-body">
+          <div class="watcher-progress">
+            <div class="watcher-progress-bar" :style="{ width: watchProgress + '%', background: phaseColor(watchPhase) }"></div>
+          </div>
+          <div class="watcher-phase" :style="{ color: phaseColor(watchPhase) }">{{ watchPhase }} ({{ watchProgress }}%)</div>
+          <div class="watcher-events" v-if="watchEvents.length > 0">
+            <div v-for="(ev, i) in watchEvents.slice(0, 8)" :key="i" class="watcher-event" :class="{ warning: ev.type === 'Warning' }">
+              <span class="ev-type">{{ ev.type === 'Warning' ? '⚠' : 'ℹ️' }}</span>
+              <span class="ev-reason">{{ ev.reason }}</span>
+              <span class="ev-msg">{{ ev.message }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -1325,13 +1365,104 @@
 import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
+import KubeTerminal from '@/components/KubeTerminal.vue'
 import statefulsetsApi from '@/api/cluster/workloads/statefulsets'
 import podsApi from '@/api/cluster/workloads/pods'
 import namespaceApi from '@/api/cluster/config/namespace'
 import storageclassApi from '@/api/cluster/storage/storageclass'
 import { useClusterStore } from '@/stores/cluster'
 import { useResizableModal } from '@/composables/useResizableModal'
+import { useResourceWatcher } from '@/composables/useResourceWatcher'
 import permissionStore from '@/stores/permission'
+
+// ===== 容器终端 =====
+const showTerminal = ref(false)
+const terminalPod = ref({ namespace: '', name: '', container: '' })
+
+const openTerminal = (pod) => {
+  terminalPod.value = {
+    namespace: pod.namespace || podsStatefulset.value?.namespace || '',
+    name: pod.name,
+    container: pod.containers?.[0] || pod.containerName || '',
+  }
+  showTerminal.value = true
+}
+
+// 从 StatefulSet 主表格打开终端
+const openTerminalForStatefulSet = async (sts) => {
+  try {
+    const res = await statefulsetsApi.pods({ namespace: sts.namespace, name: sts.name })
+    const list = res.code === 0 ? (res.data?.pods || res.data?.items || res.data?.list || res.data || []) : []
+    const pods = list.map(p => ({
+      name: p.metadata?.name || p.name,
+      namespace: p.metadata?.namespace || sts.namespace,
+      status: p.status?.phase || p.status || 'Unknown',
+      containers: p.spec?.containers?.map(c => c.name) || p.containers || [],
+    }))
+    const runningPod = pods.find(p => p.status === 'Running') || pods[0]
+    if (runningPod) {
+      terminalPod.value = { namespace: runningPod.namespace, name: runningPod.name, container: runningPod.containers?.[0] || '' }
+      showTerminal.value = true
+    } else {
+      Message.warning({ content: '该 StatefulSet 没有可用的 Pod，无法打开终端', duration: 2000 })
+    }
+  } catch (e) {
+    Message.error({ content: '查找 Pod 失败: ' + (e.message || e), duration: 2000 })
+  }
+}
+
+const closeTerminal = () => {
+  showTerminal.value = false
+}
+
+// ===== 资源状态监听 =====
+const {
+  watching: watchingStatus,
+  watchPhase,
+  watchProgress,
+  watchEvents,
+  watchElapsed,
+  startWatching,
+  stopWatching,
+  formatElapsed,
+  phaseColor,
+  phaseIcon,
+} = useResourceWatcher()
+
+const startStatefulSetWatcher = (sts) => {
+  startWatching(
+    { namespace: sts.namespace, name: sts.name, kind: 'StatefulSet' },
+    {
+      getStatus: async () => {
+        try {
+          const res = await statefulsetsApi.detail({ namespace: sts.namespace, name: sts.name })
+          const d = res?.data || res || {}
+          return {
+            status: d.status || 'Unknown',
+            desiredReplicas: d.replicas || 0,
+            readyReplicas: d.ready_replicas || 0,
+            updatedReplicas: d.updated_replicas || d.ready_replicas || 0,
+          }
+        } catch { return null }
+      },
+      getEvents: async () => {
+        try {
+          const res = await statefulsetsApi.events({ namespace: sts.namespace, name: sts.name, limit: 20, since_seconds: 300 })
+          return res?.data?.items || res?.data || []
+        } catch { return [] }
+      },
+      onComplete: ({ success, elapsed }) => {
+        if (success) {
+          Message.success({ content: `StatefulSet ${sts.name} 已就绪（耗时 ${elapsed}s）`, duration: 3000 })
+        }
+        fetchStatefulsets()
+      },
+      pollInterval: 2000,
+      eventInterval: 4000,
+      timeout: 300000,
+    },
+  )
+}
 
 // ===== 操作权限控制 =====
 const canOperate = computed(() => {
@@ -2175,15 +2306,25 @@ const startInlineImage = (sts) => {
   inlineEdit.value = { key: `image-${sts.name}`, value: sts.image, original: sts.image }
   containerList.value = sts.containers || []
 }
+let _savingInlineImage = false
 const saveInlineImage = async (sts) => {
+  if (_savingInlineImage) return  // 防止 confirm() 导致 blur 再次触发
   const newVal = inlineEdit.value.value?.trim()
   if (!newVal || newVal === inlineEdit.value.original) { cancelInlineEdit(); return }
-  cancelInlineEdit()
+  
+  _savingInlineImage = true
   try {
+    if (!confirm(`⚠️ 确认更新镜像？\n\nStatefulSet: ${sts.namespace}/${sts.name}\n容器: ${containerList.value[0] || ''}\n旧镜像: ${inlineEdit.value.original}\n新镜像: ${newVal}\n\n此操作将触发滚动更新，请确认！`)) {
+      cancelInlineEdit()
+      return
+    }
+    cancelInlineEdit()
     await statefulsetsApi.updateImage({ namespace: sts.namespace, name: sts.name, container: containerList.value[0] || '', image: newVal })
-    Message.success({ content: '镜像更新成功' })
+    Message.success({ content: '镜像更新成功，开始监听 Rollout 状态...' })
     refreshList()
+    startStatefulSetWatcher(sts)
   } catch (e) { Message.error({ content: e?.msg || '更新镜像失败' }) }
+  finally { _savingInlineImage = false }
 }
 const cancelInlineEdit = () => { inlineEdit.value = { key: '', value: null, original: null } }
 
@@ -2511,9 +2652,10 @@ const submitUpdateImage = async () => {
       container: updateImageForm.value.container,
       image: updateImageForm.value.image.trim()
     })
-    Message.success({ content: '镜像更新成功' })
+    Message.success({ content: '镜像更新成功，开始监听 Rollout 状态...' })
     showUpdateImageModal.value = false
     refreshList()
+    startStatefulSetWatcher({ namespace: updateImageForm.value.namespace, name: updateImageForm.value.name })
   } catch (e) { Message.error({ content: e?.msg || '更新镜像失败' }) }
   finally { updatingImage.value = false }
 }
@@ -2728,7 +2870,8 @@ const createStatefulSetFromYaml = async () => {
   try {
     const res = await statefulsetsApi.createFromYaml({ yaml: yamlContent.value })
     if (res.code === 0) {
-      Message.success({ content: 'StatefulSet 创建成功' })
+      const msg = res.data?.message || 'StatefulSet 创建成功'
+      Message.success({ content: msg, duration: 5000 })
       showCreateModal.value = false
       resetForm()
       await fetchStatefulsets()
@@ -2794,9 +2937,9 @@ const createStatefulSetFromYaml = async () => {
 .batch-btn.danger { background: rgba(239, 68, 68, 0.8); }
 
 .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); overflow-x: auto; /* 支持横向滚动 */ overflow-y: visible; }
-.resource-table { width: 100%; border-collapse: collapse; min-width: 0; table-layout: auto; }
-.resource-table th { background-color: #f7fafc; text-align: left; padding: 16px 20px; font-size: 14px; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0; }
-.resource-table td { padding: 16px 20px; font-size: 14px; color: #2d3748; border-bottom: 1px solid #f7fafc; vertical-align: middle; }
+.resource-table { width: 100%; border-collapse: collapse; min-width: 1200px; table-layout: auto; }
+.resource-table th { background-color: #f7fafc; text-align: left; padding: 14px 12px; font-size: 14px; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+.resource-table td { padding: 14px 12px; font-size: 14px; color: #2d3748; border-bottom: 1px solid #f7fafc; vertical-align: middle; }
 .resource-table tbody tr:hover { background-color: #f7fafc; }
 .row-selected { background-color: #ebf5ff !important; }
 
@@ -2848,9 +2991,11 @@ const createStatefulSetFromYaml = async () => {
 .selector-tag:hover { background-color: rgba(50, 108, 229, 0.15); }
 .strategy-badge { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 
-.action-icons { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
-.action-btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; background: #e2e8f0; color: #4a5568; transition: all 0.2s; white-space: nowrap; }
+.action-icons { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.action-btn { padding: 5px 8px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; background: #e2e8f0; color: #4a5568; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .action-btn.primary { background: #326ce5; color: white; }
+.action-btn.terminal { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #00d4aa; font-family: 'Consolas', 'Monaco', monospace; letter-spacing: 0.5px; }
+.action-btn.terminal:hover { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); color: #00ffcc; box-shadow: 0 4px 8px rgba(0, 212, 170, 0.3); }
 .action-btn:hover { transform: translateY(-1px); }
 .icon-btn { background: none; border: none; font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
 .icon-btn:hover { background-color: #e2e8f0; }
@@ -3367,4 +3512,42 @@ const createStatefulSetFromYaml = async () => {
   transform: none;
   box-shadow: none;
 }
+
+/* 资源监听浮窗 */
+.resource-watcher-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 1000;
+  overflow: hidden;
+  color: #c0caf5;
+}
+.watcher-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #24283b;
+  border-bottom: 1px solid #2f3549;
+}
+.watcher-title { flex: 1; font-weight: 600; font-size: 14px; }
+.watcher-elapsed { font-size: 12px; color: #565f89; margin-right: 8px; font-family: monospace; }
+.watcher-close { background: none; border: none; color: #565f89; font-size: 18px; cursor: pointer; padding: 0 4px; }
+.watcher-close:hover { color: #f7768e; }
+.watcher-body { padding: 12px 16px; }
+.watcher-progress { height: 4px; background: #2f3549; border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.watcher-progress-bar { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.watcher-phase { font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.watcher-events { max-height: 160px; overflow-y: auto; }
+.watcher-event { display: flex; gap: 6px; font-size: 12px; padding: 3px 0; border-bottom: 1px solid #2f3549; }
+.watcher-event.warning { color: #e0af68; }
+.ev-type { flex-shrink: 0; }
+.ev-reason { flex-shrink: 0; font-weight: 500; color: #7aa2f7; }
+.ev-msg { color: #9aa5ce; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watcher-slide-enter-active, .watcher-slide-leave-active { transition: all 0.3s ease; }
+.watcher-slide-enter-from, .watcher-slide-leave-to { opacity: 0; transform: translateY(20px); }
 </style>

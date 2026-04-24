@@ -522,3 +522,184 @@ export const approveResourceConfig = (id, comment = '') => {
 export const rejectResourceConfig = (id, comment = '') => {
   return http.put(`${RESOURCE_BASE}/approval/${id}/reject`, { comment })
 }
+
+// =======================
+// CI/CD 制品库管理
+// 对应后端路由: /api/v1/k8s/cicd/artifact/*
+// =======================
+
+const ARTIFACT_BASE = `${API_BASE}/k8s/cicd/artifact`
+
+/**
+ * 获取制品列表
+ * @param {Object} params
+ * @param {number} params.page - 页码
+ * @param {number} params.page_size - 每页数量
+ * @param {number} params.pipeline_id - 流水线ID
+ * @param {string} params.artifact_type - 制品类型(jar/binary/dist/wheel/image)
+ * @param {string} params.language_type - 语言类型(go/java/frontend/python)
+ * @param {string} params.status - 状态(ready/expired)
+ */
+export const getArtifacts = (params = {}) => {
+  return http.get(`${ARTIFACT_BASE}/list`, { params })
+}
+
+/**
+ * 获取制品详情
+ * @param {number} id - 制品ID
+ */
+export const getArtifactDetail = (id) => {
+  return http.get(`${ARTIFACT_BASE}/detail`, { params: { id } })
+}
+
+/**
+ * 获取制品统计
+ * @param {number} pipelineId - 流水线ID（可选）
+ */
+export const getArtifactStats = (pipelineId = null) => {
+  const params = {}
+  if (pipelineId) params.pipeline_id = pipelineId
+  return http.get(`${ARTIFACT_BASE}/stats`, { params })
+}
+
+/**
+ * 创建制品记录（镜像类型/无需上传文件）
+ * @param {Object} data - 制品信息
+ * @param {string} data.name - 制品名称（必填）
+ * @param {number} data.pipeline_id - 流水线ID
+ * @param {number} data.run_id - 运行记录ID
+ * @param {string} data.artifact_type - 制品类型
+ * @param {string} data.version - 版本号
+ * @param {string} data.image_repo - 镜像仓库
+ * @param {string} data.image_tag - 镜像标签
+ */
+export const createArtifactRecord = (data) => {
+  return http.post(`${ARTIFACT_BASE}/create`, data)
+}
+
+/**
+ * 更新制品信息
+ * @param {Object} data - 更新参数
+ * @param {number} data.id - 制品ID（必填）
+ * @param {string} data.name - 制品名称
+ * @param {string} data.version - 版本号
+ * @param {string} data.artifact_type - 制品类型
+ * @param {string} data.status - 状态
+ * @param {string} data.image_repo - 镜像仓库
+ * @param {string} data.image_tag - 镜像标签
+ * @param {string} data.image_digest - 镜像摘要
+ */
+export const updateArtifact = (data) => {
+  return http.post(`${ARTIFACT_BASE}/update`, data)
+}
+
+/**
+ * 删除制品
+ * @param {number} id - 制品ID
+ */
+export const deleteArtifact = (id) => {
+  return http.post(`${ARTIFACT_BASE}/delete`, { id })
+}
+
+/**
+ * 批量删除制品
+ * @param {number[]} ids - 制品ID数组（最多100条）
+ */
+export const batchDeleteArtifacts = (ids) => {
+  return http.post(`${ARTIFACT_BASE}/batch-delete`, { ids })
+}
+
+/**
+ * 获取某次运行产出的制品列表
+ * @param {number} runId - 运行记录ID
+ */
+export const getArtifactsByRunID = (runId) => {
+  return http.get(`${ARTIFACT_BASE}/by-run`, { params: { run_id: runId } })
+}
+
+/**
+ * 下载制品文件（通过 window.open 流式下载）
+ * @param {number} id - 制品ID
+ * @param {string} token - 认证Token
+ */
+export const getArtifactDownloadUrl = (id, token) => {
+  return `${ARTIFACT_BASE}/download?id=${id}&token=${encodeURIComponent(token)}`
+}
+
+/**
+ * 下载制品文件（通过 blob 下载，备用方案）
+ * @param {number} id - 制品ID
+ */
+export const downloadArtifact = (id) => {
+  return http.get(`${ARTIFACT_BASE}/download`, {
+    params: { id },
+    responseType: 'blob'
+  })
+}
+
+/**
+ * 为已有制品补传/替换文件
+ * @param {number} id - 制品ID
+ * @param {File} file - 文件对象
+ */
+export const attachArtifactFile = (id, file) => {
+  const formData = new FormData()
+  formData.append('id', id)
+  formData.append('file', file)
+  return http.post(`${ARTIFACT_BASE}/attach`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+/**
+ * 上传制品（带文件 + 元数据，新建记录）
+ * @param {File} file - 文件对象
+ * @param {Object} meta - 元数据
+ */
+export const uploadArtifact = (file, meta = {}) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  Object.entries(meta).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') formData.append(k, v)
+  })
+  return http.post(`${ARTIFACT_BASE}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+// =======================
+// SonarQube 代码质量管理
+// =======================
+
+const PIPELINE_BASE = `${API_BASE}/k8s/cicd/pipeline`
+
+/**
+ * 获取 SonarQube 代码质量报告
+ * @param {number} pipelineId - 流水线ID
+ * @param {number} runId - 运行记录ID（可选，空则获取最新一次）
+ */
+export const getSonarReport = (pipelineId, runId = null) => {
+  const params = { pipeline_id: pipelineId }
+  if (runId) params.run_id = runId
+  return http.get(`${PIPELINE_BASE}/sonar-report`, { params })
+}
+
+/**
+ * 模板化发布验证
+ */
+export const getTemplateVerify = () => {
+  return http.get(`${PIPELINE_BASE}/template-verify`)
+}
+
+/**
+ * 模拟模板化发布流程
+ * @param {string} languageType - 语言类型
+ * @param {string} gitRepo - Git 仓库地址
+ * @param {string} imageRepo - 镜像仓库地址
+ * @param {string} gitBranch - Git 分支
+ */
+export const getTemplateSimulate = (languageType, gitRepo, imageRepo, gitBranch = 'main') => {
+  return http.get(`${PIPELINE_BASE}/template-simulate`, {
+    params: { language_type: languageType, git_repo: gitRepo, image_repo: imageRepo, git_branch: gitBranch }
+  })
+}

@@ -1,40 +1,35 @@
-# ---------- builder ----------
-ARG GO_VERSION=1.24
-FROM --platform=${BUILDPLATFORM:-linux/amd64} swr.cn-east-3.myhuaweicloud.com/kubesre/docker.io/golang:${GO_VERSION} AS builder
+# ==============================================================================
+# K8s Operation Platform - 纯运行时 Dockerfile（生产级）
+# ==============================================================================
+# 架构：平台编译 + Docker 纯打包
+#
+# 职责分工：
+#   - Jenkins 平台：go mod download → go build → 产出二进制
+#   - Dockerfile：仅将二进制打包为最小镜像（无任何编译环境）
+#
+# 构建方式：
+#   方式1（默认）：先在 Jenkins/本地编译，再 docker build
+#     $ go build -trimpath -ldflags="-s -w" -o bin/k8s_operation ./cmd/k8soperation
+#     $ docker build -t k8soperation:latest .
+#
+#   方式2（兼容）：使用 docs/dockerfile/ 下的多阶段构建 Dockerfile
+#     $ docker build -f docs/dockerfile/Dockerfile.golang.prod -t k8soperation:latest .
+# ==============================================================================
 
-# 多架构支持：TARGETARCH 由 docker buildx 自动注入（amd64 / arm64）
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+FROM alpine:3.20
 
-WORKDIR /src
-ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
-ENV CGO_ENABLED=0
-
-ARG BIN_NAME=k8s_operation
-
-COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download && go mod verify
-
-COPY . .
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o /out/${BIN_NAME} ./cmd/k8soperation
-
-
-# ---------- runtime ----------
-FROM swr.cn-east-3.myhuaweicloud.com/kubesre/docker.io/alpine:3.20
-
+# 安装运行时依赖（CA证书 + 时区 + 健康检查工具）
 RUN apk add --no-cache ca-certificates tzdata wget && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
     addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
 RUN mkdir -p /app/storage/logs /app/configs
 
-COPY --from=builder /out/k8s_operation /app/k8s_operation
+# 接收平台编译好的二进制（由 Jenkins Build Binary 阶段 或 本地 go build 产出）
+COPY bin/k8s_operation /app/k8s_operation
+RUN chmod +x /app/k8s_operation
 
 RUN chown -R app:app /app
 USER app

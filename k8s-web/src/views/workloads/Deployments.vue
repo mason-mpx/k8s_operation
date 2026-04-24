@@ -140,8 +140,9 @@
               />
             </td>
             <td>
-              <span class="status-indicator" :class="deployment.status.toLowerCase()">
+              <span class="status-indicator" :class="[deployment.status.toLowerCase(), { tracking: isTracking(deployment) }]">
                 {{ deployment.status }}
+                <span v-if="isTracking(deployment) && getTrackPhase(deployment) === 'polling'" class="tracking-pulse"></span>
               </span>
             </td>
             <td>
@@ -209,7 +210,7 @@
                     title="停服（副本数调为0）"
                   >⏸️</button>
                 </div>
-                <div class="replicas-bar">
+                <div class="replicas-bar" :class="{ tracking: isTracking(deployment) }">
                   <div class="replicas-fill" :style="{ width: `${(deployment.readyReplicas / Math.max(deployment.desiredReplicas, 1)) * 100}%` }"></div>
                 </div>
               </div>
@@ -247,6 +248,10 @@
             <td style="white-space: nowrap;">{{ deployment.createdAt }}</td>
             <td>
               <div class="action-icons">
+                <!-- 终端按钮 -->
+                <button class="action-btn terminal" @click="openTerminalForDeployment(deployment)" title="打开容器终端">
+                  >_ 终端
+                </button>
                 <!-- Pod 关联按钮（独立显示） -->
                 <button class="action-btn primary" @click="viewPods(deployment)" title="查看此 Deployment 管理的所有 Pod">
                   📦 Pod 关联
@@ -276,6 +281,10 @@
                     <button v-if="canOperate" class="menu-item" @click="openUpdateImage(deployment)">
                       <span class="menu-icon">🔧</span>
                       <span>更新镜像</span>
+                    </button>
+                    <button v-if="canOperate" class="menu-item" @click="openRolloutStatus(deployment)">
+                      <span class="menu-icon">📊</span>
+                      <span>滚动更新</span>
                     </button>
                     <button v-if="canOperate" class="menu-item" @click="openRollback(deployment)">
                       <span class="menu-icon">⏪</span>
@@ -340,8 +349,9 @@
             <div class="card-title-row">
               <span class="card-icon">🚀</span>
               <h3 class="card-title">{{ deployment.name }}</h3>
-              <span class="status-indicator" :class="deployment.status.toLowerCase()">
+              <span class="status-indicator" :class="[deployment.status.toLowerCase(), { tracking: isTracking(deployment) }]">
                 {{ deployment.status }}
+                <span v-if="isTracking(deployment) && getTrackPhase(deployment) === 'polling'" class="tracking-pulse"></span>
               </span>
             </div>
             <span class="namespace-badge">{{ deployment.namespace }}</span>
@@ -401,7 +411,7 @@
                     title="停服（副本数调为0）"
                   >⏸️</button>
                 </div>
-                <div class="replicas-bar">
+                <div class="replicas-bar" :class="{ tracking: isTracking(deployment) }">
                   <div class="replicas-fill" :style="{ width: `${(deployment.readyReplicas / Math.max(deployment.desiredReplicas, 1)) * 100}%` }"></div>
                 </div>
               </div>
@@ -1695,6 +1705,201 @@
       </div>
     </div>
 
+    <!-- 滚动更新状态弹窗 -->
+    <div v-if="showRolloutModal" class="modal-overlay" @click.self="showRolloutModal = false">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h3>📊 滚动更新管理</h3>
+          <button class="close-btn" @click="showRolloutModal = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- 基本信息 -->
+          <div class="info-box">
+            <div><strong>部署:</strong> {{ rolloutDeployment?.name }}</div>
+            <div><strong>命名空间:</strong> {{ rolloutDeployment?.namespace }}</div>
+          </div>
+
+          <div v-if="loadingRollout" class="loading-state">加载滚动更新状态...</div>
+          <div v-else-if="rolloutStatus">
+            <!-- 状态概览 -->
+            <div class="rollout-status-panel">
+              <div class="rollout-status-header">
+                <span class="rollout-status-badge" :class="rolloutStatus.status?.toLowerCase()">
+                  {{ rolloutStatus.status }}
+                </span>
+                <span class="rollout-status-reason">{{ rolloutStatus.status_reason }}</span>
+                <span v-if="rolloutStatus.paused" class="paused-badge">⏸️ 已暂停</span>
+              </div>
+
+              <!-- 进度条 -->
+              <div class="rollout-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" :class="rolloutStatus.status?.toLowerCase()" :style="{ width: rolloutStatus.progress + '%' }"></div>
+                </div>
+                <span class="progress-text">{{ rolloutStatus.progress }}%</span>
+              </div>
+
+              <!-- 副本信息 -->
+              <div class="rollout-replicas">
+                <div class="replica-stat">
+                  <span class="stat-label">期望</span>
+                  <span class="stat-value">{{ rolloutStatus.desired_replicas }}</span>
+                </div>
+                <div class="replica-stat">
+                  <span class="stat-label">已更新</span>
+                  <span class="stat-value">{{ rolloutStatus.updated_replicas }}</span>
+                </div>
+                <div class="replica-stat">
+                  <span class="stat-label">就绪</span>
+                  <span class="stat-value">{{ rolloutStatus.ready_replicas }}</span>
+                </div>
+                <div class="replica-stat">
+                  <span class="stat-label">可用</span>
+                  <span class="stat-value">{{ rolloutStatus.available_replicas }}</span>
+                </div>
+                <div class="replica-stat" v-if="rolloutStatus.unavailable_replicas > 0">
+                  <span class="stat-label">不可用</span>
+                  <span class="stat-value danger">{{ rolloutStatus.unavailable_replicas }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="rollout-actions" v-if="canOperate">
+              <button class="btn btn-warning" @click="pauseRollout" :disabled="rolloutStatus.paused || !rolloutStatus.is_rolling" v-if="!rolloutStatus.paused">
+                ⏸️ 暂停 Rollout
+              </button>
+              <button class="btn btn-success" @click="resumeRollout" :disabled="!rolloutStatus.paused" v-if="rolloutStatus.paused">
+                ▶️ 恢复 Rollout
+              </button>
+              <button class="btn btn-primary" @click="refreshRolloutStatus">
+                🔄 刷新状态
+              </button>
+              <button class="btn btn-secondary" @click="showStrategyConfig = true">
+                ⚙️ 策略配置
+              </button>
+            </div>
+
+            <!-- 当前策略 -->
+            <div class="rollout-strategy">
+              <h4>滚动更新策略</h4>
+              <div class="strategy-grid">
+                <div class="strategy-item">
+                  <span class="strategy-label">maxSurge</span>
+                  <span class="strategy-value">{{ rolloutStatus.max_surge || '-' }}</span>
+                </div>
+                <div class="strategy-item">
+                  <span class="strategy-label">maxUnavailable</span>
+                  <span class="strategy-value">{{ rolloutStatus.max_unavailable || '-' }}</span>
+                </div>
+                <div class="strategy-item">
+                  <span class="strategy-label">minReadySeconds</span>
+                  <span class="strategy-value">{{ rolloutStatus.min_ready_seconds || 0 }}s</span>
+                </div>
+                <div class="strategy-item">
+                  <span class="strategy-label">progressDeadline</span>
+                  <span class="strategy-value">{{ rolloutStatus.progress_deadline || 600 }}s</span>
+                </div>
+                <div class="strategy-item">
+                  <span class="strategy-label">历史版本保留</span>
+                  <span class="strategy-value">{{ rolloutStatus.revision_history_limit || 10 }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ReplicaSet 列表 -->
+            <div class="rollout-rs-list" v-if="rolloutStatus.replica_sets?.length">
+              <h4>ReplicaSet 列表</h4>
+              <table class="simple-table">
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>版本</th>
+                    <th>副本数</th>
+                    <th>就绪</th>
+                    <th>可用</th>
+                    <th>镜像</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="rs in rolloutStatus.replica_sets" :key="rs.name" :class="{ 'rs-current': rs.is_current }">
+                    <td class="monospace" :title="rs.name">{{ rs.name }}</td>
+                    <td>{{ rs.revision }}</td>
+                    <td>{{ rs.replicas }}</td>
+                    <td>{{ rs.ready_replicas }}</td>
+                    <td>{{ rs.available_replicas }}</td>
+                    <td class="image-cell" :title="rs.image">{{ rs.image }}</td>
+                    <td>
+                      <span v-if="rs.is_current" class="status-indicator running">活跃</span>
+                      <span v-else class="status-indicator stopped">旧版本</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Conditions -->
+            <div class="rollout-conditions" v-if="rolloutStatus.conditions?.length">
+              <h4>Conditions</h4>
+              <div class="conditions-list">
+                <div v-for="cond in rolloutStatus.conditions" :key="cond.type" class="condition-item" :class="cond.status === 'True' ? 'success' : 'warning'">
+                  <span class="cond-type">{{ cond.type }}</span>
+                  <span class="cond-status">{{ cond.status }}</span>
+                  <span class="cond-reason">{{ cond.reason }}</span>
+                  <span class="cond-message">{{ cond.message }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 策略配置弹窗 -->
+    <div v-if="showStrategyConfig" class="modal-overlay" @click.self="showStrategyConfig = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>⚙️ 滚动更新策略配置</h3>
+          <button class="close-btn" @click="showStrategyConfig = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>maxSurge <span class="form-hint">滚动更新时最多可以超出期望副本数的 Pod 数量</span></label>
+            <input type="text" v-model="strategyForm.max_surge" class="form-input" placeholder="如: 1 或 25%" />
+          </div>
+          <div class="form-group">
+            <label>maxUnavailable <span class="form-hint">滚动更新时最多允许不可用的 Pod 数量</span></label>
+            <input type="text" v-model="strategyForm.max_unavailable" class="form-input" placeholder="如: 0 或 25%" />
+          </div>
+          <div class="form-group">
+            <label>minReadySeconds <span class="form-hint">Pod 就绪后最少等待秒数（0=立即可用）</span></label>
+            <input type="number" v-model.number="strategyForm.min_ready_seconds" class="form-input" min="0" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label>progressDeadlineSeconds <span class="form-hint">进度截止时间（秒）</span></label>
+            <input type="number" v-model.number="strategyForm.progress_deadline_seconds" class="form-input" min="1" placeholder="600" />
+          </div>
+          <div class="form-group">
+            <label>历史版本保留数 <span class="form-hint">ReplicaSet 保留数量</span></label>
+            <input type="number" v-model.number="strategyForm.revision_history_limit" class="form-input" min="0" placeholder="10" />
+          </div>
+          <div class="info-box" style="margin-top: 12px;">
+            <div>💡 <strong>生产环境推荐:</strong></div>
+            <div>• maxSurge=1, maxUnavailable=0 → 确保服务不中断</div>
+            <div>• minReadySeconds=10~30 → 确保新 Pod 稳定后再替换旧 Pod</div>
+            <div>• progressDeadlineSeconds=600 → 10分钟内完成更新，否则判定失败</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showStrategyConfig = false">取消</button>
+          <button class="btn btn-primary" @click="submitStrategy" :disabled="savingStrategy">
+            {{ savingStrategy ? '保存中...' : '保存策略' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Pods 列表弹窗 -->
     <div v-if="showPodsModal" class="modal-overlay" @click.self="showPodsModal = false">
       <div class="modal-content modal-lg">
@@ -1737,6 +1942,9 @@
                       <!-- 日志按钮（常用，直接显示） -->
                       <button class="icon-btn" title="查看日志" @click="openPodLogs(pod)">
                         📄 日志
+                      </button>
+                      <button class="icon-btn" title="容器终端" @click="openTerminal(pod)">
+                        ██ 终端
                       </button>
                       
                       <!-- 更多菜单 -->
@@ -2432,6 +2640,48 @@
         </div>
       </div>
     </div>
+
+    <!-- 容器终端 -->
+    <KubeTerminal
+      :visible="showTerminal"
+      :namespace="terminalPod.namespace"
+      :pod-name="terminalPod.name"
+      :container-name="terminalPod.container"
+      @close="closeTerminal"
+    />
+
+    <!-- 资源状态监听浮窗 -->
+    <transition name="watcher-slide">
+      <div v-if="watchingStatus" class="resource-watcher-panel">
+        <div class="watcher-header">
+          <span class="watcher-title">
+            {{ phaseIcon(watchPhase) }} Rollout 监听
+          </span>
+          <span class="watcher-elapsed">{{ formatElapsed(watchElapsed) }}</span>
+          <button class="watcher-close" @click="stopWatching" title="停止监听">×</button>
+        </div>
+        <div class="watcher-body">
+          <div class="watcher-progress">
+            <div class="watcher-progress-bar" :style="{ width: watchProgress + '%', background: phaseColor(watchPhase) }"></div>
+          </div>
+          <div class="watcher-phase" :style="{ color: phaseColor(watchPhase) }">
+            {{ watchPhase }} ({{ watchProgress }}%)
+          </div>
+          <div class="watcher-events" v-if="watchEvents.length > 0">
+            <div
+              v-for="(ev, i) in watchEvents.slice(0, 8)"
+              :key="i"
+              class="watcher-event"
+              :class="{ warning: ev.type === 'Warning' }"
+            >
+              <span class="ev-type">{{ ev.type === 'Warning' ? '⚠' : 'ℹ️' }}</span>
+              <span class="ev-reason">{{ ev.reason }}</span>
+              <span class="ev-msg">{{ ev.message }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -2439,13 +2689,112 @@
 import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
+import KubeTerminal from '@/components/KubeTerminal.vue'
 import deploymentsApi from '@/api/cluster/workloads/deployments'
 import podsApi from '@/api/cluster/workloads/pods'
 import serviceApi from '@/api/cluster/networking/service'
 import namespaceApi from '@/api/cluster/config/namespace'
 import { useClusterStore } from '@/stores/cluster'
 import { useResizableModal } from '@/composables/useResizableModal'
+import { useResourceWatcher } from '@/composables/useResourceWatcher'
 import permissionStore from '@/stores/permission'
+
+// ===== 容器终端 =====
+const showTerminal = ref(false)
+const terminalPod = ref({ namespace: '', name: '', container: '' })
+
+const openTerminal = (pod) => {
+  terminalPod.value = {
+    namespace: pod.namespace || podsDeployment.value?.namespace || '',
+    name: pod.name,
+    container: pod.containers?.[0] || pod.containerName || '',
+  }
+  showTerminal.value = true
+}
+
+// 从 Deployment 主表格打开终端（通过 deploy_pods API 查找 Running Pod）
+const openTerminalForDeployment = async (deployment) => {
+  try {
+    const res = await deploymentsApi.pods({ namespace: deployment.namespace, name: deployment.name })
+    const list = res.code === 0 ? (res.data?.pods || res.data?.items || res.data?.list || res.data || []) : []
+    // 解析 pod 信息（后端可能返回原生 K8s 对象或已格式化对象）
+    const pods = list.map(p => ({
+      name: p.metadata?.name || p.name,
+      namespace: p.metadata?.namespace || deployment.namespace,
+      status: p.status?.phase || p.status || 'Unknown',
+      containers: p.spec?.containers?.map(c => c.name) || p.containers || [],
+    }))
+    const runningPod = pods.find(p => p.status === 'Running') || pods[0]
+    if (runningPod) {
+      terminalPod.value = {
+        namespace: runningPod.namespace,
+        name: runningPod.name,
+        container: runningPod.containers?.[0] || '',
+      }
+      showTerminal.value = true
+    } else {
+      Message.warning({ content: '该 Deployment 没有可用的 Pod，无法打开终端', duration: 2000 })
+    }
+  } catch (e) {
+    Message.error({ content: '查找 Pod 失败: ' + (e.message || e), duration: 2000 })
+  }
+}
+
+const closeTerminal = () => {
+  showTerminal.value = false
+}
+
+// ===== 资源状态监听 =====
+const {
+  watching: watchingStatus,
+  watchPhase,
+  watchProgress,
+  watchEvents,
+  watchElapsed,
+  startWatching,
+  stopWatching,
+  formatElapsed,
+  phaseColor,
+  phaseIcon,
+} = useResourceWatcher()
+
+// 镜像更新后启动状态监听
+const startDeploymentWatcher = (deployment) => {
+  startWatching(
+    { namespace: deployment.namespace, name: deployment.name, kind: 'Deployment' },
+    {
+      getStatus: async () => {
+        try {
+          const res = await deploymentsApi.rolloutStatus({
+            namespace: deployment.namespace,
+            name: deployment.name,
+          })
+          return res?.data || res || {}
+        } catch { return null }
+      },
+      getEvents: async () => {
+        try {
+          const res = await deploymentsApi.events({
+            namespace: deployment.namespace,
+            name: deployment.name,
+            limit: 20,
+            since_seconds: 300,
+          })
+          return res?.data?.items || res?.data || []
+        } catch { return [] }
+      },
+      onComplete: ({ success, elapsed }) => {
+        if (success) {
+          Message.success({ content: `Deployment ${deployment.name} 已就绪（耗时 ${elapsed}s）`, duration: 3000 })
+        }
+        fetchDeployments()
+      },
+      pollInterval: 2000,
+      eventInterval: 4000,
+      timeout: 300000,
+    },
+  )
+}
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -2790,6 +3139,21 @@ const updatingImage = ref(false)
 const rollingBack = ref(false)
 const deleting = ref(false)
 
+// 滚动更新管理
+const showRolloutModal = ref(false)
+const showStrategyConfig = ref(false)
+const rolloutDeployment = ref(null)
+const rolloutStatus = ref(null)
+const loadingRollout = ref(false)
+const savingStrategy = ref(false)
+const strategyForm = ref({
+  max_surge: '1',
+  max_unavailable: '0',
+  min_ready_seconds: 0,
+  progress_deadline_seconds: 600,
+  revision_history_limit: 10
+})
+
 // Data
 const detailData = ref(null)
 const eventsData = ref([])
@@ -3009,6 +3373,141 @@ const inlineInputRef = ref(null)
 // 副本数扩缩容状态追踪（每个 deployment 独立）
 const scalingMap = ref({})
 
+// ========== 操作后实时状态追踪 ==========
+// 记录正在追踪状态的 deployments: { 'ns/name': { targetReplicas, startTime, timer, phase } }
+const trackingMap = ref({})
+const TRACK_POLL_INTERVAL = 2000   // 2秒快速轮询
+const TRACK_TIMEOUT = 120000       // 最长追踪 120秒
+
+// 判断 deployment 是否已稳定
+const isDeploymentStable = (dep) => {
+  if (!dep) return true
+  const status = dep.status || ''
+  // Running 且 ready == desired 即稳定
+  if (status === 'Running' && dep.readyReplicas === dep.desiredReplicas) return true
+  // Stopped 且 desired == 0 即稳定
+  if (status === 'Stopped' && dep.desiredReplicas === 0) return true
+  // Failed 即稳定（失败了也算结束）
+  if (status === 'Failed') return true
+  return false
+}
+
+// 启动状态追踪
+const startStatusTracking = (deployment, opts = {}) => {
+  const key = `${deployment.namespace}/${deployment.name}`
+  
+  // 如果已在追踪，先停止旧的
+  if (trackingMap.value[key]?.timer) {
+    clearInterval(trackingMap.value[key].timer)
+  }
+  
+  const trackInfo = {
+    name: deployment.name,
+    namespace: deployment.namespace,
+    targetReplicas: opts.targetReplicas ?? deployment.desiredReplicas,
+    action: opts.action || 'scale',
+    startTime: Date.now(),
+    phase: 'polling',  // polling → stable / timeout / error
+    timer: null,
+  }
+  
+  // 快速轮询
+  trackInfo.timer = setInterval(async () => {
+    const elapsed = Date.now() - trackInfo.startTime
+    
+    // 超时停止
+    if (elapsed >= TRACK_TIMEOUT) {
+      trackInfo.phase = 'timeout'
+      clearInterval(trackInfo.timer)
+      trackInfo.timer = null
+      Message.warning({ content: `${deployment.name} 状态追踪超时（${Math.round(TRACK_TIMEOUT/1000)}s），请手动刷新`, duration: 3000 })
+      // 延迟清理标记
+      setTimeout(() => { delete trackingMap.value[key] }, 3000)
+      return
+    }
+    
+    // 重新获取列表
+    try {
+      const params = { namespace: deployment.namespace, page: 1, limit: 1000 }
+      const res = await deploymentsApi.list(params)
+      const list = res.data?.list || res.data?.items || []
+      
+      // 找到目标 deployment 并更新本地数据
+      const latest = list.find(item => item.name === deployment.name)
+      if (latest) {
+        const idx = deployments.value.findIndex(d => d.name === deployment.name && d.namespace === deployment.namespace)
+        if (idx >= 0) {
+          deployments.value[idx] = {
+            ...deployments.value[idx],
+            status: latest.status,
+            statusReason: latest.status_reason || '',
+            desiredReplicas: latest.replicas || 0,
+            readyReplicas: latest.ready_replicas || 0,
+            availableReplicas: latest.available_replicas || 0,
+            updatedReplicas: latest.updated_replicas || 0,
+            image: latest.image || (latest.images && latest.images[0]) || deployments.value[idx].image,
+          }
+          
+          // 检查是否稳定
+          if (isDeploymentStable(deployments.value[idx])) {
+            trackInfo.phase = 'stable'
+            clearInterval(trackInfo.timer)
+            trackInfo.timer = null
+            
+            const finalStatus = deployments.value[idx].status
+            const elapsedSec = ((Date.now() - trackInfo.startTime) / 1000).toFixed(1)
+            
+            if (finalStatus === 'Running') {
+              Message.success({ content: `${deployment.name} 已就绪（${elapsedSec}s）`, duration: 2500 })
+            } else if (finalStatus === 'Failed') {
+              Message.error({ content: `${deployment.name} 更新失败: ${deployments.value[idx].statusReason || '未知原因'}`, duration: 4000 })
+            } else if (finalStatus === 'Stopped') {
+              Message.success({ content: `${deployment.name} 已停服（${elapsedSec}s）`, duration: 2500 })
+            }
+            
+            // 延迟清理标记（让动画结束）
+            setTimeout(() => { delete trackingMap.value[key] }, 2000)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('状态追踪轮询失败:', e)
+    }
+  }, TRACK_POLL_INTERVAL)
+  
+  trackingMap.value[key] = trackInfo
+}
+
+// 停止所有追踪
+const stopAllTracking = () => {
+  Object.keys(trackingMap.value).forEach(key => {
+    if (trackingMap.value[key]?.timer) {
+      clearInterval(trackingMap.value[key].timer)
+    }
+  })
+  trackingMap.value = {}
+}
+
+// 判断某个 deployment 是否在追踪中
+const isTracking = (deployment) => {
+  const key = `${deployment.namespace}/${deployment.name}`
+  return !!trackingMap.value[key]
+}
+
+// 获取追踪阶段
+const getTrackPhase = (deployment) => {
+  const key = `${deployment.namespace}/${deployment.name}`
+  return trackingMap.value[key]?.phase || ''
+}
+
+// 获取追踪已用时间
+const getTrackElapsed = (deployment) => {
+  const key = `${deployment.namespace}/${deployment.name}`
+  const info = trackingMap.value[key]
+  if (!info) return 0
+  return Math.round((Date.now() - info.startTime) / 1000)
+}
+
 // =========================
 // 生命周期
 // =========================
@@ -3026,6 +3525,7 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('scroll', handleScroll, true)
   stopAutoRefresh()
+  stopAllTracking()
 })
 
 // =========================
@@ -3789,10 +4289,9 @@ const restartPodFromList = async (pod) => {
     // 刷新 Pods 列表
     if (podsDeployment.value) {
       await viewPods(podsDeployment.value)
+      // 启动父 Deployment 状态追踪
+      startStatusTracking(podsDeployment.value, { action: 'pod-restart' })
     }
-    // 开启自动刷新
-    autoRefresh.value = true
-    setTimeout(() => { autoRefresh.value = false }, 15000)
   } catch (e) {
     Message.error({ content: e?.msg || e?.message || '重启失败' })
   }
@@ -3830,10 +4329,8 @@ const submitPodUpdateImage = async () => {
       // 刷新 Pods 列表
       if (podsDeployment.value) {
         await viewPods(podsDeployment.value)
+        startStatusTracking(podsDeployment.value, { action: 'pod-image-update' })
       }
-      // 开启自动刷新
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
     } else {
       podUpdateImageError.value = res.msg || '更新镜像失败'
     }
@@ -3864,10 +4361,8 @@ const evictPodFromList = async (pod) => {
     // 刷新 Pods 列表
     if (podsDeployment.value) {
       await viewPods(podsDeployment.value)
+      startStatusTracking(podsDeployment.value, { action: 'pod-evict' })
     }
-    // 开启自动刷新
-    autoRefresh.value = true
-    setTimeout(() => { autoRefresh.value = false }, 15000)
   } catch (e) {
     Message.error({ content: e?.msg || e?.message || '驱逐失败' })
   }
@@ -3895,10 +4390,8 @@ const confirmDeletePod = async () => {
       // 刷新 Pods 列表
       if (podsDeployment.value) {
         await viewPods(podsDeployment.value)
+        startStatusTracking(podsDeployment.value, { action: 'pod-delete' })
       }
-      // 开启自动刷新
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
     } else {
       Message.error({ content: res.msg || '删除失败' })
     }
@@ -3931,10 +4424,8 @@ const confirmForceDeletePod = async () => {
       // 刷新 Pods 列表
       if (podsDeployment.value) {
         await viewPods(podsDeployment.value)
+        startStatusTracking(podsDeployment.value, { action: 'pod-force-delete' })
       }
-      // 开启自动刷新
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
     } else {
       Message.error({ content: res.msg || '强制删除失败' })
     }
@@ -4262,16 +4753,21 @@ const updateReplicaCount = async (deployment, newReplicas) => {
     })
     if (res.code === 0) {
       const action = newReplicas === 0 ? '已停服' : `副本数已更新为 ${newReplicas}`
-      Message.success({ content: action })
+      Message.success({ content: `${action}，正在追踪状态...` })
       
-      // 立即刷新数据，确保显示最新状态
-      await fetchDeployments()
+      // 立即更新本地状态（乐观更新）
+      const idx = deployments.value.findIndex(d => d.name === deployment.name && d.namespace === deployment.namespace)
+      if (idx >= 0) {
+        deployments.value[idx].desiredReplicas = newReplicas
+        if (newReplicas === 0) {
+          deployments.value[idx].status = 'Stopped'
+        } else if (newReplicas !== deployment.readyReplicas) {
+          deployments.value[idx].status = 'Updating'
+        }
+      }
       
-      // 开启自动刷新追踪状态变化（持续监控直到稳定）
-      autoRefresh.value = true
-      setTimeout(() => { 
-        autoRefresh.value = false 
-      }, 15000)  // 延长到 15 秒，确保状态稳定
+      // 启动实时状态追踪（每 2s 轮询直到稳定）
+      startStatusTracking(deployment, { targetReplicas: newReplicas, action: 'scale' })
     } else {
       Message.error({ content: res.msg || '扩缩容失败' })
     }
@@ -4296,8 +4792,11 @@ const startInlineImage = (deployment) => {
   }
 }
 
-// 内联编辑 - 保存镜像
+// 内联编辑 - 保存镜像（防重入保护，避免 Enter + blur 双重触发）
+let _savingInlineImage = false
 const saveInlineImage = async (deployment) => {
+  if (_savingInlineImage) return  // 防止 confirm() 导致 blur 再次触发
+  
   const newImage = inlineEdit.value.value?.trim()
   const oldImage = inlineEdit.value.original
   const container = inlineEdit.value.container
@@ -4308,19 +4807,14 @@ const saveInlineImage = async (deployment) => {
     return
   }
   
-  // 二次确认 - 镜像更新是高危操作
-  if (!confirm(`⚠️ 确认更新镜像？
-
-Deployment: ${deployment.namespace}/${deployment.name}
-容器: ${container}
-旧镜像: ${oldImage}
-新镜像: ${newImage}
-
-此操作将触发滚动更新，请确认！`)) {
-    return
-  }
-  
+  _savingInlineImage = true
   try {
+    // 二次确认 - 镜像更新是高危操作
+    if (!confirm(`⚠️ 确认更新镜像？\n\nDeployment: ${deployment.namespace}/${deployment.name}\n容器: ${container}\n旧镜像: ${oldImage}\n新镜像: ${newImage}\n\n此操作将触发滚动更新，请确认！`)) {
+      cancelInlineEdit()
+      return
+    }
+    
     const res = await deploymentsApi.updateImage({
       namespace: deployment.namespace,
       name: deployment.name,
@@ -4328,16 +4822,27 @@ Deployment: ${deployment.namespace}/${deployment.name}
       image: newImage
     })
     if (res.code === 0) {
-      Message.success({ content: '镜像已更新，正在滚动更新...' })
+      Message.success({ content: '镜像已更新，正在追踪滚动更新状态...' })
       cancelInlineEdit()
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
-      await fetchDeployments()
+      
+      // 乐观更新本地状态
+      const idx = deployments.value.findIndex(d => d.name === deployment.name && d.namespace === deployment.namespace)
+      if (idx >= 0) {
+        deployments.value[idx].status = 'Updating'
+        deployments.value[idx].image = newImage
+      }
+      
+      // 启动实时状态追踪
+      startStatusTracking(deployment, { action: 'image-update' })
+      // 同时启动 Rollout 监听面板
+      startDeploymentWatcher(deployment)
     } else {
       Message.error({ content: res.msg || '更新镜像失败' })
     }
   } catch (e) {
     Message.error({ content: '更新镜像失败' })
+  } finally {
+    _savingInlineImage = false
   }
 }
 
@@ -4397,15 +4902,16 @@ const scaleDeployment = async () => {
       scale_num: scaleForm.value.replicas  // 后端字段名是 scale_num
     })
     if (res.code === 0) {
-      Message.success({ content: '扩缩容成功' })
+      Message.success({ content: '扩缩容成功，正在追踪状态...' })
       showScaleModal.value = false
       
-      // 立即刷新数据
-      await fetchDeployments()
-      
-      // 开启自动刷新追踪状态变化
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
+      // 乐观更新本地状态
+      const dep = deployments.value.find(d => d.name === scaleForm.value.name && d.namespace === scaleForm.value.namespace)
+      if (dep) {
+        dep.desiredReplicas = scaleForm.value.replicas
+        dep.status = scaleForm.value.replicas === 0 ? 'Stopped' : 'Updating'
+        startStatusTracking(dep, { targetReplicas: scaleForm.value.replicas, action: 'scale' })
+      }
     } else {
       Message.error({ content: res.msg || '扩缩容失败' })
     }
@@ -4450,15 +4956,22 @@ Deployment: ${updateImageForm.value.namespace}/${updateImageForm.value.name}
   try {
     const res = await deploymentsApi.updateImage(updateImageForm.value)
     if (res.code === 0) {
-      Message.success({ content: '镜像更新成功，正在滚动更新...' })
+      Message.success({ content: '镜像更新成功，正在追踪状态...' })
       showUpdateImageModal.value = false
       
-      // 立即刷新数据
-      await fetchDeployments()
+      // 乐观更新本地状态
+      const dep = deployments.value.find(d => d.name === updateImageForm.value.name && d.namespace === updateImageForm.value.namespace)
+      if (dep) {
+        dep.status = 'Updating'
+        dep.image = updateImageForm.value.image
+        startStatusTracking(dep, { action: 'image-update' })
+      }
       
-      // 开启自动刷新追踪滚动更新状态
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
+      // 同时启动 Rollout 监听
+      startDeploymentWatcher({
+        namespace: updateImageForm.value.namespace,
+        name: updateImageForm.value.name,
+      })
     } else {
       Message.error({ content: res.msg || '更新镜像失败' })
     }
@@ -4488,10 +5001,16 @@ Deployment: ${deployment.namespace}/${deployment.name}
   try {
     const res = await deploymentsApi.restart({ namespace: deployment.namespace, name: deployment.name })
     if (res.code === 0) {
-      Message.success({ content: '重启成功，正在滚动重启...' })
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
-      await fetchDeployments()
+      Message.success({ content: '重启成功，正在追踪状态...' })
+      
+      // 乐观更新本地状态
+      const idx = deployments.value.findIndex(d => d.name === deployment.name && d.namespace === deployment.namespace)
+      if (idx >= 0) {
+        deployments.value[idx].status = 'Updating'
+      }
+      
+      // 启动实时状态追踪
+      startStatusTracking(deployment, { action: 'restart' })
     } else {
       Message.error({ content: res.msg || '重启失败' })
     }
@@ -4556,12 +5075,17 @@ ReplicaSet: ${history.name}
     })
     
     if (res.code === 0) {
-      Message.success({ content: `回滚到版本 ${history.revision} 成功` })
+      Message.success({ content: `回滚到版本 ${history.revision} 成功，正在追踪状态...` })
       showHistoryModal.value = false
-      await fetchDeployments()
-      // 开启自动刷新
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
+      
+      // 乐观更新本地状态
+      const idx = deployments.value.findIndex(d => d.name === historyDeployment.value.name && d.namespace === historyDeployment.value.namespace)
+      if (idx >= 0) {
+        deployments.value[idx].status = 'Updating'
+      }
+      
+      // 启动实时状态追踪
+      startStatusTracking(historyDeployment.value, { action: 'rollback' })
     } else {
       Message.error({ content: res.msg || '回滚失败' })
     }
@@ -4617,11 +5141,15 @@ ReplicaSet: ${rollbackForm.value.replica_set}
   try {
     const res = await deploymentsApi.rollback(rollbackForm.value)
     if (res.code === 0) {
-      Message.success({ content: '回滚成功，正在滚动更新...' })
+      Message.success({ content: '回滚成功，正在追踪状态...' })
       showRollbackModal.value = false
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
-      await fetchDeployments()
+      
+      // 乐观更新本地状态
+      const dep = deployments.value.find(d => d.name === rollbackForm.value.name && d.namespace === rollbackForm.value.namespace)
+      if (dep) {
+        dep.status = 'Updating'
+        startStatusTracking(dep, { action: 'rollback' })
+      }
     } else {
       Message.error({ content: res.msg || '回滚失败' })
     }
@@ -4640,6 +5168,108 @@ const deleteDeployment = (deployment) => {
   deploymentToDelete.value = deployment.name
   deploymentNamespaceToDelete.value = deployment.namespace
   showDeleteModal.value = true
+}
+
+// =========================
+// 滚动更新管理
+// =========================
+const openRolloutStatus = async (deployment) => {
+  showMoreOptions.value = false
+  rolloutDeployment.value = deployment
+  showRolloutModal.value = true
+  await refreshRolloutStatus()
+}
+
+const refreshRolloutStatus = async () => {
+  if (!rolloutDeployment.value) return
+  loadingRollout.value = true
+  try {
+    const res = await deploymentsApi.rolloutStatus({
+      namespace: rolloutDeployment.value.namespace,
+      name: rolloutDeployment.value.name
+    })
+    if (res.code === 0) {
+      rolloutStatus.value = res.data?.data || res.data
+      // 同步策略配置到表单
+      if (rolloutStatus.value) {
+        strategyForm.value = {
+          max_surge: rolloutStatus.value.max_surge || '1',
+          max_unavailable: rolloutStatus.value.max_unavailable || '0',
+          min_ready_seconds: rolloutStatus.value.min_ready_seconds || 0,
+          progress_deadline_seconds: rolloutStatus.value.progress_deadline || 600,
+          revision_history_limit: rolloutStatus.value.revision_history_limit || 10
+        }
+      }
+    } else {
+      Message.error({ content: res.msg || '获取 Rollout 状态失败' })
+    }
+  } catch (e) {
+    console.error('获取 Rollout 状态失败:', e)
+    Message.error({ content: '获取 Rollout 状态失败' })
+  } finally {
+    loadingRollout.value = false
+  }
+}
+
+const pauseRollout = async () => {
+  if (!rolloutDeployment.value) return
+  if (!confirm(`ℹ️ 确认暂停 ${rolloutDeployment.value.name} 的滚动更新？\n\n暂停后新 Pod 将不再创建，旧 Pod 不会被替换。`)) return
+  try {
+    const res = await deploymentsApi.pauseRollout({
+      namespace: rolloutDeployment.value.namespace,
+      name: rolloutDeployment.value.name
+    })
+    if (res.code === 0) {
+      Message.success({ content: 'Rollout 已暂停' })
+      await refreshRolloutStatus()
+    } else {
+      Message.error({ content: res.msg || '暂停失败' })
+    }
+  } catch (e) {
+    Message.error({ content: e?.msg || '暂停失败' })
+  }
+}
+
+const resumeRollout = async () => {
+  if (!rolloutDeployment.value) return
+  if (!confirm(`ℹ️ 确认恢复 ${rolloutDeployment.value.name} 的滚动更新？\n\n恢复后将继续进行滚动更新。`)) return
+  try {
+    const res = await deploymentsApi.resumeRollout({
+      namespace: rolloutDeployment.value.namespace,
+      name: rolloutDeployment.value.name
+    })
+    if (res.code === 0) {
+      Message.success({ content: 'Rollout 已恢复' })
+      await refreshRolloutStatus()
+    } else {
+      Message.error({ content: res.msg || '恢复失败' })
+    }
+  } catch (e) {
+    Message.error({ content: e?.msg || '恢复失败' })
+  }
+}
+
+const submitStrategy = async () => {
+  if (!rolloutDeployment.value) return
+  savingStrategy.value = true
+  try {
+    const res = await deploymentsApi.updateStrategy({
+      namespace: rolloutDeployment.value.namespace,
+      name: rolloutDeployment.value.name,
+      ...strategyForm.value
+    })
+    if (res.code === 0) {
+      Message.success({ content: '滚动更新策略已更新' })
+      showStrategyConfig.value = false
+      await refreshRolloutStatus()
+    } else {
+      Message.error({ content: res.msg || '更新策略失败' })
+    }
+  } catch (e) {
+    Message.error({ content: e?.msg || '更新策略失败' })
+  } finally {
+    savingStrategy.value = false
+  }
 }
 
 const confirmDelete = async () => {
@@ -4977,73 +5607,77 @@ const buildProbeData = (probe) => {
 // YAML 创建相关功能
 // =========================
 
-// 加载 Deployment YAML 模板
+// 加载 Deployment YAML 模板（Deployment + Service 组合）
 const loadDeploymentYamlTemplate = () => {
+  // 自动填充当前选中的命名空间
+  const ns = deploymentForm.value?.namespace || namespaceFilter.value || 'default'
   yamlContent.value = `# 支持多资源 YAML 创建（用 --- 分隔）
-# 示例：PVC + Deployment 组合创建
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: nginx-pvc
-  namespace: default
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: nfs-client
-  resources:
-    requests:
-      storage: 1Gi
----
+# 示例：Deployment + Service 组合创建
+# 创建顺序：ConfigMap/Secret/PVC → Service → Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-with-storage
-  namespace: default
+  name: my-app
+  namespace: ${ns}
   labels:
-    app: nginx-with-storage
+    app: my-app
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
-      app: nginx-with-storage
+      app: my-app
   template:
     metadata:
       labels:
-        app: nginx-with-storage
+        app: my-app
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
-      - name: nginx
-        image: nginx:1.26
-        ports:
-        - containerPort: 80
-        volumeMounts:
-        - name: nginx-data
-          mountPath: /usr/share/nginx/html
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "500m"
-            memory: "256Mi"
-        startupProbe:
-          httpGet:
-            path: /
-            port: 80
-          failureThreshold: 30
-          periodSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      volumes:
-      - name: nginx-data
-        persistentVolumeClaim:
-          claimName: nginx-pvc`
+        - name: my-app
+          image: nginx:1.26
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-svc
+  namespace: ${ns}
+spec:
+  type: ClusterIP
+  selector:
+    app: my-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80`
   yamlError.value = ''
-  Message.success({ content: '已加载多资源 YAML 模板（PVC + Deployment），请修改后创建' })
+  Message.success({ content: '已加载 Deployment + Service 模板，请修改后创建' })
 }
 
 // 复制 YAML 内容到剪贴板
@@ -5098,7 +5732,9 @@ const createDeploymentFromYaml = async () => {
   try {
     const res = await deploymentsApi.createFromYaml({ yaml: yamlContent.value })
     if (res.code === 0) {
-      Message.success({ content: 'Deployment 创建成功' })
+      // 显示创建成功的详细信息（包含附属资源）
+      const msg = res.data?.message || 'Deployment 创建成功'
+      Message.success({ content: msg, duration: 5000 })
       showCreateModal.value = false
       resetForm()
       await fetchDeployments()
@@ -5235,11 +5871,18 @@ const applyYamlChanges = async () => {
       yaml: yamlContent.value
     })
     if (res.code === 0) {
-      Message.success({ content: 'YAML 应用成功' })
+      Message.success({ content: 'YAML 应用成功，正在追踪状态...' })
+      const dep = selectedYamlDeployment.value
       closeYamlModal()
-      fetchDeployments()
-      autoRefresh.value = true
-      setTimeout(() => { autoRefresh.value = false }, 15000)
+      
+      // 乐观更新本地状态
+      const depInList = deployments.value.find(d => d.name === dep.name && d.namespace === dep.namespace)
+      if (depInList) {
+        depInList.status = 'Updating'
+        startStatusTracking(depInList, { action: 'yaml-apply' })
+      } else {
+        fetchDeployments()
+      }
     } else {
       const errorMsg = res.details ? `${res.msg}: ${res.details}` : (res.msg || '应用 YAML 失败')
       Message.error({ content: errorMsg, duration: 5000 })
@@ -5445,22 +6088,23 @@ const downloadYaml = () => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 0;
+  min-width: 1200px;
   table-layout: auto;
 }
 
 .resource-table th {
   background-color: #f7fafc;
   text-align: left;
-  padding: 16px 20px;
+  padding: 14px 12px;
   font-size: 14px;
   font-weight: 600;
   color: #4a5568;
   border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
 
 .resource-table td {
-  padding: 16px 20px;
+  padding: 14px 12px;
   font-size: 14px;
   color: #2d3748;
   border-bottom: 1px solid #f7fafc;
@@ -5502,6 +6146,44 @@ const downloadYaml = () => {
 .status-indicator.pending {
   background-color: rgba(156, 163, 175, 0.1);
   color: #9ca3af;
+}
+
+/* 状态追踪动画 - 操作后实时监控 */
+.status-indicator.tracking {
+  position: relative;
+  animation: statusPulse 1.5s ease-in-out infinite;
+}
+
+.status-indicator.tracking.updating {
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+.status-indicator.tracking.running {
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3);
+}
+
+.status-indicator.tracking.failed {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+}
+
+.tracking-pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-left: 6px;
+  animation: trackBlink 1s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes trackBlink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.6); }
 }
 
 .deployment-name {
@@ -5644,7 +6326,19 @@ const downloadYaml = () => {
 .replicas-fill {
   height: 100%;
   background-color: #326ce5;
-  transition: width 0.3s ease;
+  transition: width 0.5s ease;
+}
+
+/* 追踪中的副本进度条动画 */
+.replicas-bar.tracking .replicas-fill {
+  background: linear-gradient(90deg, #326ce5, #6b8cff, #326ce5);
+  background-size: 200% 100%;
+  animation: barShimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes barShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 /* 内联编辑样式 */
@@ -5823,23 +6517,24 @@ const downloadYaml = () => {
 
 .action-icons {
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
 /* Pod 关联按钮 */
 .action-btn {
   border: none;
-  font-size: 0.8125rem;
+  font-size: 12px;
   cursor: pointer;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
+  padding: 5px 8px;
+  border-radius: 6px;
   transition: all 0.2s;
   white-space: nowrap;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 4px;
 }
 
 .action-btn.primary {
@@ -5858,13 +6553,32 @@ const downloadYaml = () => {
   transform: translateY(0);
 }
 
+.action-btn.terminal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #00d4aa;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+}
+
+.action-btn.terminal:hover {
+  background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+  color: #00ffcc;
+  box-shadow: 0 4px 8px rgba(0, 212, 170, 0.3);
+  transform: translateY(-1px);
+}
+
+.action-btn.terminal:active {
+  transform: translateY(0);
+}
+
 .icon-btn {
   background: none;
   border: 1px solid #e2e8f0;
-  font-size: 0.8125rem;
+  font-size: 12px;
   cursor: pointer;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.375rem;
+  padding: 5px 8px;
+  border-radius: 6px;
   color: #4a5568;
   transition: all 0.2s;
   white-space: nowrap;
@@ -8286,6 +9000,393 @@ const downloadYaml = () => {
 .yaml-tips li {
   margin: 4px 0;
   line-height: 1.6;
+}
+
+/* ==================== 滚动更新管理样式 ==================== */
+.rollout-status-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.rollout-status-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rollout-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rollout-status-badge.complete {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.rollout-status-badge.progressing {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.rollout-status-badge.paused {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.rollout-status-badge.failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.rollout-status-badge.waiting {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.rollout-status-reason {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.paused-badge {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rollout-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rollout-progress .progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rollout-progress .progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.rollout-progress .progress-fill.complete {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.rollout-progress .progress-fill.progressing {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  animation: progress-pulse 2s ease-in-out infinite;
+}
+
+.rollout-progress .progress-fill.paused {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.rollout-progress .progress-fill.failed {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.progress-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  min-width: 40px;
+}
+
+.rollout-replicas {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.replica-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  min-width: 70px;
+}
+
+.replica-stat .stat-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.replica-stat .stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.replica-stat .stat-value.danger {
+  color: #dc2626;
+}
+
+.rollout-actions {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.rollout-strategy {
+  margin-top: 16px;
+}
+
+.rollout-strategy h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.strategy-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.strategy-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.strategy-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.rollout-rs-list {
+  margin-top: 16px;
+}
+
+.rollout-rs-list h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.rs-current {
+  background: rgba(34, 197, 94, 0.05) !important;
+}
+
+.image-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+}
+
+.monospace {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+}
+
+.rollout-conditions {
+  margin-top: 16px;
+}
+
+.rollout-conditions h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.conditions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.condition-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.condition-item.success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.condition-item.warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.cond-type {
+  font-weight: 700;
+  color: #334155;
+  min-width: 100px;
+}
+
+.cond-status {
+  font-weight: 600;
+  min-width: 50px;
+}
+
+.cond-reason {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.cond-message {
+  color: #94a3b8;
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
+}
+
+.btn-success:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 资源监听浮窗 ========== */
+.resource-watcher-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  background: #1a1b26;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06);
+  z-index: 9000;
+  overflow: hidden;
+  color: #a9b1d6;
+  font-size: 13px;
+}
+
+.watcher-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #24283b, #1f2335);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.watcher-title { font-weight: 600; flex: 1; }
+.watcher-elapsed { font-size: 11px; color: #565f89; font-family: 'JetBrains Mono', monospace; }
+.watcher-close {
+  width: 22px; height: 22px; border: none; background: transparent;
+  color: #565f89; cursor: pointer; border-radius: 4px; font-size: 16px; line-height: 1;
+}
+.watcher-close:hover { background: rgba(247,118,142,0.2); color: #f7768e; }
+
+.watcher-body { padding: 12px 14px; }
+
+.watcher-progress {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.watcher-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease, background 0.3s;
+}
+
+.watcher-phase {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.watcher-events {
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  padding-top: 8px;
+}
+
+.watcher-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+  color: #787c99;
+  line-height: 1.4;
+}
+.watcher-event.warning { color: #e0af68; }
+.ev-type { flex-shrink: 0; }
+.ev-reason { flex-shrink: 0; font-weight: 600; min-width: 80px; }
+.ev-msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.watcher-slide-enter-active { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+.watcher-slide-leave-active { transition: all 0.2s; }
+.watcher-slide-enter-from, .watcher-slide-leave-to {
+  opacity: 0; transform: translateY(20px) scale(0.95);
 }
 
 </style>

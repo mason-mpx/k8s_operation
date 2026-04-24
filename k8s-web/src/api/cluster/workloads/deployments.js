@@ -217,6 +217,55 @@ const deploymentsApi = {
   applyYaml(data) {
     return http.put(`${K8S_BASE}/deployment/apply_yaml`, data)
   },
+
+  // =========================
+  // 滚动更新管理
+  // =========================
+
+  /**
+   * 更新滚动更新策略
+   * @param {Object} data
+   * @param {string} data.namespace - 命名空间
+   * @param {string} data.name - Deployment 名称
+   * @param {string} data.max_surge - 最大超出副本数（如 "1" 或 "25%"）
+   * @param {string} data.max_unavailable - 最大不可用副本数
+   * @param {number} [data.min_ready_seconds] - Pod 就绪后最少等待秒数
+   * @param {number} [data.progress_deadline_seconds] - 进度截止时间
+   * @param {number} [data.revision_history_limit] - 历史版本保留数
+   */
+  updateStrategy(data) {
+    return http.post(`${K8S_BASE}/deployment/update-strategy`, data)
+  },
+
+  /**
+   * 暂停 Rollout
+   * @param {Object} data
+   * @param {string} data.namespace - 命名空间
+   * @param {string} data.name - Deployment 名称
+   */
+  pauseRollout(data) {
+    return http.post(`${K8S_BASE}/deployment/pause`, data)
+  },
+
+  /**
+   * 恢复 Rollout
+   * @param {Object} data
+   * @param {string} data.namespace - 命名空间
+   * @param {string} data.name - Deployment 名称
+   */
+  resumeRollout(data) {
+    return http.post(`${K8S_BASE}/deployment/resume`, data)
+  },
+
+  /**
+   * 获取 Rollout 状态（实时滚动更新进度）
+   * @param {Object} params
+   * @param {string} params.namespace - 命名空间
+   * @param {string} params.name - Deployment 名称
+   */
+  rolloutStatus(params) {
+    return http.get(`${K8S_BASE}/deployment/rollout-status`, { params })
+  },
 }
 
 export default deploymentsApi

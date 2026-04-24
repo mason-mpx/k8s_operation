@@ -14,6 +14,7 @@ type CicdRouter struct {
 	stageCtrl       *cicd.StageController
 	templateCtrl    *cicd.TemplateController
 	resourceCtrl    *cicd.ResourceController
+	artifactCtrl    *cicd.ArtifactController
 }
 
 func NewCicdRouter() *CicdRouter {
@@ -26,6 +27,7 @@ func NewCicdRouter() *CicdRouter {
 		stageCtrl:       cicd.NewStageController(),
 		templateCtrl:    cicd.NewTemplateController(),
 		resourceCtrl:    cicd.NewResourceController(),
+		artifactCtrl:    cicd.NewArtifactController(),
 	}
 }
 
@@ -37,6 +39,7 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		pipeline.GET("/list", r.pipelineCtrl.List)         // 获取流水线列表
 		pipeline.GET("/detail", r.pipelineCtrl.Detail)     // 获取流水线详情
 		pipeline.POST("/create", r.pipelineCtrl.Create)    // 创建流水线
+		pipeline.POST("/batch-create", r.pipelineCtrl.BatchCreate) // 批量创建流水线（导入多个项目）
 		pipeline.POST("/update", r.pipelineCtrl.Update)    // 更新流水线
 		pipeline.POST("/delete", r.pipelineCtrl.Delete)    // 删除流水线
 		pipeline.POST("/run", r.pipelineCtrl.Run)          // 运行流水线（触发 Jenkins 构建）
@@ -47,6 +50,10 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		pipeline.GET("/status", r.pipelineCtrl.Status)     // 获取实时状态
 		pipeline.GET("/stages", r.pipelineCtrl.Stages)     // 获取阶段数据（Jenkins Pipeline）
 		pipeline.GET("/history", r.pipelineCtrl.History)   // 获取运行历史
+		pipeline.GET("/template-verify", r.pipelineCtrl.TemplateVerify)     // 模板化发布验证
+		pipeline.GET("/template-simulate", r.pipelineCtrl.TemplateSimulate) // 模拟模板化发布流程
+		pipeline.GET("/sonar-report", r.pipelineCtrl.SonarReport)          // SonarQube 代码质量报告
+		pipeline.POST("/sonar-callback", r.pipelineCtrl.SonarCallback)     // SonarQube 扫描结果回调
 		// callback 已移至 cicd_callback_router.go（公开接口，跳过 JWT）
 	}
 
@@ -151,5 +158,22 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		resource.GET("/approval/:id", r.resourceCtrl.ApprovalDetail)         // 审批详情
 		resource.PUT("/approval/:id/approve", r.resourceCtrl.ApprovalApprove) // 通过审批
 		resource.PUT("/approval/:id/reject", r.resourceCtrl.ApprovalReject)   // 拒绝审批
+	}
+
+	// ==================== 制品库管理 ====================
+	// /api/v1/k8s/cicd/artifact/...
+	artifact := rg.Group("/artifact")
+	{
+		artifact.GET("/list", r.artifactCtrl.List)                 // 制品列表（分页 + 筛选）
+		artifact.GET("/detail", r.artifactCtrl.Detail)             // 制品详情
+		artifact.GET("/by-run", r.artifactCtrl.ListByRunID)        // 某次运行的制品列表
+		artifact.POST("/create", r.artifactCtrl.CreateRecord)      // 创建制品记录（镜像类型 / 无文件）
+		artifact.POST("/upload", r.artifactCtrl.Upload)            // 上传制品（Jenkins 回调 / 手动上传）
+		artifact.POST("/attach", r.artifactCtrl.AttachFile)        // 为已有制品补传/替换文件
+		artifact.POST("/update", r.artifactCtrl.Update)            // 更新制品信息
+		artifact.GET("/download", r.artifactCtrl.Download)         // 下载制品文件
+		artifact.POST("/delete", r.artifactCtrl.Delete)            // 删除制品
+		artifact.POST("/batch-delete", r.artifactCtrl.BatchDelete) // 批量删除制品
+		artifact.GET("/stats", r.artifactCtrl.Stats)               // 制品统计（按类型分组）
 	}
 }

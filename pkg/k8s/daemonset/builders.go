@@ -392,13 +392,8 @@ func getDaemonSetStatus(ds *appv1.DaemonSet) (status, reason string) {
 
 	// 3. 检查就绪状态
 	if numberReady < desiredNumber {
-		if numberReady == 0 {
-			status = "Failed"
-			reason = fmt.Sprintf("0/%d Pod 就绪", desiredNumber)
-		} else {
-			status = "Updating"
-			reason = fmt.Sprintf("%d/%d Pod 就绪", numberReady, desiredNumber)
-		}
+		status = "Updating"
+		reason = fmt.Sprintf("%d/%d Pod 就绪", numberReady, desiredNumber)
 		return
 	}
 

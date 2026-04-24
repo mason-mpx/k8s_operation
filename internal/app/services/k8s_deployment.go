@@ -132,35 +132,95 @@ func (s *Services) KubeEventList(ctx context.Context, cli *K8sClients, param *re
 	return event.ListEvents(ctx, cli.Kube, param)
 }
 
+// ==================== 滚动更新策略管理 ====================
+
+// KubeUpdateDeploymentStrategy 更新 Deployment 滚动更新策略
+func (s *Services) KubeUpdateDeploymentStrategy(ctx context.Context, cli *K8sClients, param *requests.KubeDeploymentRollingUpdateRequest) (*deployment.RollingUpdateConfig, error) {
+	config := &deployment.RollingUpdateConfig{
+		MaxSurge:                param.MaxSurge,
+		MaxUnavailable:          param.MaxUnavailable,
+		MinReadySeconds:         param.MinReadySeconds,
+		ProgressDeadlineSeconds: param.ProgressDeadlineSeconds,
+		RevisionHistoryLimit:    param.RevisionHistoryLimit,
+	}
+
+	updated, err := deployment.UpdateRollingStrategy(ctx, cli.Kube, param.Namespace, param.Name, config)
+	if err != nil {
+		return nil, err
+	}
+
+	// 构建返回的实际配置
+	result := &deployment.RollingUpdateConfig{
+		MinReadySeconds: updated.Spec.MinReadySeconds,
+	}
+	if updated.Spec.Strategy.RollingUpdate != nil {
+		ru := updated.Spec.Strategy.RollingUpdate
+		if ru.MaxSurge != nil {
+			result.MaxSurge = ru.MaxSurge.String()
+		}
+		if ru.MaxUnavailable != nil {
+			result.MaxUnavailable = ru.MaxUnavailable.String()
+		}
+	}
+	if updated.Spec.ProgressDeadlineSeconds != nil {
+		result.ProgressDeadlineSeconds = updated.Spec.ProgressDeadlineSeconds
+	}
+	if updated.Spec.RevisionHistoryLimit != nil {
+		result.RevisionHistoryLimit = updated.Spec.RevisionHistoryLimit
+	}
+
+	return result, nil
+}
+
+// KubePauseDeployment 暂停 Deployment Rollout
+func (s *Services) KubePauseDeployment(ctx context.Context, cli *K8sClients, param *requests.KubeDeploymentPauseResumeRequest) error {
+	_, err := deployment.PauseDeployment(ctx, cli.Kube, param.Namespace, param.Name)
+	return err
+}
+
+// KubeResumeDeployment 恢复 Deployment Rollout
+func (s *Services) KubeResumeDeployment(ctx context.Context, cli *K8sClients, param *requests.KubeDeploymentPauseResumeRequest) error {
+	_, err := deployment.ResumeDeployment(ctx, cli.Kube, param.Namespace, param.Name)
+	return err
+}
+
+// KubeGetRolloutStatus 获取 Deployment Rollout 状态
+func (s *Services) KubeGetRolloutStatus(ctx context.Context, cli *K8sClients, param *requests.KubeDeploymentRolloutStatusRequest) (*deployment.RolloutStatusInfo, error) {
+	return deployment.GetRolloutStatus(ctx, cli.Kube, param.Namespace, param.Name)
+}
+
 // 获取 Deployment 历史版本（ReplicaSet 列表）
 func (s *Services) KubeDeploymentHistory(ctx context.Context, cli *K8sClients, param *requests.KubeCommonRequest) ([]appv1.ReplicaSet, error) {
 	return deployment.GetDeploymentReplicaSet(ctx, cli.Kube, param.Namespace, param.Name)
 }
 
-// KubeDeploymentCreateFromYaml 从 YAML 创建 Deployment（支持多资源：PVC+Deployment）
-func (s *Services) KubeDeploymentCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*appv1.Deployment, error) {
+// KubeDeploymentCreateFromYaml 从 YAML 创建 Deployment（支持多资源：PVC/ConfigMap/Secret/Service+Deployment）
+func (s *Services) KubeDeploymentCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*appv1.Deployment, []requests.CreatedResourceInfo, error) {
 	// 1. 使用多资源解析器解析 YAML
 	parser := common.NewMultiYAMLParser(yamlContent)
 	if err := parser.Parse(); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
 	// 2. 验证主资源（Deployment）是否存在且唯一
 	mainResource, err := parser.ValidateMainResource(common.ResourceTypeDeployment)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// 3. 按依赖顺序创建所有资源（PVC -> Service -> Deployment）
+	// 2.5 统一附属资源的 namespace（如果 Service 未指定 namespace，跟随 Deployment）
+	parser.UnifyNamespace(mainResource)
+
+	// 3. 按依赖顺序创建所有资源（PVC/ConfigMap/Secret -> Service -> Deployment）
 	created, err := common.CreateResourcesInOrder(ctx, cli.Kube, parser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resources: %w", err)
+		return nil, nil, fmt.Errorf("failed to create resources: %w", err)
 	}
 
 	// 4. 创建主资源 Deployment
 	dp := &appv1.Deployment{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(mainResource.Raw.Object, dp); err != nil {
-		return nil, fmt.Errorf("failed to convert to Deployment: %w", err)
+		return nil, nil, fmt.Errorf("failed to convert to Deployment: %w", err)
 	}
 
 	// 确保 namespace 不为空（如果 YAML 中未指定，使用 ParsedResource 中的 namespace）
@@ -171,19 +231,24 @@ func (s *Services) KubeDeploymentCreateFromYaml(ctx context.Context, cli *K8sCli
 	createdDp, err := cli.Kube.AppsV1().Deployments(dp.Namespace).Create(ctx, dp, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("Deployment %q already exists in namespace %q", dp.Name, dp.Namespace)
+			return nil, nil, fmt.Errorf("Deployment %q already exists in namespace %q", dp.Name, dp.Namespace)
 		}
-		return nil, fmt.Errorf("failed to create Deployment: %w", err)
+		return nil, nil, fmt.Errorf("failed to create Deployment: %w", err)
 	}
 
-	// 5. 记录创建的所有资源
-	global.Logger.Infof("Multi-resource YAML created successfully:")
+	// 5. 构建创建的资源列表
+	var createdResources []requests.CreatedResourceInfo
 	for resType, names := range created {
 		for _, name := range names {
+			createdResources = append(createdResources, requests.CreatedResourceInfo{
+				Kind:      string(resType),
+				Name:      name,
+				Namespace: dp.Namespace,
+			})
 			global.Logger.Infof("  - %s: %s/%s", resType, dp.Namespace, name)
 		}
 	}
-	global.Logger.Infof("  - Deployment: %s/%s", createdDp.Namespace, createdDp.Name)
+	global.Logger.Infof("Multi-resource YAML created successfully: Deployment %s/%s + %d 附属资源", createdDp.Namespace, createdDp.Name, len(createdResources))
 
-	return createdDp, nil
+	return createdDp, createdResources, nil
 }

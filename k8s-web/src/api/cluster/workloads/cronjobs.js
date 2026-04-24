@@ -101,6 +101,39 @@ const cronjobsApi = {
   trigger(data) {
     return http.post(`${K8S_BASE}/cronjob/trigger`, data)
   },
+
+  /**
+   * 获取 CronJob YAML
+   * @param {Object} params
+   * @param {string} params.namespace - 命名空间
+   * @param {string} params.name - CronJob 名称
+   */
+  getYaml(params) {
+    return http.get(`${K8S_BASE}/cronjob/yaml`, { params })
+  },
+
+  /**
+   * 应用 YAML 修改
+   * @param {Object} data
+   * @param {string} data.namespace
+   * @param {string} data.name
+   * @param {string} data.yaml
+   */
+  applyYaml(data) {
+    return http.put(`${K8S_BASE}/cronjob/apply-yaml`, data)
+  },
+
+  /**
+   * 获取 CronJob 关联的 Events
+   * @param {Object} params
+   * @param {string} params.namespace
+   * @param {string} params.name
+   * @param {number} [params.limit=20]
+   * @param {number} [params.since_seconds=300]
+   */
+  events(params) {
+    return http.get(`${K8S_BASE}/cronjob/events`, { params })
+  },
 }
 
 export default cronjobsApi

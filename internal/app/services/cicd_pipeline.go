@@ -37,13 +37,32 @@ func (s *Services) PipelineCreate(ctx context.Context, req *requests.PipelineCre
 		return 0, fmt.Errorf("检查名称失败: %w", err)
 	}
 
+	// 模板化发布：根据 language_type 自动推导 JenkinsJob
+	languageType := req.LanguageType
+	if languageType == "" {
+		languageType = models.LanguageTypeCustom
+	}
+	jenkinsJob := req.JenkinsJob
+	if jenkinsJob == "" && languageType != models.LanguageTypeCustom {
+		// 从语言类型自动映射到通用构建 Job
+		if job, ok := models.DefaultJenkinsJobMap[languageType]; ok {
+			jenkinsJob = job
+		} else {
+			return 0, fmt.Errorf("不支持的语言类型: %s", languageType)
+		}
+	}
+	if jenkinsJob == "" {
+		return 0, errors.New("Jenkins Job 名称不能为空，请指定 jenkins_job 或设置 language_type")
+	}
+
 	pipeline := &models.CicdPipeline{
 		Name:               req.Name,
 		Description:        req.Description,
 		GitRepo:            req.GitRepo,
 		GitBranch:          req.GitBranch,
 		JenkinsURL:         req.JenkinsURL,
-		JenkinsJob:         req.JenkinsJob,
+		JenkinsJob:         jenkinsJob,
+		LanguageType:       languageType,
 		Status:             models.PipelineStatusIdle,
 		EnvVars:            models.EnvVars(req.EnvVars),
 		DeployConfig:       models.JSONMap(req.DeployConfig),
@@ -170,6 +189,15 @@ func (s *Services) PipelineUpdate(ctx context.Context, req *requests.PipelineUpd
 	if req.RequireApproval != nil {
 		updates["require_approval"] = *req.RequireApproval
 	}
+	if req.LanguageType != nil {
+		updates["language_type"] = *req.LanguageType
+		// 如果同时没有指定 jenkins_job，自动映射
+		if req.JenkinsJob == "" && *req.LanguageType != models.LanguageTypeCustom {
+			if job, ok := models.DefaultJenkinsJobMap[*req.LanguageType]; ok {
+				updates["jenkins_job"] = job
+			}
+		}
+	}
 
 	if len(updates) == 0 {
 		return nil
@@ -195,6 +223,134 @@ func (s *Services) PipelineDelete(ctx context.Context, id int64) error {
 	}
 
 	return s.dao.PipelineDelete(ctx, id)
+}
+
+// ==================== 批量创建流水线 ====================
+
+// PipelineBatchCreateResult 批量创建结果
+type PipelineBatchCreateResult struct {
+	SuccessCount int                      `json:"success_count"`
+	FailCount    int                      `json:"fail_count"`
+	SkipCount    int                      `json:"skip_count"`
+	Results      []PipelineBatchItemResult `json:"results"`
+}
+
+// PipelineBatchItemResult 单个流水线创建结果
+type PipelineBatchItemResult struct {
+	Name       string `json:"name"`
+	Success    bool   `json:"success"`
+	PipelineID int64  `json:"pipeline_id,omitempty"`
+	Skipped    bool   `json:"skipped,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+// PipelineBatchCreate 批量创建流水线
+func (s *Services) PipelineBatchCreate(ctx context.Context, req *requests.PipelineBatchCreateRequest, userID int64) (*PipelineBatchCreateResult, error) {
+	if len(req.Pipelines) == 0 {
+		return nil, errors.New("流水线列表不能为空")
+	}
+	if len(req.Pipelines) > 200 {
+		return nil, errors.New("单次批量创建不能超过 200 条")
+	}
+
+	result := &PipelineBatchCreateResult{
+		Results: make([]PipelineBatchItemResult, 0, len(req.Pipelines)),
+	}
+
+	for _, item := range req.Pipelines {
+		itemResult := PipelineBatchItemResult{Name: item.Name}
+
+		// 基本校验
+		if item.Name == "" {
+			itemResult.Error = "流水线名称不能为空"
+			result.FailCount++
+			result.Results = append(result.Results, itemResult)
+			continue
+		}
+		if item.GitRepo == "" {
+			itemResult.Error = "Git 仓库地址不能为空"
+			result.FailCount++
+			result.Results = append(result.Results, itemResult)
+			continue
+		}
+
+		// 检查名称是否已存在
+		_, err := s.dao.PipelineGetByName(ctx, item.Name)
+		if err == nil {
+			// 已存在
+			if req.SkipExisting {
+				itemResult.Skipped = true
+				itemResult.Success = true
+				result.SkipCount++
+				result.Results = append(result.Results, itemResult)
+				continue
+			}
+			itemResult.Error = "流水线名称已存在"
+			result.FailCount++
+			result.Results = append(result.Results, itemResult)
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			itemResult.Error = fmt.Sprintf("检查名称失败: %v", err)
+			result.FailCount++
+			result.Results = append(result.Results, itemResult)
+			continue
+		}
+
+		// 模板化推导
+		languageType := item.LanguageType
+		if languageType == "" {
+			languageType = models.LanguageTypeCustom
+		}
+		jenkinsJob := ""
+		if languageType != models.LanguageTypeCustom {
+			if job, ok := models.DefaultJenkinsJobMap[languageType]; ok {
+				jenkinsJob = job
+			} else {
+				itemResult.Error = fmt.Sprintf("不支持的语言类型: %s", languageType)
+				result.FailCount++
+				result.Results = append(result.Results, itemResult)
+				continue
+			}
+		}
+
+		gitBranch := item.GitBranch
+		if gitBranch == "" {
+			gitBranch = "main"
+		}
+
+		pipeline := &models.CicdPipeline{
+			Name:               item.Name,
+			Description:        item.Description,
+			GitRepo:            item.GitRepo,
+			GitBranch:          gitBranch,
+			JenkinsJob:         jenkinsJob,
+			LanguageType:       languageType,
+			Status:             models.PipelineStatusIdle,
+			EnvVars:            models.EnvVars(item.EnvVars),
+			AutoDeploy:         item.AutoDeploy,
+			TargetClusterID:    item.TargetClusterID,
+			TargetNamespace:    item.TargetNamespace,
+			TargetWorkloadKind: item.TargetWorkloadKind,
+			TargetWorkloadName: item.TargetWorkloadName,
+			TargetContainer:    item.TargetContainer,
+			DeployEnv:          item.DeployEnv,
+			RequireApproval:    item.RequireApproval,
+			CreatedUserID:      userID,
+		}
+
+		if err := s.dao.PipelineCreate(ctx, pipeline); err != nil {
+			itemResult.Error = fmt.Sprintf("创建失败: %v", err)
+			result.FailCount++
+		} else {
+			itemResult.Success = true
+			itemResult.PipelineID = pipeline.ID
+			result.SuccessCount++
+		}
+		result.Results = append(result.Results, itemResult)
+	}
+
+	return result, nil
 }
 
 // ==================== 流水线运行 ====================
@@ -287,11 +443,17 @@ func (s *Services) PipelineRun(ctx context.Context, req *requests.PipelineRunReq
 	
 	// 平台回调参数（用于 Jenkins 构建完成后回调）
 	params["PIPELINE_ID"] = fmt.Sprintf("%d", pipeline.ID)
+	params["RUN_ID"] = fmt.Sprintf("%d", run.ID)
 	if global.JenkinsSetting != nil && global.JenkinsSetting.CallbackURL != "" {
 		params["PLATFORM_CALLBACK_URL"] = global.JenkinsSetting.CallbackURL + "/api/v1/k8s/cicd/pipeline/callback"
+		// 制品上传地址（Jenkins 构建完成后自动上传制品到平台制品库）
+		params["ARTIFACT_UPLOAD_URL"] = global.JenkinsSetting.CallbackURL + "/api/v1/k8s/cicd/artifact/upload"
 	}
 	// 注意：HMAC_SECRET 不再通过参数传递，Jenkins 端应使用 credentials 管理
 	// 双方需配置相同的密钥：平台 config.yaml 的 HMACSecret 与 Jenkins credentials 中的 hmac-secret
+
+	// 模板化发布：根据语言类型自动注入语言特定参数
+	s.injectLanguageParams(pipeline, params)
 	
 	// 合并环境变量
 	for _, ev := range pipeline.EnvVars {
@@ -844,7 +1006,15 @@ func (s *Services) inferStageTypeFromName(name string) string {
 		return "lint"
 	case strings.Contains(nameLower, "push") || strings.Contains(nameLower, "推送镜像"):
 		return "push"
-	case strings.Contains(nameLower, "build") || strings.Contains(nameLower, "构建"):
+	case strings.Contains(nameLower, "sonar") || strings.Contains(nameLower, "代码扫描") || strings.Contains(nameLower, "code scan"):
+		return "sonar"
+	case strings.Contains(nameLower, "quality gate") || strings.Contains(nameLower, "质量门禁") || strings.Contains(nameLower, "qualitygate"):
+		return "quality_gate"
+	case strings.Contains(nameLower, "upload artifact") || strings.Contains(nameLower, "上传制品") || strings.Contains(nameLower, "upload"):
+		return "upload_artifact"
+	case strings.Contains(nameLower, "build binary") || strings.Contains(nameLower, "构建制品") || strings.Contains(nameLower, "package") || strings.Contains(nameLower, "打包"):
+		return "build_binary"
+	case strings.Contains(nameLower, "build") || strings.Contains(nameLower, "构建镜像") || strings.Contains(nameLower, "构建"):
 		return "build"
 	case strings.Contains(nameLower, "approval") || strings.Contains(nameLower, "审批"):
 		return "approval"
@@ -889,6 +1059,7 @@ func (s *Services) appendPlatformStages(stages []PipelineStageInfo, pipeline *mo
 }
 
 // getDefaultStagesForPipeline 获取默认阶段（未运行时展示）
+// 完整闭环：拉取 → 编译 → 测试 → 代码扫描 → 质量门禁 → 构建制品 → 上传制品库 → 打包镜像 → 推送镜像 → 审批 → 部署
 func (s *Services) getDefaultStagesForPipeline(pipeline *models.CicdPipeline) []PipelineStageInfo {
 	stages := []PipelineStageInfo{
 		{ID: "1", Name: "Clean Workspace", Type: "clean", Status: "pending", Steps: []PipelineStepInfo{}},
@@ -897,22 +1068,37 @@ func (s *Services) getDefaultStagesForPipeline(pipeline *models.CicdPipeline) []
 		{ID: "4", Name: "Compile Check", Type: "compile", Status: "pending", Steps: []PipelineStepInfo{}},
 		{ID: "5", Name: "Test", Type: "test", Status: "pending", Steps: []PipelineStepInfo{}},
 		{ID: "6", Name: "Lint", Type: "lint", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "7", Name: "Build Image", Type: "build", Status: "pending", Steps: []PipelineStepInfo{}},
-		{ID: "8", Name: "Push Image", Type: "push", Status: "pending", Steps: []PipelineStepInfo{}},
 	}
-	
+
+	// SonarQube 代码扫描 + 质量门禁（如果启用）
+	if pipeline.EnableSonar {
+		stages = append(stages,
+			PipelineStageInfo{ID: "7", Name: "SonarQube Analysis", Type: "sonar", Status: "pending", Steps: []PipelineStepInfo{}},
+			PipelineStageInfo{ID: "8", Name: "Quality Gate", Type: "quality_gate", Status: "pending", Steps: []PipelineStepInfo{}},
+		)
+	}
+
+	// 构建制品 + 上传制品库 + 打包镜像 + 推送镜像
+	nextID := len(stages) + 1
+	stages = append(stages,
+		PipelineStageInfo{ID: fmt.Sprintf("%d", nextID), Name: "Build Binary", Type: "build_binary", Status: "pending", Steps: []PipelineStepInfo{}},
+		PipelineStageInfo{ID: fmt.Sprintf("%d", nextID+1), Name: "Upload Artifact", Type: "upload_artifact", Status: "pending", Steps: []PipelineStepInfo{}},
+		PipelineStageInfo{ID: fmt.Sprintf("%d", nextID+2), Name: "Build Image", Type: "build", Status: "pending", Steps: []PipelineStepInfo{}},
+		PipelineStageInfo{ID: fmt.Sprintf("%d", nextID+3), Name: "Push Image", Type: "push", Status: "pending", Steps: []PipelineStepInfo{}},
+	)
+
 	// 根据流水线配置追加平台阶段
 	if pipeline.RequireApproval {
 		stages = append(stages, PipelineStageInfo{
-			ID: "9", Name: "人工审批", Type: "approval", Status: "pending", Steps: []PipelineStepInfo{},
+			ID: fmt.Sprintf("%d", len(stages)+1), Name: "人工审批", Type: "approval", Status: "pending", Steps: []PipelineStepInfo{},
 		})
 	}
 	if pipeline.AutoDeploy {
 		stages = append(stages, PipelineStageInfo{
-			ID: "10", Name: "部署", Type: "deploy", Status: "pending", Steps: []PipelineStepInfo{},
+			ID: fmt.Sprintf("%d", len(stages)+1), Name: "部署", Type: "deploy", Status: "pending", Steps: []PipelineStepInfo{},
 		})
 	}
-	
+
 	return stages
 }
 
@@ -1287,4 +1473,336 @@ func (s *Services) patchDaemonSetImage(ctx context.Context, kubeClient kubernete
 	patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}`, container, image)
 	_, err := kubeClient.AppsV1().DaemonSets(namespace).Patch(ctx, name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
+}
+
+// ==================== 模板化发布支持 ====================
+
+// injectLanguageParams 根据语言类型自动注入 Jenkins 构建参数
+// 这是“一个模板服务 100 个项目”的核心：所有项目差异通过参数传入
+func (s *Services) injectLanguageParams(pipeline *models.CicdPipeline, params map[string]string) {
+	switch pipeline.LanguageType {
+	case models.LanguageTypeGo:
+		// Go 特有参数
+		setDefault(params, "GO_VERSION", "1.24")
+		setDefault(params, "SKIP_TESTS", "false")
+	case models.LanguageTypeJava:
+		// Java 特有参数
+		setDefault(params, "JAVA_VERSION", "17")
+		setDefault(params, "MAVEN_GOALS", "clean package -DskipTests -B")
+		setDefault(params, "SKIP_TESTS", "false")
+		// SonarQube 代码质量扫描（默认启用）
+		setDefault(params, "ENABLE_SONAR", "true")
+		setDefault(params, "SONAR_QUALITY_GATE", "true")
+		setDefault(params, "SONAR_SOURCES", "src/main/java")
+		setDefault(params, "SONAR_JAVA_BINARIES", "target/classes")
+		setDefault(params, "SONAR_EXCLUSIONS", "**/test/**,**/generated/**")
+	case models.LanguageTypeFrontend:
+		// 前端特有参数
+		setDefault(params, "NODE_VERSION", "18")
+		setDefault(params, "BUILD_COMMAND", "npm run build")
+		setDefault(params, "BUILD_OUTPUT_DIR", "dist")
+		setDefault(params, "SKIP_TESTS", "false")
+	case models.LanguageTypePython:
+		// Python 特有参数
+		setDefault(params, "PYTHON_VERSION", "3.11")
+		setDefault(params, "SKIP_TESTS", "false")
+	}
+	// 通用参数
+	setDefault(params, "DOCKERFILE_PATH", "Dockerfile")
+	setDefault(params, "GIT_CREDENTIAL_ID", "gitee-id")
+}
+
+// setDefault 设置默认参数（不覆盖已有值）
+func setDefault(params map[string]string, key, value string) {
+	if _, exists := params[key]; !exists {
+		params[key] = value
+	}
+}
+
+// TemplateVerifyInfo 模板验证信息
+type TemplateVerifyInfo struct {
+	LanguageType    string            `json:"language_type"`
+	JenkinsJob      string            `json:"jenkins_job"`
+	TemplateFile    string            `json:"template_file"`
+	Stages          []string          `json:"stages"`
+	DefaultParams   map[string]string `json:"default_params"`
+	CallbackURL     string            `json:"callback_url"`
+	HMACEnabled     bool              `json:"hmac_enabled"`
+	Description     string            `json:"description"`
+}
+
+// TemplateVerifyAll 验证所有模板配置是否完整
+func (s *Services) TemplateVerifyAll(ctx context.Context) ([]TemplateVerifyInfo, error) {
+	templates := []TemplateVerifyInfo{
+		{
+			LanguageType: models.LanguageTypeGo,
+			JenkinsJob:   models.DefaultJenkinsJobMap[models.LanguageTypeGo],
+			TemplateFile: "configs/jenkins-templates/go-pipeline.groovy",
+			Stages:       []string{"checkout", "dependencies", "compile", "test", "lint", "build", "push"},
+			DefaultParams: map[string]string{
+				"GO_VERSION":  "1.24",
+				"SKIP_TESTS":  "false",
+			},
+			Description: "Go 项目通用构建模板，支持 go test / golangci-lint / nerdctl build",
+		},
+		{
+			LanguageType: models.LanguageTypeJava,
+			JenkinsJob:   models.DefaultJenkinsJobMap[models.LanguageTypeJava],
+			TemplateFile: "configs/jenkins-templates/java-spring-pipeline.groovy",
+			Stages:       []string{"checkout", "compile", "test", "sonar", "quality_gate", "dependencies", "build", "push"},
+			DefaultParams: map[string]string{
+				"JAVA_VERSION":    "17",
+				"MAVEN_GOALS":     "clean package -DskipTests -B",
+				"ENABLE_SONAR":    "true",
+				"SONAR_QUALITY_GATE": "true",
+			},
+			Description: "Java/Spring Boot 通用构建模板，支持 Maven + SonarQube 代码质量扫描 + 质量门禁",
+		},
+		{
+			LanguageType: models.LanguageTypeFrontend,
+			JenkinsJob:   models.DefaultJenkinsJobMap[models.LanguageTypeFrontend],
+			TemplateFile: "configs/jenkins-templates/frontend-pipeline.groovy",
+			Stages:       []string{"checkout", "dependencies", "test", "compile", "build", "push"},
+			DefaultParams: map[string]string{
+				"NODE_VERSION":    "18",
+				"BUILD_COMMAND":   "npm run build",
+				"BUILD_OUTPUT_DIR": "dist",
+			},
+			Description: "前端通用构建模板（Vue/React/Angular），支持 npm ci / Nginx 镜像",
+		},
+		{
+			LanguageType: models.LanguageTypePython,
+			JenkinsJob:   models.DefaultJenkinsJobMap[models.LanguageTypePython],
+			TemplateFile: "configs/jenkins-templates/python-pipeline.groovy",
+			Stages:       []string{"checkout", "dependencies", "lint", "test", "build", "push"},
+			DefaultParams: map[string]string{
+				"PYTHON_VERSION": "3.11",
+			},
+			Description: "Python 通用构建模板，支持 pip / flake8 / pytest",
+		},
+	}
+
+	// 填充回调配置
+	for i := range templates {
+		if global.JenkinsSetting != nil && global.JenkinsSetting.CallbackURL != "" {
+			templates[i].CallbackURL = global.JenkinsSetting.CallbackURL + "/api/v1/k8s/cicd/pipeline/callback"
+		}
+		if global.JenkinsSetting != nil && global.JenkinsSetting.HMACSecret != "" {
+			templates[i].HMACEnabled = true
+		}
+	}
+
+	return templates, nil
+}
+
+// TemplateSimulateRun 模拟模板化流水线完整发布流程（不实际触发 Jenkins，仅验证参数和流程）
+func (s *Services) TemplateSimulateRun(ctx context.Context, languageType, gitRepo, gitBranch, imageRepo string) (map[string]interface{}, error) {
+	// 1. 解析 Jenkins Job
+	jenkinsJob, ok := models.DefaultJenkinsJobMap[languageType]
+	if !ok {
+		return nil, fmt.Errorf("不支持的语言类型: %s，可选: go, java, frontend, python", languageType)
+	}
+
+	// 2. 构建 Jenkins 参数
+	params := map[string]string{
+		"GIT_REPO":    gitRepo,
+		"GIT_BRANCH":  gitBranch,
+		"IMAGE_REPO":  imageRepo,
+		"PIPELINE_ID": "0",
+	}
+
+	// 模拟回调 URL
+	if global.JenkinsSetting != nil && global.JenkinsSetting.CallbackURL != "" {
+		params["PLATFORM_CALLBACK_URL"] = global.JenkinsSetting.CallbackURL + "/api/v1/k8s/cicd/pipeline/callback"
+	}
+
+	// 3. 注入语言参数
+	mockPipeline := &models.CicdPipeline{LanguageType: languageType}
+	s.injectLanguageParams(mockPipeline, params)
+
+	// 4. 检查 Jenkins 配置
+	jenkinsConfigured := false
+	if global.JenkinsSetting != nil && global.JenkinsSetting.URL != "" {
+		jenkinsConfigured = true
+	}
+
+	// 5. 检查 Jenkins Job 是否存在
+	jobExists := false
+	var jobCheckError string
+	if jenkinsConfigured {
+		client := s.getJenkinsClient("")
+		if client != nil {
+			_, err := client.GetJobInfo(ctx, jenkinsJob)
+			if err == nil {
+				jobExists = true
+			} else {
+				jobCheckError = fmt.Sprintf("Jenkins Job '%s' 不存在，需先在 Jenkins 中创建该 Job 并配置 Pipeline Script", jenkinsJob)
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"language_type":     languageType,
+		"jenkins_job":       jenkinsJob,
+		"template_file":     fmt.Sprintf("configs/jenkins-templates/%s", getTemplateFile(languageType)),
+		"jenkins_params":    params,
+		"jenkins_configured": jenkinsConfigured,
+		"job_exists":        jobExists,
+		"job_check_error":   jobCheckError,
+		"flow": []string{
+			"1. 平台触发 Jenkins 构建，传入上述参数",
+			"2. Jenkins 执行通用模板: " + jenkinsJob,
+			"3. 每个阶段完成后回调平台 /stage/callback",
+			"4. 构建完成后回调平台 /pipeline/callback",
+			"5. 平台根据配置自动部署到 K8s",
+		},
+		"setup_guide": fmt.Sprintf(
+			"Jenkins 设置步骤（推荐 Pipeline script from SCM）:\n"+
+				"1. 创建 Pipeline Job，命名为: %s\n"+
+				"2. Pipeline → Definition: Pipeline script from SCM\n"+
+				"3. SCM: Git → Repository URL: 平台仓库地址\n"+
+				"4. Script Path: configs/jenkins-templates/%s\n"+
+				"5. 确保 Jenkins 已配置 credentials: harbor-registry, hmac-secret, gitee-id\n"+
+				"6. 在平台创建流水线时选择 language_type='%s'，无需手动填 jenkins_job",
+			jenkinsJob, getTemplateFile(languageType), languageType,
+		),
+	}, nil
+}
+
+// getTemplateFile 获取模板文件名
+func getTemplateFile(languageType string) string {
+	switch languageType {
+	case models.LanguageTypeGo:
+		return "go-pipeline.groovy"
+	case models.LanguageTypeJava:
+		return "java-spring-pipeline.groovy"
+	case models.LanguageTypeFrontend:
+		return "frontend-pipeline.groovy"
+	case models.LanguageTypePython:
+		return "python-pipeline.groovy"
+	default:
+		return "custom"
+	}
+}
+
+// ==================== SonarQube 代码质量管理 ====================
+
+// GetSonarReport 获取流水线的 SonarQube 代码质量报告
+func (s *Services) GetSonarReport(ctx context.Context, pipelineID int64, runID int64) (map[string]interface{}, error) {
+	db := global.DB.WithContext(ctx)
+
+	// 获取流水线信息
+	var pipeline models.CicdPipeline
+	if err := db.Where("id = ? AND is_del = 0", pipelineID).First(&pipeline).Error; err != nil {
+		return nil, fmt.Errorf("流水线不存在")
+	}
+
+	// 获取运行记录
+	var run models.CicdPipelineRun
+	if runID > 0 {
+		if err := db.Where("id = ? AND pipeline_id = ?", runID, pipelineID).First(&run).Error; err != nil {
+			return nil, fmt.Errorf("运行记录不存在")
+		}
+	} else {
+		// 获取最新一次运行记录
+		if err := db.Where("pipeline_id = ?", pipelineID).Order("id DESC").First(&run).Error; err != nil {
+			return nil, fmt.Errorf("暂无运行记录")
+		}
+	}
+
+	// 获取 sonar 和 quality_gate 阶段
+	var sonarStage models.CicdPipelineStage
+	hasSonar := db.Where("run_id = ? AND stage_type = ?", run.ID, models.StageTypeSonar).First(&sonarStage).Error == nil
+
+	var qgStage models.CicdPipelineStage
+	hasQG := db.Where("run_id = ? AND stage_type = ?", run.ID, models.StageTypeQualityGate).First(&qgStage).Error == nil
+
+	// 构建报告
+	report := map[string]interface{}{
+		"pipeline_id":   pipeline.ID,
+		"pipeline_name": pipeline.Name,
+		"language_type": pipeline.LanguageType,
+		"run_id":        run.ID,
+		"build_number":  run.BuildNumber,
+		"run_status":    run.Status,
+		"has_sonar":     hasSonar,
+	}
+
+	if hasSonar {
+		report["sonar_stage"] = map[string]interface{}{
+			"status":       sonarStage.Status,
+			"started_at":   sonarStage.StartedAt,
+			"finished_at":  sonarStage.FinishedAt,
+			"duration_sec": sonarStage.DurationSec,
+		}
+	}
+
+	if hasQG {
+		report["quality_gate"] = map[string]interface{}{
+			"status":       qgStage.Status,
+			"started_at":   qgStage.StartedAt,
+			"finished_at":  qgStage.FinishedAt,
+		}
+	}
+
+	// 从 stages_result JSON 中提取 SonarQube 数据
+	if run.StagesResult != nil {
+		if sonarData, ok := run.StagesResult["sonar_report"]; ok {
+			report["sonar_report"] = sonarData
+		}
+	}
+
+	// 如果没有扫描数据，返回默认模拟数据（方便前端开发调试）
+	if !hasSonar {
+		report["sonar_report"] = map[string]interface{}{
+			"project_key":          pipeline.Name,
+			"quality_gate":         models.QualityGateNone,
+			"bugs":                 0,
+			"vulnerabilities":      0,
+			"code_smells":          0,
+			"coverage":             0.0,
+			"duplications":         0.0,
+			"lines_of_code":        0,
+			"security_hotspots":    0,
+			"reliability_rating":   "A",
+			"security_rating":      "A",
+			"maintainability_rating": "A",
+			"message":              "暂无 SonarQube 扫描记录，请确保流水线已启用代码质量扫描",
+		}
+	}
+
+	return report, nil
+}
+
+// SaveSonarReport 保存 SonarQube 扫描结果
+func (s *Services) SaveSonarReport(ctx context.Context, pipelineID int64, runID int64, info *models.StageSonarInfo) error {
+	db := global.DB.WithContext(ctx)
+
+	info.ScanTime = uint64(time.Now().Unix())
+
+	// 将 SonarQube 数据存储到运行记录的 stages_result JSON 中
+	var run models.CicdPipelineRun
+	if runID > 0 {
+		if err := db.Where("id = ? AND pipeline_id = ?", runID, pipelineID).First(&run).Error; err != nil {
+			return fmt.Errorf("运行记录不存在")
+		}
+	} else {
+		if err := db.Where("pipeline_id = ?", pipelineID).Order("id DESC").First(&run).Error; err != nil {
+			return fmt.Errorf("暂无运行记录")
+		}
+	}
+
+	// 更新 stages_result
+	stagesResult := run.StagesResult
+	if stagesResult == nil {
+		stagesResult = make(models.JSONMap)
+	}
+	stagesResult["sonar_report"] = info
+
+	if err := db.Model(&models.CicdPipelineRun{}).Where("id = ?", run.ID).
+		Update("stages_result", stagesResult).Error; err != nil {
+		return fmt.Errorf("保存 SonarQube 报告失败: %v", err)
+	}
+
+	return nil
 }
