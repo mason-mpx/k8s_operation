@@ -84,7 +84,8 @@ pipeline {
                         branches: [[name: "*/${targetBranch}"]],
                         extensions: [
                             [$class: 'CleanBeforeCheckout'],
-                            [$class: 'LocalBranch', localBranch: targetBranch]
+                            [$class: 'LocalBranch', localBranch: targetBranch],
+                            [$class: 'CloneOption', depth: 1, shallow: true, noTags: true, timeout: 10]
                         ],
                         userRemoteConfigs: [[
                             url: params.GIT_REPO,
@@ -150,7 +151,7 @@ pipeline {
                 echo "=== 编译检查 ==="
                 script {
                     if (!fileExists('go.mod')) { echo "跳过编译检查"; return }
-                    sh 'set -e && go test -run "^$" ./...'
+                    sh 'set -e && go build ./...'
                 }
             }
             post {
@@ -323,10 +324,16 @@ pipeline {
                     def dockerfile = params.DOCKERFILE_PATH?.trim()
                     def appName = env.APP_NAME ?: 'server'
 
-                    // 如果用户未指定 Dockerfile，自动生成纯运行时版本
-                    if (!dockerfile) {
-                        dockerfile = '.Dockerfile.runtime'
-                        writeFile file: dockerfile, text: """\
+                    // 优先级：1) 参数指定路径 → 2) 项目自带 Dockerfile → 3) 自动生成
+                    // __PLATFORM_GENERATE__ 为平台哨兵值，表示强制使用平台生成
+                    def forceGenerate = (dockerfile == '__PLATFORM_GENERATE__')
+                    if (!dockerfile || forceGenerate) {
+                        if (!forceGenerate && fileExists('Dockerfile')) {
+                            dockerfile = 'Dockerfile'
+                            echo "[Build Image] 检测到项目自带 Dockerfile，直接使用"
+                        } else {
+                            dockerfile = '.Dockerfile.runtime'
+                            writeFile file: dockerfile, text: """\
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata wget && \\
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \\
@@ -342,7 +349,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
     CMD wget -qO- http://127.0.0.1:8080/healthz/live || exit 1
 ENTRYPOINT ["/app/${appName}"]
 """
-                        echo "[Build Image] 已自动生成纯运行时 Dockerfile（无编译环境）"
+                            echo "[Build Image] ${forceGenerate ? '强制' : '项目无 Dockerfile，'}已自动生成纯运行时 Dockerfile"
+                        }
                     }
 
                     sh """

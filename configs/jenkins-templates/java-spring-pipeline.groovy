@@ -63,7 +63,8 @@ pipeline {
     environment {
         REGISTRY_CREDS = credentials('harbor-registry')
         HMAC_SECRET    = credentials('hmac-secret')
-        MAVEN_OPTS     = '-Xmx1024m -Xms512m'
+        MAVEN_OPTS     = '-Xmx1024m -Xms512m -XX:+TieredCompilation -XX:TieredStopAtLevel=1'
+        MAVEN_LOCAL_REPO = "${env.WORKSPACE}/.m2/repository"
     }
 
     stages {
@@ -79,7 +80,11 @@ pipeline {
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: "*/${targetBranch}"]],
-                        extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'LocalBranch', localBranch: targetBranch]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'LocalBranch', localBranch: targetBranch],
+                            [$class: 'CloneOption', depth: 1, shallow: true, noTags: true, timeout: 10]
+                        ],
                         userRemoteConfigs: [[url: params.GIT_REPO, credentialsId: params.GIT_CREDENTIAL_ID ?: 'gitee-id']]
                     ])
                     env.TARGET_BRANCH = targetBranch
@@ -108,7 +113,7 @@ pipeline {
         stage('Compile') {
             steps {
                 echo "=== Maven 编译 ==="
-                sh 'mvn clean compile -DskipTests -B'
+                sh 'mvn clean compile -DskipTests -B -T 1C -Dmaven.repo.local=${MAVEN_LOCAL_REPO}'
             }
             post {
                 success { script { stageCallback('compile', 'success') } }
@@ -120,7 +125,7 @@ pipeline {
             when { expression { return !params.SKIP_TESTS } }
             steps {
                 echo "=== 单元测试 ==="
-                sh 'mvn test -B'
+                sh 'mvn test -B -T 1C -Dmaven.repo.local=${MAVEN_LOCAL_REPO} -Dsurefire.useFile=false'
             }
             post {
                 success { script { stageCallback('test', 'success') } }
@@ -196,7 +201,7 @@ pipeline {
         stage('Package') {
             steps {
                 echo "=== 打包 ==="
-                sh "mvn ${params.MAVEN_GOALS}"
+                sh "mvn ${params.MAVEN_GOALS} -T 1C -Dmaven.repo.local=${MAVEN_LOCAL_REPO}"
                 archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true, allowEmptyArchive: true
             }
             post {
@@ -255,27 +260,36 @@ pipeline {
                     def dockerfile = params.DOCKERFILE_PATH?.trim()
                     def javaVersion = params.JAVA_VERSION ?: '17'
 
-                    // 如果用户未指定 Dockerfile，自动生成纯运行时版本
-                    if (!dockerfile) {
-                        dockerfile = '.Dockerfile.runtime'
-                        writeFile file: dockerfile, text: """\
-ARG JAVA_VERSION=${javaVersion}
-FROM eclipse-temurin:\${JAVA_VERSION}-jre-alpine
-RUN apk --no-cache add tzdata wget && \\
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-RUN addgroup -g 1000 -S app && adduser -u 1000 -S app -G app
+                    // 优先级：1) 参数指定路径 → 2) 项目自带 Dockerfile → 3) 自动生成
+                    // __PLATFORM_GENERATE__ 为平台哨兵值，表示强制使用平台生成
+                    def forceGenerate = (dockerfile == '__PLATFORM_GENERATE__')
+                    if (!dockerfile || forceGenerate) {
+                        // 智能检测模式：检查项目是否自带 Dockerfile（非强制生成时）
+                        if (!forceGenerate && fileExists('Dockerfile')) {
+                            dockerfile = 'Dockerfile'
+                            echo "[Build Image] 检测到项目自带 Dockerfile，直接使用"
+                        } else {
+                            // 项目无 Dockerfile，自动生成纯运行时版本（阿里云镜像源）
+                            dockerfile = '.Dockerfile.runtime'
+                            writeFile file: dockerfile, text: """\
+FROM registry.cn-hangzhou.aliyuncs.com/k8s-gos/java:${javaVersion}-jre-alpine
+ENV TZ=Asia/Shanghai
 WORKDIR /app
-RUN mkdir -p /app/logs && chown -R app:app /app
-COPY target/*.jar app.jar
-RUN chown app:app app.jar
-USER app
+RUN addgroup -S appgroup && adduser -S -G appgroup appuser
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
+COPY target/*.jar /app/app.jar
+USER appuser
 EXPOSE 8080
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \\
-    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
-ENTRYPOINT ["sh", "-c", "java \$JAVA_OPTS -jar app.jar"]
+ENV JAVA_OPTS="\\
+-XX:MaxRAMPercentage=75.0 \\
+-XX:+UseG1GC \\
+-XX:+HeapDumpOnOutOfMemoryError \\
+-XX:HeapDumpPath=/app/logs \\
+-Djava.security.egd=file:/dev/./urandom"
+ENTRYPOINT ["sh", "-c", "exec java \$JAVA_OPTS -jar /app/app.jar"]
 """
-                        echo "[Build Image] 已自动生成纯运行时 Dockerfile（无编译环境，仅 JRE）"
+                            echo "[Build Image] 项目无 Dockerfile，已自动生成纯运行时版本（阿里云 JRE 镜像）"
+                        }
                     }
 
                     sh """

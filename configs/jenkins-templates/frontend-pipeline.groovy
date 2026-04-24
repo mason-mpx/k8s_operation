@@ -68,7 +68,11 @@ pipeline {
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: "*/${targetBranch}"]],
-                        extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'LocalBranch', localBranch: targetBranch]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'LocalBranch', localBranch: targetBranch],
+                            [$class: 'CloneOption', depth: 1, shallow: true, noTags: true, timeout: 10]
+                        ],
                         userRemoteConfigs: [[url: params.GIT_REPO, credentialsId: params.GIT_CREDENTIAL_ID ?: 'gitee-id']]
                     ])
                     env.TARGET_BRANCH = targetBranch
@@ -243,10 +247,16 @@ pipeline {
                     def dockerfile = params.DOCKERFILE_PATH?.trim()
                     def outputDir = params.BUILD_OUTPUT_DIR ?: 'dist'
 
-                    // 如果用户未指定 Dockerfile，自动生成纯运行时版本
-                    if (!dockerfile) {
-                        dockerfile = '.Dockerfile.runtime'
-                        writeFile file: dockerfile, text: """\
+                    // 优先级：1) 参数指定路径 → 2) 项目自带 Dockerfile → 3) 自动生成
+                    // __PLATFORM_GENERATE__ 为平台哨兵值，表示强制使用平台生成
+                    def forceGenerate = (dockerfile == '__PLATFORM_GENERATE__')
+                    if (!dockerfile || forceGenerate) {
+                        if (!forceGenerate && fileExists('Dockerfile')) {
+                            dockerfile = 'Dockerfile'
+                            echo "[Build Image] 检测到项目自带 Dockerfile，直接使用"
+                        } else {
+                            dockerfile = '.Dockerfile.runtime'
+                            writeFile file: dockerfile, text: """\
 FROM nginx:1.25-alpine
 RUN apk --no-cache add tzdata && \\
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
@@ -261,7 +271,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
     CMD wget -qO- http://localhost/health || exit 1
 CMD ["nginx", "-g", "daemon off;"]
 """
-                        echo "[Build Image] 已自动生成纯运行时 Dockerfile（无 Node.js，仅 Nginx）"
+                            echo "[Build Image] ${forceGenerate ? '强制' : '项目无 Dockerfile，'}已自动生成纯运行时 Dockerfile（Nginx）"
+                        }
                     }
 
                     sh """
