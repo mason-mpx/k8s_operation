@@ -46,6 +46,15 @@ var DefaultJenkinsJobMap = map[string]string{
 	LanguageTypePython:   "k8s-builder-python",
 }
 
+// DefaultScriptPathMap 语言类型 -> Jenkins Pipeline Script Path
+// 平台在触发构建前会自动同步该路径到 Jenkins Job 配置
+var DefaultScriptPathMap = map[string]string{
+	LanguageTypeGo:       "configs/jenkins-templates/go-pipeline.groovy",
+	LanguageTypeJava:     "configs/jenkins-templates/java-spring-pipeline.groovy",
+	LanguageTypeFrontend: "configs/jenkins-templates/frontend-pipeline.groovy",
+	LanguageTypePython:   "configs/jenkins-templates/python-pipeline.groovy",
+}
+
 // ValidLanguageTypes 合法的语言类型列表
 var ValidLanguageTypes = []string{
 	LanguageTypeGo, LanguageTypeJava, LanguageTypeFrontend, LanguageTypePython, LanguageTypeCustom,

@@ -28,6 +28,7 @@ pipeline {
         string(name: 'IMAGE_REPO', defaultValue: '', description: '镜像仓库地址（必填）')
         string(name: 'IMAGE_TAG', defaultValue: '', description: '镜像标签（空则自动生成）')
         string(name: 'DOCKERFILE_PATH', defaultValue: '', description: 'Dockerfile 路径（空则自动生成纯运行时 Dockerfile）')
+        string(name: 'LANGUAGE_TYPE', defaultValue: '', description: '平台注入的语言类型（用于交叉校验，不要手动修改）')
 
         string(name: 'PIPELINE_ID', defaultValue: '', description: '平台流水线ID')
         string(name: 'RUN_ID', defaultValue: '', description: '平台运行记录ID')
@@ -59,6 +60,28 @@ pipeline {
             steps {
                 deleteDir()
                 script {
+                    // 语言类型交叉校验：防止自定义 Job 配错脚本
+                    def expectedType = 'python'
+                    def actualType = params.LANGUAGE_TYPE?.trim()
+                    if (actualType && actualType != expectedType) {
+                        def scriptMap = [
+                            'go': 'go-pipeline.groovy',
+                            'java': 'java-spring-pipeline.groovy',
+                            'frontend': 'frontend-pipeline.groovy',
+                            'python': 'python-pipeline.groovy'
+                        ]
+                        def correctScript = scriptMap[actualType] ?: "${actualType}-pipeline.groovy"
+                        error("""
+=== 模板类型不匹配 ===
+平台配置语言类型: ${actualType}
+当前模板类型: ${expectedType} (python-pipeline.groovy)
+
+解决方案（二选一）:
+  1. 修改 Jenkins Job 的 Script Path 为: configs/jenkins-templates/${correctScript}
+  2. 在平台将 Jenkins Job 名称留空，使用自动匹配
+""")
+                    }
+
                     if (!params.GIT_REPO?.trim()) { error("GIT_REPO 不能为空") }
                     if (!params.IMAGE_REPO?.trim()) { error("IMAGE_REPO 不能为空") }
 

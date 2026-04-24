@@ -319,9 +319,15 @@
                 </div>
                 <div class="input-hint">
                   <template v-if="pipelineData.language_type !== 'custom'">
-                    留空则自动使用模板 Job: <strong>k8s-builder-{{ pipelineData.language_type }}</strong>
+                    <template v-if="pipelineData.jenkins_job && pipelineData.jenkins_job.trim()">
+                      <span style="color:#52c41a;">&#10004;</span> 使用自定义 Job <strong>{{ pipelineData.jenkins_job }}</strong>，平台会在构建前自动将其 Script Path 同步为:
+                      <code style="color:#1890ff;display:inline-block;margin-top:2px;">configs/jenkins-templates/{{ templateFileMap[pipelineData.language_type] || 'custom' }}</code>，无需手动配置。
+                    </template>
+                    <template v-else>
+                      留空将自动使用平台内置 Job: <strong>k8s-builder-{{ pipelineData.language_type }}</strong>（推荐）
+                    </template>
                   </template>
-                  <template v-else>自定义类型必须手动指定 Jenkins Job 名称</template>
+                  <template v-else>自定义类型必须填写 Jenkins Job 名称（Jenkins 上已创建的 Job）</template>
                 </div>
               </div>
 
@@ -617,6 +623,14 @@
                       </option>
                     </select>
                   </div>
+                </div>
+                <!-- 服务类型一致性提示 -->
+                <div class="input-hint" style="margin-top:6px;padding:6px 10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;">
+                  <span style="color:#faad14;">&#9888;</span>
+                  <strong>注意：</strong>此处「服务类型」决定资源模板和部署参数，请确保与上方「语言/框架类型」(<strong>{{ pipelineData.language_type }}</strong>) 保持一致。
+                  <template v-if="selectedServiceType !== pipelineData.language_type && pipelineData.language_type !== 'custom'">
+                    <br/><span style="color:#ff4d4f;">&#10060; 当前不一致：语言类型为 <strong>{{ pipelineData.language_type }}</strong>，服务类型为 <strong>{{ selectedServiceType }}</strong>，可能导致资源模板不匹配！</span>
+                  </template>
                 </div>
               </div>
 
@@ -1223,6 +1237,14 @@ export default {
       const langMap = { java: 'Java', go: 'Go', frontend: 'Node.js', python: 'Python', custom: '自定义' }
       return langMap[selectedServiceType.value] || selectedServiceType.value
     })
+
+    // 语言类型 → Jenkins 模板文件名映射（前端提示用）
+    const templateFileMap = {
+      java: 'java-spring-pipeline.groovy',
+      go: 'go-pipeline.groovy',
+      frontend: 'frontend-pipeline.groovy',
+      python: 'python-pipeline.groovy'
+    }
     
     // 命名空间列表
     const namespaces = ref([])
@@ -1661,6 +1683,9 @@ export default {
               await loadNamespaces()
               await loadWorkloads()
             }
+            // 编辑回显后，按实际语言类型+环境重新加载资源模板
+            selectedResourceTemplate.value = ''
+            await loadResourceTemplates()
           }
         } catch (error) {
           alert('获取流水线详情失败')
@@ -1931,10 +1956,13 @@ export default {
       return option ? option.label : env
     }
 
-    onMounted(() => {
+    onMounted(async () => {
       loadTemplates()
-      loadPipelineData()
-      loadResourceTemplates()
+      if (isEdit) {
+        // 编辑模式：先加载流水线数据（含语言类型、环境），再按实际参数加载资源模板
+        await loadPipelineData()
+      }
+      await loadResourceTemplates()
       // 初始化时触发一次校验
       setTimeout(() => doValidateResource(), 500)
     })
@@ -1969,6 +1997,7 @@ export default {
       selectedServiceType,
       dockerfileMode,
       dockerfileLangLabel,
+      templateFileMap,
       onServiceTypeChange,
       onResourceTemplateChange,
       doValidateResource,
