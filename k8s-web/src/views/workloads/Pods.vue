@@ -217,6 +217,9 @@
               <button class="icon-btn" title="查看日志" @click="openLogs(pod)">
                 📄 日志
               </button>
+              <button class="action-btn terminal" title="容器终端" @click="openTerminal(pod)">
+                >_ 终端
+              </button>
 
               <!-- 更多按钮 -->
               <div class="more-btn" ref="moreBtn">
@@ -399,6 +402,9 @@
           <div class="card-footer">
             <button class="card-action-btn" @click="openLogs(pod)" title="查看日志">
               📄 日志
+            </button>
+            <button class="card-action-btn" @click="openTerminal(pod)" title="容器终端">
+              >_ 终端
             </button>
             <button class="card-action-btn" @click="openDetail(pod)" title="查看详情">
               📋 详情
@@ -971,6 +977,14 @@
         </div>
       </div>
     </div>
+    <!-- 容器终端 -->
+    <KubeTerminal
+      :visible="showTerminal"
+      :namespace="terminalPod.namespace"
+      :pod-name="terminalPod.name"
+      :container-name="terminalPod.container"
+      @close="closeTerminal"
+    />
   </div>
 </template>
 
@@ -979,9 +993,27 @@ import {computed, onMounted, onUnmounted, ref, watch, watchEffect} from 'vue';
 import podsApi from '@/api/cluster/workloads/pods';
 import {useClusterStore} from '@/stores/cluster';
 import Pagination from '@/components/Pagination.vue';
+import KubeTerminal from '@/components/KubeTerminal.vue'
 import { Message } from '@arco-design/web-vue'
 import { useFilteredNamespaces } from '@/composables/useFilteredNamespaces'
 import permissionStore from '@/stores/permission'
+
+// ===== 容器终端 =====
+const showTerminal = ref(false)
+const terminalPod = ref({ namespace: '', name: '', container: '' })
+
+const openTerminal = (pod) => {
+  terminalPod.value = {
+    namespace: pod.namespace || '',
+    name: pod.name,
+    container: pod.containers?.[0] || '',
+  }
+  showTerminal.value = true
+}
+
+const closeTerminal = () => {
+  showTerminal.value = false
+}
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -1533,7 +1565,8 @@ const createPodFromYaml = async () => {
   try {
     const res = await podsApi.createFromYaml({ yaml: yamlContent.value })
     if (res.code === 0) {
-      Message.success({ content: 'Pod 创建成功' })
+      const msg = res.data?.message || 'Pod 创建成功'
+      Message.success({ content: msg, duration: 5000 })
       showCreateModal.value = false
       yamlContent.value = ''
       yamlError.value = ''
@@ -2497,6 +2530,7 @@ onUnmounted(() => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 1200px;
   table-layout: auto; /* 改为自动布局，让内容决定列宽 */
 }
 
@@ -2696,10 +2730,38 @@ onUnmounted(() => {
 
 .action-icons {
   display: flex;
-  gap: 4px;
-  flex-wrap: nowrap; /* 禁止换行 */
+  gap: 6px;
+  flex-wrap: nowrap;
   justify-content: flex-start;
   align-items: center;
+}
+
+.action-btn {
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn.terminal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #00d4aa;
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+}
+
+.action-btn.terminal:hover {
+  background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+  color: #00ffcc;
+  box-shadow: 0 4px 8px rgba(0, 212, 170, 0.3);
+  transform: translateY(-1px);
 }
 
 .icon-btn {

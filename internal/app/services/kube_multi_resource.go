@@ -6,12 +6,18 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	appv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8soperation/global"
 	"k8soperation/internal/app/requests"
 	"k8soperation/pkg/k8s/common"
 	"k8soperation/pkg/k8s/configmap"
 	"k8soperation/pkg/k8s/deployment"
+	"k8soperation/pkg/k8s/secret"
+	svc "k8soperation/pkg/k8s/svc"
+	"sigs.k8s.io/yaml"
 )
 
 // KubeMultiResourceParseYaml 解析多资源 YAML
@@ -89,92 +95,147 @@ func (s *Services) createSingleResource(ctx context.Context, cli *K8sClients, re
 	case "ConfigMap":
 		return configmap.ApplyConfigMapYaml(ctx, cli.Kube, resource.Content)
 	case "Secret":
-		// TODO: 实现 Secret.ApplySecretYaml
-		return nil, errors.New("Secret 支持待实现")
+		return secret.ApplySecretYaml(ctx, cli.Kube, resource.Content)
 	case "Service":
-		// TODO: 实现 svc.ApplyServiceYaml
-		return nil, errors.New("Service 支持待实现")
+		return svc.ApplyServiceYaml(ctx, cli.Kube, resource.Content)
 	case "Deployment":
 		return deployment.ApplyYaml(ctx, cli.Kube, resource.Namespace, resource.Name, resource.Content)
-	case "StorageClass":
-		// TODO: 实现 StorageClass 支持
-		return nil, errors.New("StorageClass 支持待实现")
-	default:
-		// 对于未明确支持的资源类型，尝试使用通用方法
-		return s.applyGenericResource(ctx, cli, resource)
-	}
-}
-
-// applyGenericResource 通用资源应用方法
-func (s *Services) applyGenericResource(ctx context.Context, cli *K8sClients, resource requests.ParsedResource) (interface{}, error) {
-	// 解析 API 版本
-	gv, err := schema.ParseGroupVersion(resource.APIVersion)
-	if err != nil {
-		return nil, errors.Wrapf(err, "无效的 API 版本: %s", resource.APIVersion)
-	}
-
-	// 根据不同的 API 组选择对应的客户端
-	switch gv.Group {
-	case "":
-		// Core API Group (v1)
-		return s.applyCoreResource(ctx, cli, resource, gv.Version)
-	case "apps":
-		// Apps API Group
-		return s.applyAppsResource(ctx, cli, resource, gv.Version)
-	case "batch":
-		// Batch API Group
-		return s.applyBatchResource(ctx, cli, resource, gv.Version)
-	default:
-		return nil, errors.Errorf("暂不支持 API 组: %s", gv.Group)
-	}
-}
-
-// applyCoreResource 应用 Core API 资源
-func (s *Services) applyCoreResource(ctx context.Context, cli *K8sClients, resource requests.ParsedResource, version string) (interface{}, error) {
-	switch resource.Kind {
-	case "Namespace":
-		// Namespace 创建逻辑
-		ns := &corev1.Namespace{}
-		// 这里需要解析 YAML 并创建 Namespace
-		// 由于篇幅限制，这里简化处理
-		return ns, nil
-	case "PersistentVolumeClaim":
-		// PVC 创建逻辑
-		pvc := &corev1.PersistentVolumeClaim{}
-		return pvc, nil
-	case "Pod":
-		// Pod 创建逻辑
-		pod := &corev1.Pod{}
-		return pod, nil
-	default:
-		return nil, errors.Errorf("Core API 不支持资源类型: %s", resource.Kind)
-	}
-}
-
-// applyAppsResource 应用 Apps API 资源
-func (s *Services) applyAppsResource(ctx context.Context, cli *K8sClients, resource requests.ParsedResource, version string) (interface{}, error) {
-	switch resource.Kind {
 	case "StatefulSet":
-		// StatefulSet 创建逻辑
-		return nil, errors.New("StatefulSet 支持待实现")
+		return s.applyStatefulSetYaml(ctx, cli, resource)
 	case "DaemonSet":
-		// DaemonSet 创建逻辑
-		return nil, errors.New("DaemonSet 支持待实现")
+		return s.applyDaemonSetYaml(ctx, cli, resource)
+	case "Job":
+		return s.applyJobYaml(ctx, cli, resource)
+	case "CronJob":
+		return s.applyCronJobYaml(ctx, cli, resource)
+	case "PersistentVolumeClaim":
+		return s.applyPVCYaml(ctx, cli, resource)
 	default:
-		return nil, errors.Errorf("Apps API 不支持资源类型: %s", resource.Kind)
+		return nil, errors.Errorf("暂不支持资源类型: %s", resource.Kind)
 	}
 }
 
-// applyBatchResource 应用 Batch API 资源
-func (s *Services) applyBatchResource(ctx context.Context, cli *K8sClients, resource requests.ParsedResource, version string) (interface{}, error) {
-	switch resource.Kind {
-	case "Job":
-		// Job 创建逻辑
-		return nil, errors.New("Job 支持待实现")
-	case "CronJob":
-		// CronJob 创建逻辑
-		return nil, errors.New("CronJob 支持待实现")
-	default:
-		return nil, errors.Errorf("Batch API 不支持资源类型: %s", resource.Kind)
+// applyStatefulSetYaml 从 YAML 创建/更新 StatefulSet
+func (s *Services) applyStatefulSetYaml(ctx context.Context, cli *K8sClients, resource requests.ParsedResource) (interface{}, error) {
+	var sts interface{}
+	if err := yaml.Unmarshal([]byte(resource.Content), &sts); err != nil {
+		return nil, errors.Wrap(err, "解析 StatefulSet YAML 失败")
 	}
+
+	// 直接使用 dynamic 风格：先 Get，存在则 Update，不存在则 Create
+	existing, err := cli.Kube.AppsV1().StatefulSets(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
+	if err != nil {
+		// 不存在，创建
+		var obj appv1.StatefulSet
+		if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+			return nil, errors.Wrap(err, "解析 StatefulSet YAML 失败")
+		}
+		if obj.Namespace == "" {
+			obj.Namespace = resource.Namespace
+		}
+		created, createErr := cli.Kube.AppsV1().StatefulSets(obj.Namespace).Create(ctx, &obj, metav1.CreateOptions{})
+		if createErr != nil {
+			return nil, errors.Wrap(createErr, "创建 StatefulSet 失败")
+		}
+		global.Logger.Infof("[MultiResource] StatefulSet %s/%s 创建成功", created.Namespace, created.Name)
+		return created, nil
+	}
+
+	// 存在，更新
+	var obj appv1.StatefulSet
+	if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+		return nil, errors.Wrap(err, "解析 StatefulSet YAML 失败")
+	}
+	obj.ResourceVersion = existing.ResourceVersion
+	obj.Spec.Selector = existing.Spec.Selector // selector 是 immutable
+	updated, err := cli.Kube.AppsV1().StatefulSets(resource.Namespace).Update(ctx, &obj, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "更新 StatefulSet 失败")
+	}
+	global.Logger.Infof("[MultiResource] StatefulSet %s/%s 更新成功", updated.Namespace, updated.Name)
+	return updated, nil
+}
+
+// applyDaemonSetYaml 从 YAML 创建/更新 DaemonSet
+func (s *Services) applyDaemonSetYaml(ctx context.Context, cli *K8sClients, resource requests.ParsedResource) (interface{}, error) {
+	existing, err := cli.Kube.AppsV1().DaemonSets(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
+	if err != nil {
+		var obj appv1.DaemonSet
+		if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+			return nil, errors.Wrap(err, "解析 DaemonSet YAML 失败")
+		}
+		if obj.Namespace == "" {
+			obj.Namespace = resource.Namespace
+		}
+		created, createErr := cli.Kube.AppsV1().DaemonSets(obj.Namespace).Create(ctx, &obj, metav1.CreateOptions{})
+		if createErr != nil {
+			return nil, errors.Wrap(createErr, "创建 DaemonSet 失败")
+		}
+		global.Logger.Infof("[MultiResource] DaemonSet %s/%s 创建成功", created.Namespace, created.Name)
+		return created, nil
+	}
+
+	var obj appv1.DaemonSet
+	if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+		return nil, errors.Wrap(err, "解析 DaemonSet YAML 失败")
+	}
+	obj.ResourceVersion = existing.ResourceVersion
+	obj.Spec.Selector = existing.Spec.Selector
+	updated, err := cli.Kube.AppsV1().DaemonSets(resource.Namespace).Update(ctx, &obj, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "更新 DaemonSet 失败")
+	}
+	global.Logger.Infof("[MultiResource] DaemonSet %s/%s 更新成功", updated.Namespace, updated.Name)
+	return updated, nil
+}
+
+// applyJobYaml 从 YAML 创建 Job
+func (s *Services) applyJobYaml(ctx context.Context, cli *K8sClients, resource requests.ParsedResource) (interface{}, error) {
+	var obj batchv1.Job
+	if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+		return nil, errors.Wrap(err, "解析 Job YAML 失败")
+	}
+	if obj.Namespace == "" {
+		obj.Namespace = resource.Namespace
+	}
+	created, err := cli.Kube.BatchV1().Jobs(obj.Namespace).Create(ctx, &obj, metav1.CreateOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "创建 Job 失败")
+	}
+	global.Logger.Infof("[MultiResource] Job %s/%s 创建成功", created.Namespace, created.Name)
+	return created, nil
+}
+
+// applyCronJobYaml 从 YAML 创建 CronJob
+func (s *Services) applyCronJobYaml(ctx context.Context, cli *K8sClients, resource requests.ParsedResource) (interface{}, error) {
+	var obj batchv1.CronJob
+	if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+		return nil, errors.Wrap(err, "解析 CronJob YAML 失败")
+	}
+	if obj.Namespace == "" {
+		obj.Namespace = resource.Namespace
+	}
+	created, err := cli.Kube.BatchV1().CronJobs(obj.Namespace).Create(ctx, &obj, metav1.CreateOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "创建 CronJob 失败")
+	}
+	global.Logger.Infof("[MultiResource] CronJob %s/%s 创建成功", created.Namespace, created.Name)
+	return created, nil
+}
+
+// applyPVCYaml 从 YAML 创建 PVC
+func (s *Services) applyPVCYaml(ctx context.Context, cli *K8sClients, resource requests.ParsedResource) (interface{}, error) {
+	var obj corev1.PersistentVolumeClaim
+	if err := yaml.Unmarshal([]byte(resource.Content), &obj); err != nil {
+		return nil, errors.Wrap(err, "解析 PVC YAML 失败")
+	}
+	if obj.Namespace == "" {
+		obj.Namespace = resource.Namespace
+	}
+	created, err := cli.Kube.CoreV1().PersistentVolumeClaims(obj.Namespace).Create(ctx, &obj, metav1.CreateOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "创建 PVC 失败")
+	}
+	global.Logger.Infof("[MultiResource] PVC %s/%s 创建成功", created.Namespace, created.Name)
+	return created, nil
 }

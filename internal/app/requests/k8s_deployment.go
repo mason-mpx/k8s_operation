@@ -331,3 +331,81 @@ func ValidKubeDeploymentCreateSvcRequest(data interface{}, ctx context.Context) 
 
 	return valid.ValidateOptions(data, rules, messages)
 }
+
+// ---------------------- Deployment 滚动更新策略 ----------------------
+
+func NewKubeDeploymentRollingUpdateRequest() *KubeDeploymentRollingUpdateRequest {
+	return &KubeDeploymentRollingUpdateRequest{}
+}
+
+// KubeDeploymentRollingUpdateRequest 更新滚动更新策略请求
+type KubeDeploymentRollingUpdateRequest struct {
+	KubeCommonRequest
+	MaxSurge                string `json:"max_surge" valid:"max_surge"`                                         // 最大超出副本数，如 "1" 或 "25%"
+	MaxUnavailable          string `json:"max_unavailable" valid:"max_unavailable"`                             // 最大不可用副本数
+	MinReadySeconds         int32  `json:"min_ready_seconds" valid:"min_ready_seconds"`                         // Pod 就绪后最少等待秒数
+	ProgressDeadlineSeconds *int32 `json:"progress_deadline_seconds,omitempty" valid:"progress_deadline_seconds"` // 进度截止时间
+	RevisionHistoryLimit    *int32 `json:"revision_history_limit,omitempty" valid:"revision_history_limit"`     // 历史版本保留数
+}
+
+func ValidKubeDeploymentRollingUpdateRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"namespace":      []string{"required"},
+		"name":           []string{"required"},
+		"max_surge":      []string{"required"},
+		"max_unavailable": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"namespace":      []string{"required: namespace 不能为空"},
+		"name":           []string{"required: name 不能为空"},
+		"max_surge":      []string{"required: max_surge 不能为空"},
+		"max_unavailable": []string{"required: max_unavailable 不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ---------------------- Deployment 暂停/恢复 ----------------------
+
+func NewKubeDeploymentPauseResumeRequest() *KubeDeploymentPauseResumeRequest {
+	return &KubeDeploymentPauseResumeRequest{}
+}
+
+// KubeDeploymentPauseResumeRequest 暂停/恢复 Rollout 请求
+type KubeDeploymentPauseResumeRequest struct {
+	KubeCommonRequest
+}
+
+func ValidKubeDeploymentPauseResumeRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"namespace": []string{"required"},
+		"name":      []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"namespace": []string{"required: namespace 不能为空"},
+		"name":      []string{"required: name 不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ---------------------- Deployment Rollout 状态 ----------------------
+
+func NewKubeDeploymentRolloutStatusRequest() *KubeDeploymentRolloutStatusRequest {
+	return &KubeDeploymentRolloutStatusRequest{}
+}
+
+// KubeDeploymentRolloutStatusRequest 获取 Rollout 状态请求
+type KubeDeploymentRolloutStatusRequest struct {
+	KubeCommonRequest
+}
+
+func ValidKubeDeploymentRolloutStatusRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"namespace": []string{"required"},
+		"name":      []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"namespace": []string{"required: namespace 不能为空"},
+		"name":      []string{"required: name 不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}

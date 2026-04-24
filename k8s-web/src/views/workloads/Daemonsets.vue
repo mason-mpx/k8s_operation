@@ -117,6 +117,7 @@
             <td style="white-space: nowrap;">{{ ds.createdAt }}</td>
             <td>
               <div class="action-icons">
+                <button class="action-btn terminal" @click="openTerminalForDaemonSet(ds)" title="打开容器终端">>_ 终端</button>
                 <button class="action-btn primary" @click="viewPods(ds)" title="查看 Pod">📦 Pod</button>
                 <div class="more-btn">
                   <button class="icon-btn" @click="toggleMoreOptions(ds, $event)">⋮ 更多</button>
@@ -572,6 +573,7 @@
                   <td>
                     <div class="pod-actions">
                       <button class="icon-btn" title="查看日志" @click="openPodLogs(pod)">📄 日志</button>
+                      <button class="icon-btn" title="容器终端" @click="openTerminal(pod)">&#62;_ 终端</button>
                       <div class="more-btn">
                         <button class="icon-btn" @click="togglePodMoreOptions(pod, $event)" title="更多操作">⋮ 更多</button>
                         <div v-if="showPodMoreOptions && selectedPodForAction === pod" class="more-menu" :style="podMenuStyle">
@@ -821,6 +823,39 @@
         </div>
       </div>
     </div>
+
+    <!-- 容器终端 -->
+    <KubeTerminal
+      :visible="showTerminal"
+      :namespace="terminalPod.namespace"
+      :pod-name="terminalPod.name"
+      :container-name="terminalPod.container"
+      @close="closeTerminal"
+    />
+
+    <!-- 资源状态监听浮窗 -->
+    <transition name="watcher-slide">
+      <div v-if="watchingStatus" class="resource-watcher-panel">
+        <div class="watcher-header">
+          <span class="watcher-title">{{ phaseIcon(watchPhase) }} Rollout 监听</span>
+          <span class="watcher-elapsed">{{ formatElapsed(watchElapsed) }}</span>
+          <button class="watcher-close" @click="stopWatching" title="停止监听">×</button>
+        </div>
+        <div class="watcher-body">
+          <div class="watcher-progress">
+            <div class="watcher-progress-bar" :style="{ width: watchProgress + '%', background: phaseColor(watchPhase) }"></div>
+          </div>
+          <div class="watcher-phase" :style="{ color: phaseColor(watchPhase) }">{{ watchPhase }} ({{ watchProgress }}%)</div>
+          <div class="watcher-events" v-if="watchEvents.length > 0">
+            <div v-for="(ev, i) in watchEvents.slice(0, 8)" :key="i" class="watcher-event" :class="{ warning: ev.type === 'Warning' }">
+              <span class="ev-type">{{ ev.type === 'Warning' ? '⚠' : 'ℹ️' }}</span>
+              <span class="ev-reason">{{ ev.reason }}</span>
+              <span class="ev-msg">{{ ev.message }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -828,11 +863,101 @@
 import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
+import KubeTerminal from '@/components/KubeTerminal.vue'
 import daemonsetsApi from '@/api/cluster/workloads/daemonsets'
 import podsApi from '@/api/cluster/workloads/pods'
 import namespaceApi from '@/api/cluster/config/namespace'
 import { useClusterStore } from '@/stores/cluster'
+import { useResourceWatcher } from '@/composables/useResourceWatcher'
 import permissionStore from '@/stores/permission'
+
+// ===== 容器终端 =====
+const showTerminal = ref(false)
+const terminalPod = ref({ namespace: '', name: '', container: '' })
+
+const openTerminal = (pod) => {
+  terminalPod.value = {
+    namespace: pod.namespace || podsDaemonset.value?.namespace || '',
+    name: pod.name,
+    container: pod.containers?.[0] || pod.containerName || '',
+  }
+  showTerminal.value = true
+}
+
+const openTerminalForDaemonSet = async (ds) => {
+  try {
+    const res = await daemonsetsApi.pods({ namespace: ds.namespace, name: ds.name })
+    const list = res.code === 0 ? (res.data?.pods || res.data?.items || res.data?.list || res.data || []) : []
+    const pods = list.map(p => ({
+      name: p.metadata?.name || p.name,
+      namespace: p.metadata?.namespace || ds.namespace,
+      status: p.status?.phase || p.status || 'Unknown',
+      containers: p.spec?.containers?.map(c => c.name) || p.containers || [],
+    }))
+    const runningPod = pods.find(p => p.status === 'Running') || pods[0]
+    if (runningPod) {
+      terminalPod.value = { namespace: runningPod.namespace, name: runningPod.name, container: runningPod.containers?.[0] || '' }
+      showTerminal.value = true
+    } else {
+      Message.warning({ content: '该 DaemonSet 没有可用的 Pod，无法打开终端', duration: 2000 })
+    }
+  } catch (e) {
+    Message.error({ content: '查找 Pod 失败: ' + (e.message || e), duration: 2000 })
+  }
+}
+
+const closeTerminal = () => {
+  showTerminal.value = false
+}
+
+// ===== 资源状态监听 =====
+const {
+  watching: watchingStatus,
+  watchPhase,
+  watchProgress,
+  watchEvents,
+  watchElapsed,
+  startWatching,
+  stopWatching,
+  formatElapsed,
+  phaseColor,
+  phaseIcon,
+} = useResourceWatcher()
+
+const startDaemonSetWatcher = (ds) => {
+  startWatching(
+    { namespace: ds.namespace, name: ds.name, kind: 'DaemonSet' },
+    {
+      getStatus: async () => {
+        try {
+          const res = await daemonsetsApi.detail({ namespace: ds.namespace, name: ds.name })
+          const d = res?.data || res || {}
+          return {
+            status: d.status || 'Unknown',
+            desiredReplicas: d.desired_number_scheduled || d.desiredNumberScheduled || 0,
+            readyReplicas: d.number_ready || d.numberReady || 0,
+            updatedReplicas: d.updated_number_scheduled || d.number_ready || 0,
+          }
+        } catch { return null }
+      },
+      getEvents: async () => {
+        try {
+          const res = await daemonsetsApi.events({ namespace: ds.namespace, name: ds.name, limit: 20, since_seconds: 300 })
+          return res?.data?.items || res?.data || []
+        } catch { return [] }
+      },
+      onComplete: ({ success, elapsed }) => {
+        if (success) {
+          Message.success({ content: `DaemonSet ${ds.name} 已就绪（耗时 ${elapsed}s）`, duration: 3000 })
+        }
+        refreshList()
+      },
+      pollInterval: 2000,
+      eventInterval: 4000,
+      timeout: 300000,
+    },
+  )
+}
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -1442,7 +1567,8 @@ const createDaemonSetFromYaml = async () => {
   try {
     const res = await daemonsetsApi.createFromYaml({ yaml: yamlContent.value })
     if (res.code === 0) {
-      Message.success({ content: 'DaemonSet 创建成功' })
+      const msg = res.data?.message || 'DaemonSet 创建成功'
+      Message.success({ content: msg, duration: 5000 })
       showCreateModal.value = false
       resetDaemonsetForm()
       await fetchDaemonsets()
@@ -1494,7 +1620,7 @@ const startInlineImage = (ds) => {
   updateImageForm.value = {
     namespace: ds.namespace,
     name: ds.name,
-    container: ds.name,
+    container: ds.containers?.[0] || '',
     image: ds.image
   }
   showUpdateImageModal.value = true
@@ -1519,11 +1645,12 @@ const submitUpdateImage = async () => {
       image: updateImageForm.value.image
     })
     if (res.code === 0) {
-      Message.success({ content: '镜像更新成功' })
+      Message.success({ content: '镜像更新成功，开始监听 Rollout 状态...' })
       showUpdateImageModal.value = false
       autoRefresh.value = true
       setTimeout(() => { autoRefresh.value = false }, 15000)
       refreshList()
+      startDaemonSetWatcher({ namespace: updateImageForm.value.namespace, name: updateImageForm.value.name })
     } else {
       Message.error({ content: res.msg || '更新失败' })
     }
@@ -2543,21 +2670,22 @@ const downloadYaml = () => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 0;
+  min-width: 1200px;
 }
 
 .resource-table th {
   background-color: #f7fafc;
   text-align: left;
-  padding: 16px 20px;
+  padding: 14px 12px;
   font-size: 14px;
   font-weight: 600;
   color: #4a5568;
   border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
 
 .resource-table td {
-  padding: 16px 20px;
+  padding: 14px 12px;
   font-size: 14px;
   color: #2d3748;
   border-bottom: 1px solid #f7fafc;
@@ -2740,22 +2868,23 @@ const downloadYaml = () => {
 /* 操作按钮 */
 .action-icons {
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
 .action-btn {
   border: none;
-  font-size: 0.8125rem;
+  font-size: 12px;
   cursor: pointer;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
+  padding: 5px 8px;
+  border-radius: 6px;
   transition: all 0.2s;
   white-space: nowrap;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 4px;
 }
 
 .action-btn.primary {
@@ -2769,13 +2898,27 @@ const downloadYaml = () => {
   transform: translateY(-1px);
 }
 
+.action-btn.terminal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #00d4aa;
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+}
+
+.action-btn.terminal:hover {
+  background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+  color: #00ffcc;
+  box-shadow: 0 4px 8px rgba(0, 212, 170, 0.3);
+  transform: translateY(-1px);
+}
+
 .icon-btn {
   background: none;
   border: 1px solid #e2e8f0;
-  font-size: 0.8125rem;
+  font-size: 12px;
   cursor: pointer;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.375rem;
+  padding: 5px 8px;
+  border-radius: 6px;
   color: #4a5568;
   transition: all 0.2s;
   white-space: nowrap;
@@ -3763,4 +3906,42 @@ const downloadYaml = () => {
   transform: none;
   box-shadow: none;
 }
+
+/* 资源监听浮窗 */
+.resource-watcher-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  background: #1a1b26;
+  border: 1px solid #2f3549;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 1000;
+  overflow: hidden;
+  color: #c0caf5;
+}
+.watcher-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #24283b;
+  border-bottom: 1px solid #2f3549;
+}
+.watcher-title { flex: 1; font-weight: 600; font-size: 14px; }
+.watcher-elapsed { font-size: 12px; color: #565f89; margin-right: 8px; font-family: monospace; }
+.watcher-close { background: none; border: none; color: #565f89; font-size: 18px; cursor: pointer; padding: 0 4px; }
+.watcher-close:hover { color: #f7768e; }
+.watcher-body { padding: 12px 16px; }
+.watcher-progress { height: 4px; background: #2f3549; border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.watcher-progress-bar { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.watcher-phase { font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.watcher-events { max-height: 160px; overflow-y: auto; }
+.watcher-event { display: flex; gap: 6px; font-size: 12px; padding: 3px 0; border-bottom: 1px solid #2f3549; }
+.watcher-event.warning { color: #e0af68; }
+.ev-type { flex-shrink: 0; }
+.ev-reason { flex-shrink: 0; font-weight: 500; color: #7aa2f7; }
+.ev-msg { color: #9aa5ce; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watcher-slide-enter-active, .watcher-slide-leave-active { transition: all 0.3s ease; }
+.watcher-slide-enter-from, .watcher-slide-leave-to { opacity: 0; transform: translateY(20px); }
 </style>

@@ -12,7 +12,7 @@ pipeline {
     parameters {
         string(name: 'IMAGE_REPO', defaultValue: '', description: '镜像仓库地址（必填）')
         string(name: 'IMAGE_TAG', defaultValue: '', description: '镜像标签（空自动生成）')
-        string(name: 'DOCKERFILE_PATH', defaultValue: 'Dockerfile', description: 'Dockerfile 路径')
+        string(name: 'DOCKERFILE_PATH', defaultValue: '', description: 'Dockerfile 路径（空则自动生成纯运行时 Dockerfile）')
 
         // 平台传递的 Git 参数
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: '构建分支（平台传递）')
@@ -229,21 +229,69 @@ pipeline {
             }
         }
 
+        stage('Build Binary') {
+            steps {
+                echo "=== 构建 Go 二进制制品 ==="
+                script {
+                    if (!fileExists('go.mod')) { echo "跳过构建"; return }
+                    env.BIN_NAME = 'k8s_operation'
+                    env.BINARY_PATH = "bin/${env.BIN_NAME}"
+                    sh """
+                        set -e
+                        mkdir -p bin
+                        GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ${env.BINARY_PATH} ./cmd/k8soperation
+                    """
+                    echo "[构建] 产物: ${env.BINARY_PATH}"
+                }
+            }
+            post {
+                success { script { stageCallback('build_binary', 'success') } }
+                failure { script { stageCallback('build_binary', 'failed') } }
+            }
+        }
+
         stage('Build Image') {
             steps {
-                echo "=== 构建镜像 ==="
-                sh """
-                    set -e
-                    nerdctl build \
-                        -t ${env.FULL_IMAGE} \
-                        -f ${params.DOCKERFILE_PATH} \
-                        --build-arg GO_VERSION=${params.GO_VERSION} \
-                        --label git.commit=${env.GIT_COMMIT_FULL} \
-                        --label git.branch=${env.GIT_BRANCH_NAME} \
-                        --label build.number=${env.BUILD_NUMBER} \
-                        --label build.timestamp=${env.BUILD_TS} \
-                        .
-                """
+                echo "=== 构建 Docker 镜像（纯运行时，仅打包二进制） ==="
+                script {
+                    def dockerfile = params.DOCKERFILE_PATH?.trim()
+                    def binName = env.BIN_NAME ?: 'k8s_operation'
+
+                    if (!dockerfile) {
+                        dockerfile = '.Dockerfile.runtime'
+                        writeFile file: dockerfile, text: """\
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata wget && \\
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \\
+    addgroup -S app && adduser -S app -G app
+WORKDIR /app
+RUN mkdir -p /app/storage/logs /app/configs
+COPY bin/${binName} /app/${binName}
+RUN chmod +x /app/${binName} && chown -R app:app /app
+USER app
+ENV GIN_MODE=release
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
+    CMD wget -qO- http://127.0.0.1:8080/healthz/live || exit 1
+ENTRYPOINT ["/app/${binName}"]
+"""
+                        echo "[Build Image] 已自动生成纯运行时 Dockerfile"
+                    }
+
+                    sh """
+                        set -e
+                        nerdctl build \\
+                            -t ${env.FULL_IMAGE} \\
+                            -f ${dockerfile} \\
+                            --build-arg GO_VERSION=${params.GO_VERSION} \\
+                            --label git.commit=${env.GIT_COMMIT_FULL} \\
+                            --label git.branch=${env.GIT_BRANCH_NAME} \\
+                            --label build.number=${env.BUILD_NUMBER} \\
+                            --label build.timestamp=${env.BUILD_TS} \\
+                            --label build.mode=platform-compile \\
+                            .
+                    """
+                }
             }
             post {
                 success { script { stageCallback('build', 'success') } }

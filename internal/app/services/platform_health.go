@@ -11,6 +11,7 @@ import (
 	"k8soperation/global"
 
 	"go.uber.org/zap"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -494,10 +495,25 @@ func (s *PlatformHealthService) getClusterWorkloadSummary(ctx context.Context, c
 	if err == nil {
 		summary.Deployments.Total = len(deps.Items)
 		for _, d := range deps.Items {
-			if d.Status.ReadyReplicas == d.Status.Replicas && d.Status.Replicas > 0 {
+			desired := int32(0)
+			if d.Spec.Replicas != nil {
+				desired = *d.Spec.Replicas
+			}
+			if d.Status.ReadyReplicas == desired && desired > 0 {
 				summary.Deployments.Running++
-			} else if d.Status.ReadyReplicas < d.Status.Replicas {
-				summary.Deployments.Failed++
+			} else {
+				// 检查 Progressing condition 是否已失败
+				isFailed := false
+				for _, cond := range d.Status.Conditions {
+					if cond.Type == appv1.DeploymentProgressing && (cond.Status == corev1.ConditionFalse || cond.Reason == "ProgressDeadlineExceeded") {
+						isFailed = true
+						break
+					}
+				}
+				if isFailed {
+					summary.Deployments.Failed++
+				}
+				// Updating/Pending 不计入 Failed
 			}
 		}
 	}
@@ -507,11 +523,17 @@ func (s *PlatformHealthService) getClusterWorkloadSummary(ctx context.Context, c
 	if err == nil {
 		summary.StatefulSets.Total = len(sts.Items)
 		for _, st := range sts.Items {
-			if st.Status.ReadyReplicas == st.Status.Replicas && st.Status.Replicas > 0 {
+			desired := int32(0)
+			if st.Spec.Replicas != nil {
+				desired = *st.Spec.Replicas
+			}
+			if st.Status.ReadyReplicas == desired && desired > 0 {
 				summary.StatefulSets.Running++
-			} else if st.Status.ReadyReplicas < st.Status.Replicas {
+			} else if desired > 0 && st.Status.ReadyReplicas == 0 && st.Status.CurrentReplicas > 0 {
+				// 有副本但全部未就绪，才算 Failed
 				summary.StatefulSets.Failed++
 			}
+			// Updating/Pending 不计入 Failed
 		}
 	}
 
@@ -522,9 +544,8 @@ func (s *PlatformHealthService) getClusterWorkloadSummary(ctx context.Context, c
 		for _, d := range ds.Items {
 			if d.Status.NumberReady == d.Status.DesiredNumberScheduled {
 				summary.DaemonSets.Running++
-			} else {
-				summary.DaemonSets.Failed++
 			}
+			// DaemonSet 没有 Conditions 来判断失败，更新中不计入 Failed
 		}
 	}
 

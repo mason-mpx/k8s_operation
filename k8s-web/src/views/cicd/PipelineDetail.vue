@@ -175,6 +175,15 @@
           </svg>
           配置
         </button>
+        <button
+          :class="['tab-btn', { active: activeTab === 'quality' }]"
+          @click="activeTab = 'quality'; loadSonarReport()"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          代码质量
+        </button>
       </div>
 
       <!-- Tab 内容 -->
@@ -1367,6 +1376,20 @@
             </div>
           </div>
         </div>
+
+        <!-- 代码质量 -->
+        <div v-if="activeTab === 'quality'" class="quality-tab">
+          <div v-if="sonarLoading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>正在加载代码质量报告...</p>
+          </div>
+          <CodeQualityPanel
+            v-else
+            :report="sonarReport"
+            :loading="sonarLoading"
+            @refresh="loadSonarReport"
+          />
+        </div>
       </div>
     </template>
 
@@ -1634,12 +1657,14 @@ import {
   getDeployHistory
 } from '@/api/platform/pipeline'
 import deploymentsApi from '@/api/cluster/workloads/deployments'
-import { PipelineHorizontalView } from '@/components/cicd'
+import { PipelineHorizontalView, CodeQualityPanel } from '@/components/cicd'
+import { getSonarReport } from '@/api/cicd'
 
 export default {
   name: 'PipelineDetail',
   components: {
-    PipelineHorizontalView
+    PipelineHorizontalView,
+    CodeQualityPanel
   },
   setup() {
     const router = useRouter()
@@ -1722,6 +1747,28 @@ export default {
 
     // 阶段日志预览相关
     const showStageLogs = ref(true)  // 是否展开日志预览
+
+    // SonarQube 代码质量相关
+    const sonarReport = ref({})
+    const sonarLoading = ref(false)
+
+    // 加载 SonarQube 报告
+    const loadSonarReport = async () => {
+      if (!pipelineId.value) return
+      sonarLoading.value = true
+      try {
+        const response = await getSonarReport(pipelineId.value)
+        if (response.code === 0 && response.data) {
+          // 从 sonar_report 字段提取报告数据
+          sonarReport.value = response.data.sonar_report || response.data || {}
+        }
+      } catch (error) {
+        console.error('加载 SonarQube 报告失败:', error)
+        sonarReport.value = { quality_gate: 'NONE', message: '加载失败，请重试' }
+      } finally {
+        sonarLoading.value = false
+      }
+    }
 
     // 追加回滚日志
     const appendRollbackLog = (msg) => {
@@ -3072,7 +3119,10 @@ export default {
       toggleStageLogs,
       getStageLogsPreview,
       showStageLogs,
-      copyText
+      copyText,
+      sonarReport,
+      sonarLoading,
+      loadSonarReport
     }
   }
 }

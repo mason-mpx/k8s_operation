@@ -143,6 +143,24 @@ func (p *MultiYAMLParser) ValidateMainResource(expectedType ResourceType) (*Pars
 	return mainResources[0], nil
 }
 
+// UnifyNamespace 统一所有资源的命名空间为主资源的命名空间
+// 常见场景：用户只在 Deployment 上指定了 namespace，期望 Service 等附属资源自动跟随
+func (p *MultiYAMLParser) UnifyNamespace(mainResource *ParsedResource) {
+	ns := mainResource.Namespace
+	for _, res := range p.resources {
+		if res == mainResource {
+			continue
+		}
+		// 只统一那些使用默认 namespace 的资源（即 YAML 中未显式指定 namespace 的）
+		// 如果用户显式指定了不同的 namespace，保留其选择
+		if res.Namespace == "default" && ns != "default" {
+			res.Namespace = ns
+			// 同步更新 Raw 对象的 namespace
+			res.Raw.SetNamespace(ns)
+		}
+	}
+}
+
 // CreateResourcesInOrder 按依赖顺序创建资源
 // 顺序：PVC/ConfigMap/Secret -> Service
 // 注意：工作负载（Deployment/StatefulSet/DaemonSet/Pod）由服务层单独创建

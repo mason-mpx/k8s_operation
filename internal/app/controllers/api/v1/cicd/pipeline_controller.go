@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"k8soperation/global"
+	"k8soperation/internal/app/models"
 	"k8soperation/internal/app/requests"
 	"k8soperation/internal/app/services"
 	"k8soperation/internal/errorcode"
@@ -52,6 +53,49 @@ func (c *PipelineController) Create(ctx *gin.Context) {
 	}
 
 	rsp.Success(gin.H{"pipeline_id": id})
+}
+
+// BatchCreate godoc
+// @Summary 批量创建流水线
+// @Description 一次性导入多个项目的流水线配置，支持跳过已存在项目
+// @Tags CICD Pipeline
+// @Accept json
+// @Produce json
+// @Param body body requests.PipelineBatchCreateRequest true "批量创建参数"
+// @Success 200 {object} map[string]any "返回批量创建结果"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
+// @Router /api/v1/k8s/cicd/pipeline/batch-create [post]
+func (c *PipelineController) BatchCreate(ctx *gin.Context) {
+	param := &requests.PipelineBatchCreateRequest{}
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidPipelineBatchCreateRequest); !ok {
+		return
+	}
+
+	if len(param.Pipelines) == 0 {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails("流水线列表不能为空"))
+		return
+	}
+
+	userID := ctx.GetInt64("user_id")
+	svc := services.NewServices()
+
+	result, err := svc.PipelineBatchCreate(ctx.Request.Context(), param, userID)
+	if err != nil {
+		global.Logger.Error("PipelineBatchCreate error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ErrorPipelineCreateFail.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(gin.H{
+		"message":       fmt.Sprintf("批量创建完成：成功 %d，失败 %d，跳过 %d", result.SuccessCount, result.FailCount, result.SkipCount),
+		"success_count": result.SuccessCount,
+		"fail_count":    result.FailCount,
+		"skip_count":    result.SkipCount,
+		"results":       result.Results,
+	})
 }
 
 // Detail godoc
@@ -548,4 +592,159 @@ func (c *PipelineController) Stages(ctx *gin.Context) {
 	}
 
 	rsp.Success(gin.H{"stages": stages})
+}
+
+// TemplateVerify godoc
+// @Summary 验证模板化发布配置
+// @Description 返回所有支持的语言模板信息，包括 Jenkins Job 名称、阶段、默认参数等
+// @Tags CICD Pipeline
+// @Produce json
+// @Success 200 {object} map[string]any "返回模板列表"
+// @Router /api/v1/k8s/cicd/pipeline/template-verify [get]
+func (c *PipelineController) TemplateVerify(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+	svc := services.NewServices()
+
+	templates, err := svc.TemplateVerifyAll(ctx.Request.Context())
+	if err != nil {
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(gin.H{
+		"templates": templates,
+		"summary": gin.H{
+			"total_templates":     len(templates),
+			"supported_languages": []string{"go", "java", "frontend", "python"},
+			"reuse_model":         "4 个通用 Jenkins Job 服务 100+ 项目",
+			"callback_protocol":   "HMAC-SHA256 签名 + 阶段回调 + 最终回调",
+		},
+	})
+}
+
+// TemplateSimulate godoc
+// @Summary 模拟模板化发布流程
+// @Description 模拟完整发布流程，验证参数和 Jenkins 配置（不实际触发构建）
+// @Tags CICD Pipeline
+// @Produce json
+// @Param language_type query string true "语言类型: go/java/frontend/python"
+// @Param git_repo query string true "Git 仓库地址"
+// @Param git_branch query string false "Git 分支，默认 main"
+// @Param image_repo query string true "镜像仓库地址"
+// @Success 200 {object} map[string]any "返回模拟结果"
+// @Router /api/v1/k8s/cicd/pipeline/template-simulate [get]
+func (c *PipelineController) TemplateSimulate(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+
+	languageType := ctx.Query("language_type")
+	gitRepo := ctx.Query("git_repo")
+	gitBranch := ctx.DefaultQuery("git_branch", "main")
+	imageRepo := ctx.Query("image_repo")
+
+	if languageType == "" || gitRepo == "" || imageRepo == "" {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails("缺少必填参数: language_type, git_repo, image_repo"))
+		return
+	}
+
+	svc := services.NewServices()
+	result, err := svc.TemplateSimulateRun(ctx.Request.Context(), languageType, gitRepo, gitBranch, imageRepo)
+	if err != nil {
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(result)
+}
+
+// SonarReport godoc
+// @Summary 获取流水线 SonarQube 代码质量报告
+// @Description 返回指定流水线的代码质量扫描结果，包括 Bug、漏洞、覆盖率等指标
+// @Tags CICD Pipeline
+// @Produce json
+// @Param pipeline_id query int true "流水线ID"
+// @Param run_id query int false "运行记录ID（空则获取最新一次）"
+// @Success 200 {object} map[string]any "返回代码质量报告"
+// @Router /api/v1/k8s/cicd/pipeline/sonar-report [get]
+func (c *PipelineController) SonarReport(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+
+	pipelineID, err := strconv.ParseInt(ctx.Query("pipeline_id"), 10, 64)
+	if err != nil || pipelineID <= 0 {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails("无效的 pipeline_id"))
+		return
+	}
+
+	var runID int64
+	if rid := ctx.Query("run_id"); rid != "" {
+		runID, _ = strconv.ParseInt(rid, 10, 64)
+	}
+
+	svc := services.NewServices()
+	report, err := svc.GetSonarReport(ctx.Request.Context(), pipelineID, runID)
+	if err != nil {
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(report)
+}
+
+// SonarCallback godoc
+// @Summary SonarQube 扫描结果回调
+// @Description 接收 Jenkins 回传的 SonarQube 扫描结果，存储代码质量报告
+// @Tags CICD Pipeline
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]any "成功"
+// @Router /api/v1/k8s/cicd/pipeline/sonar-callback [post]
+func (c *PipelineController) SonarCallback(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+
+	var req struct {
+		PipelineID       int64   `json:"pipeline_id"`
+		RunID            int64   `json:"run_id"`
+		ProjectKey       string  `json:"project_key"`
+		ProjectName      string  `json:"project_name"`
+		QualityGate      string  `json:"quality_gate"`
+		DashboardURL     string  `json:"dashboard_url"`
+		Bugs             int     `json:"bugs"`
+		Vulnerabilities  int     `json:"vulnerabilities"`
+		CodeSmells       int     `json:"code_smells"`
+		Coverage         float64 `json:"coverage"`
+		Duplications     float64 `json:"duplications"`
+		LinesOfCode      int     `json:"lines_of_code"`
+		SecurityHotspots int     `json:"security_hotspots"`
+		ReliabilityRating string `json:"reliability_rating"`
+		SecurityRating    string `json:"security_rating"`
+		Maintainability   string `json:"maintainability_rating"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails(err.Error()))
+		return
+	}
+
+	svc := services.NewServices()
+	err := svc.SaveSonarReport(ctx.Request.Context(), req.PipelineID, req.RunID, &models.StageSonarInfo{
+		ProjectKey:        req.ProjectKey,
+		ProjectName:       req.ProjectName,
+		QualityGate:       req.QualityGate,
+		DashboardURL:      req.DashboardURL,
+		Bugs:              req.Bugs,
+		Vulnerabilities:   req.Vulnerabilities,
+		CodeSmells:        req.CodeSmells,
+		Coverage:          req.Coverage,
+		Duplications:      req.Duplications,
+		LinesOfCode:       req.LinesOfCode,
+		SecurityHotspots:  req.SecurityHotspots,
+		ReliabilityRating: req.ReliabilityRating,
+		SecurityRating:    req.SecurityRating,
+		Maintainability:   req.Maintainability,
+	})
+	if err != nil {
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(gin.H{"message": "SonarQube 报告已保存"})
 }

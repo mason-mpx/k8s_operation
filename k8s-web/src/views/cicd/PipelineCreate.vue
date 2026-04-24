@@ -303,7 +303,7 @@
               <div class="form-group">
                 <label class="form-label">
                   Jenkins Job 名称
-                  <span class="required">*</span>
+                  <span v-if="pipelineData.language_type === 'custom'" class="required">*</span>
                 </label>
                 <div class="input-wrapper">
                   <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -313,11 +313,33 @@
                     type="text"
                     v-model="pipelineData.jenkins_job"
                     class="form-input with-icon"
-                    placeholder="my-app-build"
-                    required
+                    :placeholder="pipelineData.language_type === 'custom' ? 'my-app-build（必填）' : `k8s-builder-${pipelineData.language_type}（留空自动推导）`"
+                    :required="pipelineData.language_type === 'custom'"
                   />
                 </div>
-                <div class="input-hint">Jenkins 中已创建的 Job 名称</div>
+                <div class="input-hint">
+                  <template v-if="pipelineData.language_type !== 'custom'">
+                    留空则自动使用模板 Job: <strong>k8s-builder-{{ pipelineData.language_type }}</strong>
+                  </template>
+                  <template v-else>自定义类型必须手动指定 Jenkins Job 名称</template>
+                </div>
+              </div>
+
+              <!-- SonarQube 代码质量扫描开关 -->
+              <div class="form-group">
+                <div :class="['toggle-row', { highlight: pipelineData.language_type === 'java' }]">
+                  <div class="toggle-info">
+                    <label class="form-label">
+                      SonarQube 代码质量扫描
+                      <span v-if="pipelineData.language_type === 'java'" class="env-tag" style="background:#52c41a;color:#fff;font-size:11px;padding:1px 6px;border-radius:3px;margin-left:6px;">Java 推荐</span>
+                    </label>
+                    <p class="toggle-desc">启用后构建时自动进行代码质量扫描和质量门禁检查</p>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="pipelineData.enable_sonar" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
               </div>
 
               <!-- 环境变量配置 -->
@@ -1017,12 +1039,13 @@ export default {
       return approvalRoles.some(role => roleTypes.includes(role))
     })
     
-    // 服务类型选项
+    // 服务类型选项（value 必须与后端 language_type 一致: go/java/frontend/python/custom）
     const serviceTypeOptions = ref([
       { value: 'java', label: 'Java', color: '#f89820' },
       { value: 'go', label: 'Go', color: '#00add8' },
-      { value: 'node', label: 'Node.js', color: '#339933' },
-      { value: 'python', label: 'Python', color: '#3776ab' }
+      { value: 'frontend', label: 'Node.js', color: '#339933' },
+      { value: 'python', label: 'Python', color: '#3776ab' },
+      { value: 'custom', label: '自定义', color: '#8c8c8c' }
     ])
     const selectedServiceType = ref('go')
     
@@ -1057,7 +1080,9 @@ export default {
       git_branch: 'main',
       jenkins_url: '',
       jenkins_job: '',
+      language_type: 'go',  // 与 selectedServiceType 联动，后端据此自动推导 jenkins_job
       env_vars: [],
+      enable_sonar: false,  // SonarQube 代码质量扫描开关（Java 项目默认启用）
       deploy_config: {
         replicas: 3,
         strategy: 'rollingUpdate',
@@ -1116,8 +1141,9 @@ export default {
           }
           break
         case 2:
-          if (!pipelineData.value.jenkins_job.trim()) {
-            alert('请输入 Jenkins Job 名称')
+          // jenkins_job 仅在 language_type 为 custom 时必填，其他语言类型由后端自动推导
+          if (pipelineData.value.language_type === 'custom' && !pipelineData.value.jenkins_job.trim()) {
+            alert('自定义类型必须填写 Jenkins Job 名称')
             return false
           }
           break
@@ -1281,9 +1307,12 @@ export default {
       }
     }
     
-    // 服务类型变化
+    // 服务类型变化 — 同步更新 language_type 并联动 SonarQube 开关
     const onServiceTypeChange = (type) => {
       selectedServiceType.value = type
+      pipelineData.value.language_type = type
+      // Java 项目默认启用 SonarQube 代码质量扫描
+      pipelineData.value.enable_sonar = (type === 'java')
       selectedResourceTemplate.value = ''
       loadResourceTemplates()
     }
@@ -1345,6 +1374,10 @@ export default {
           const response = await getPipelineDetail(pipelineId)
           if (response.code === 0) {
             const data = response.data?.pipeline || response.data
+            // 回显语言类型和 SonarQube 开关
+            const langType = data.language_type || 'custom'
+            const hasSonar = (data.env_vars || []).some(e => e.name === 'ENABLE_SONAR' && e.value === 'true')
+            selectedServiceType.value = langType
             pipelineData.value = {
               name: data.name || '',
               description: data.description || '',
@@ -1352,7 +1385,9 @@ export default {
               git_branch: data.git_branch || 'main',
               jenkins_url: data.jenkins_url || '',
               jenkins_job: data.jenkins_job || '',
+              language_type: langType,
               env_vars: data.env_vars || [],
+              enable_sonar: hasSonar,
               deploy_config: data.deploy_config || pipelineData.value.deploy_config,
               // 自动部署配置
               auto_deploy: data.auto_deploy || false,
@@ -1385,13 +1420,42 @@ export default {
         submitting.value = true
         let response
 
+        // 构建提交数据：根据 enable_sonar 开关同步 env_vars
+        const submitData = { ...pipelineData.value }
+        const envVars = [...(submitData.env_vars || [])]
+        if (submitData.enable_sonar) {
+          // 启用 SonarQube：确保 env_vars 中有 ENABLE_SONAR=true
+          const idx = envVars.findIndex(e => e.name === 'ENABLE_SONAR')
+          if (idx >= 0) {
+            envVars[idx].value = 'true'
+          } else {
+            envVars.push({ name: 'ENABLE_SONAR', value: 'true' })
+          }
+          const gateIdx = envVars.findIndex(e => e.name === 'SONAR_QUALITY_GATE')
+          if (gateIdx >= 0) {
+            envVars[gateIdx].value = 'true'
+          } else {
+            envVars.push({ name: 'SONAR_QUALITY_GATE', value: 'true' })
+          }
+        } else {
+          // 关闭 SonarQube：移除相关环境变量，避免残留导致 Jenkins 仍执行扫描
+          const sonarKeys = ['ENABLE_SONAR', 'SONAR_QUALITY_GATE']
+          for (let i = envVars.length - 1; i >= 0; i--) {
+            if (sonarKeys.includes(envVars[i].name)) {
+              envVars.splice(i, 1)
+            }
+          }
+        }
+        submitData.env_vars = envVars
+        delete submitData.enable_sonar  // 后端不需要此字段
+
         if (isEdit) {
           response = await updatePipeline({
             id: parseInt(pipelineId),
-            ...pipelineData.value
+            ...submitData
           })
         } else {
-          response = await createPipeline(pipelineData.value)
+          response = await createPipeline(submitData)
         }
 
         if (response.code === 0) {

@@ -98,7 +98,7 @@ const secretApi = {
    * @param {Object} data.patch - patch 内容
    */
   patchJson(data) {
-    return http.post(`${K8S_BASE}/secret/patch-json`, data)
+    return http.post(`${K8S_BASE}/secret/patch_json`, data)
   },
 
   /**

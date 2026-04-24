@@ -23,7 +23,7 @@ GIN_MODE    ?= release
 # ====== Docker / nerdctl ======
 DOCKER      ?= docker                       # 切换为 nerdctl： DOCKER=nerdctl make docker-build
 IMAGE       ?= $(APP_NAME):latest
-DOCKERFILE  ?= build/docker/Dockerfile      # BuildKit 版：build/containerd/Dockerfile
+DOCKERFILE  ?= Dockerfile                 # 纯运行时版；多阶段版：docs/dockerfile/Dockerfile.golang.prod
 CONTEXT     ?= .                            # 项目根作为 build context
 
 # ====== Swagger 配置 ======
@@ -77,7 +77,7 @@ VOL_DOCS     := $(strip $(VOL_DOCS))
 
 .PHONY: all build run run-local test fmt lint clean \
         swag swag-clean swagger-ui swagger-ui-stop \
-        docker-build docker-buildx bk-build docker-run docker-logs docker-stop docker-rm docker-push \
+        docker-build docker-build-standalone docker-buildx docker-run docker-logs docker-stop docker-rm docker-push \
         help
 
 # ====== Go 基本命令 ======
@@ -139,14 +139,15 @@ swagger-ui-stop:
 	- $(DOCKER) rm -f $(APP_NAME)-swagger >/dev/null 2>&1 || true
 
 # ====== Docker 镜像 ======
-docker-build: swag
-	@echo ">> Building image $(IMAGE) with $(DOCKER) using $(DOCKERFILE)"
+# ====== Docker 镜像（纯运行时模式：先编译，再打包） ======
+docker-build: build
+	@echo ">> Building image $(IMAGE) with $(DOCKER) [platform-compile mode]"
 	$(DOCKER) build -f $(DOCKERFILE) -t $(IMAGE) $(CONTEXT)
 
-# 使用 BuildKit 版 Dockerfile（更快依赖/构建缓存）
-bk-build: swag
-	@echo ">> Building (BuildKit) image $(IMAGE) with $(DOCKER)"
-	DOCKER_BUILDKIT=1 $(DOCKER) build -f build/containerd/Dockerfile -t $(IMAGE) $(CONTEXT)
+# 使用多阶段构建 Dockerfile（独立构建，无需本地编译）
+docker-build-standalone:
+	@echo ">> Building image $(IMAGE) with multi-stage Dockerfile"
+	$(DOCKER) build -f docs/dockerfile/Dockerfile.golang.prod -t $(IMAGE) $(CONTEXT)
 
 # 多架构构建（amd64 + arm64）—— 需要 docker buildx
 docker-buildx: swag
@@ -181,11 +182,12 @@ docker-push:
 help:
 	@echo "  build / run / run-local / test / fmt / lint / clean"
 	@echo "  swag / swag-clean / swagger-ui / swagger-ui-stop"
-	@echo "  docker-build / docker-buildx / bk-build / docker-run / docker-logs / docker-stop / docker-rm / docker-push"
+	@echo "  docker-build / docker-build-standalone / docker-buildx / docker-run / docker-logs / docker-stop / docker-rm / docker-push"
 	@echo ""
 	@echo "Hints:"
-	@echo "  * build / run / docker-build 会自动先生成 Swagger 文档"
-	@echo "  * docker-buildx    多架构构建 (amd64 + arm64)，需 docker buildx + push"
-	@echo "  * swagger-ui 在 8081 端口起官方 UI（Windows Git Bash 路径已处理）"
+	@echo "  * docker-build           平台编译模式（先 go build 再 docker build，纯运行时镜像 < 20MB）"
+	@echo "  * docker-build-standalone 多阶段构建（Docker 内部编译，无需本地 Go 环境）"
+	@echo "  * docker-buildx          多架构构建 (amd64 + arm64)，需 docker buildx + push"
+	@echo "  * swagger-ui             在 8081 端口起官方 UI（Windows Git Bash 路径已处理）"
 	@echo "  * 若未安装 swag，会自动 go install github.com/swaggo/swag/cmd/swag@latest"
 	@echo "  DOCKER=nerdctl make docker-build   # 使用 nerdctl"

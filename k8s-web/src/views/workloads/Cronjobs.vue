@@ -834,6 +834,7 @@
                   <th>节点</th>
                   <th>容器数</th>
                   <th>重启次数</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -846,6 +847,11 @@
                   <td>{{ pod.node_name || '-' }}</td>
                   <td>{{ pod.containers?.length || 0 }}</td>
                   <td>{{ pod.restart_count || 0 }}</td>
+                  <td>
+                    <button class="action-btn terminal" @click="openTerminalForPod(pod, selectedJobForPods?.namespace)" title="容器终端">
+                      >_ 终端
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -1024,15 +1030,56 @@
         </div>
       </div>
     </div>
+
+    <!-- 容器终端 -->
+    <KubeTerminal
+      :visible="showTerminal"
+      :namespace="terminalPod.namespace"
+      :podName="terminalPod.name"
+      :containerName="terminalPod.container"
+      @close="closeTerminal"
+    />
+
+    <!-- 事件监听浮窗 -->
+    <Teleport to="body">
+      <Transition name="slide-up">
+        <div v-if="watchingStatus" class="watcher-panel">
+          <div class="watcher-header">
+            <span class="watcher-title">
+              <span class="watcher-icon">{{ phaseIcon }}</span>
+              CronJob 状态监听
+            </span>
+            <button class="watcher-close" @click="stopWatching">×</button>
+          </div>
+          <div class="watcher-body">
+            <div class="watcher-status">
+              <span class="watcher-phase" :style="{ color: phaseColor }">{{ watchPhase }}</span>
+              <span class="watcher-elapsed">{{ formatElapsed(watchElapsed) }}</span>
+            </div>
+            <div class="watcher-progress-bar">
+              <div class="watcher-progress-fill" :style="{ width: watchProgress + '%', background: phaseColor }"></div>
+            </div>
+            <div class="watcher-events" v-if="watchEvents.length > 0">
+              <div v-for="(evt, idx) in watchEvents.slice(-4)" :key="idx" class="watcher-event">
+                <span class="event-type" :class="evt.type?.toLowerCase()">{{ evt.type || 'Normal' }}</span>
+                <span class="event-msg">{{ evt.message || evt.reason }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import Pagination from '@/components/Pagination.vue'
+import KubeTerminal from '@/components/KubeTerminal.vue'
 import cronjobsApi from '@/api/cluster/workloads/cronjobs'
 import namespaceApi from '@/api/cluster/config/namespace'
 import permissionStore from '@/stores/permission'
+import { useResourceWatcher } from '@/composables/useResourceWatcher'
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -1117,6 +1164,85 @@ const jobLogsForm = ref({
   follow: false
 })
 const jobContainerList = ref([])
+
+// ========== 容器终端 ==========
+const showTerminal = ref(false)
+const terminalPod = ref({ namespace: '', name: '', container: '' })
+
+const openTerminalForPod = (pod, namespace) => {
+  terminalPod.value = {
+    namespace: namespace || pod.namespace || '',
+    name: pod.name,
+    container: pod.containers?.[0] || '',
+  }
+  showTerminal.value = true
+}
+const closeTerminal = () => { showTerminal.value = false }
+
+// ========== 事件监听 Watcher ==========
+const {
+  watching: watchingStatus,
+  watchPhase,
+  watchProgress,
+  watchEvents,
+  watchElapsed,
+  startWatching,
+  stopWatching,
+  formatElapsed,
+  phaseColor,
+  phaseIcon,
+} = useResourceWatcher()
+
+const startCronJobWatcher = (cj, jobName) => {
+  startWatching(
+    { namespace: cj.namespace, name: jobName || cj.name, kind: 'CronJob' },
+    {
+      getStatus: async () => {
+        if (jobName) {
+          // 监听触发的具体 Job
+          const res = await fetch(`/api/v1/k8s/job/detail?namespace=${cj.namespace}&name=${jobName}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          })
+          const data = await res.json()
+          const d = data?.data || {}
+          const completions = d.completions || 1
+          const succeeded = d.succeeded || 0
+          return {
+            status: d.status || 'Unknown',
+            desiredReplicas: completions,
+            readyReplicas: succeeded,
+            updatedReplicas: succeeded,
+          }
+        }
+        // 监听 CronJob 本身状态
+        const res = await cronjobsApi.detail({ namespace: cj.namespace, name: cj.name })
+        const d = res?.data?.cronjob || res?.data || {}
+        return {
+          status: d.status || (d.suspend ? 'Suspended' : 'Active'),
+          desiredReplicas: 1,
+          readyReplicas: d.status === 'Active' ? 1 : 0,
+          updatedReplicas: d.status === 'Active' ? 1 : 0,
+        }
+      },
+      getEvents: async () => {
+        try {
+          const res = await cronjobsApi.events({ namespace: cj.namespace, name: cj.name, limit: 20, since_seconds: 300 })
+          return res?.data?.items || res?.data || []
+        } catch { return [] }
+      },
+      onComplete: ({ success, elapsed }) => {
+        if (success) {
+          const msg = jobName ? `Job ${jobName} 已完成（耗时 ${elapsed}s）` : `CronJob ${cj.name} 已就绪`
+          alert(msg)
+        }
+        fetchCronjobs()
+      },
+      pollInterval: 2000,
+      eventInterval: 4000,
+      timeout: 600000,
+    },
+  )
+}
 
 // 更多菜单
 const showMoreOptions = ref(false)
@@ -1892,8 +2018,11 @@ const triggerCronJob = async (cj) => {
     })
 
     if (res.code === 0) {
-      alert(`CronJob 已手动触发\n\n创建的 Job: ${res.data?.job_name || 'unknown'}`)
+      alert(`CronJob 已手动触发\n\n创建的 Job: ${res.data?.job_name || 'unknown'}，开始监听状态...`)
       fetchCronjobs() // 刷新列表
+      if (res.data?.job_name) {
+        startCronJobWatcher(cj, res.data.job_name)
+      }
     } else {
       alert(res.message || '触发失败')
     }
@@ -2397,7 +2526,7 @@ onUnmounted(() => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 0;
+  min-width: 1200px;
 }
 
 .resource-table thead {
@@ -2596,17 +2725,21 @@ onUnmounted(() => {
 .action-icons {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .action-btn {
-  padding: 6px 12px;
+  padding: 5px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .action-btn.primary {
@@ -2616,6 +2749,19 @@ onUnmounted(() => {
 
 .action-btn.primary:hover {
   background: #2355b8;
+}
+
+.action-btn.terminal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #00d4aa;
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+}
+
+.action-btn.terminal:hover {
+  background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+  color: #00ffcc;
+  box-shadow: 0 4px 8px rgba(0, 212, 170, 0.3);
 }
 
 .icon-btn {
@@ -3917,4 +4063,26 @@ onUnmounted(() => {
   padding: 40px;
   color: #64748b;
 }
+
+/* ===== Watcher 浮窗样式 ===== */
+.watcher-panel { position: fixed; right: 24px; bottom: 24px; width: 370px; background: #1a1b2e; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,.45); z-index: 9000; color: #e2e8f0; font-size: 13px; overflow: hidden; border: 1px solid rgba(99,102,241,.25); }
+.watcher-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(135deg,#1e1f35,#252845); border-bottom: 1px solid rgba(255,255,255,.06); }
+.watcher-title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.watcher-icon { font-size: 16px; }
+.watcher-close { background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.watcher-close:hover { background: rgba(255,255,255,.1); color: #fff; }
+.watcher-body { padding: 14px 16px; }
+.watcher-status { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.watcher-phase { font-weight: 600; font-size: 14px; }
+.watcher-elapsed { color: #94a3b8; }
+.watcher-progress-bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
+.watcher-progress-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+.watcher-events { max-height: 120px; overflow-y: auto; }
+.watcher-event { display: flex; gap: 8px; padding: 4px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.04); }
+.event-type { padding: 1px 6px; border-radius: 3px; font-weight: 500; font-size: 11px; flex-shrink: 0; }
+.event-type.normal { background: rgba(34,197,94,.15); color: #4ade80; }
+.event-type.warning { background: rgba(234,179,8,.15); color: #facc15; }
+.event-msg { color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slide-up-enter-active, .slide-up-leave-active { transition: all .35s cubic-bezier(.4,0,.2,1); }
+.slide-up-enter-from, .slide-up-leave-to { transform: translateY(20px); opacity: 0; }
 </style>

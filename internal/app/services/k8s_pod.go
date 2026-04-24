@@ -35,30 +35,33 @@ func (s *Services) KubePodCreate(
 	return pod.CreatePod(ctx, cli.Kube, param)
 }
 
-// KubePodCreateFromYaml 从 YAML 创建 Pod（支持多资源：ConfigMap/Secret/PVC+Pod）
-func (s *Services) KubePodCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*corev1.Pod, error) {
+// KubePodCreateFromYaml 从 YAML 创建 Pod（支持多资源：ConfigMap/Secret/PVC/Service+Pod）
+func (s *Services) KubePodCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*corev1.Pod, []requests.CreatedResourceInfo, error) {
 	// 1. 使用多资源解析器解析 YAML
 	parser := common.NewMultiYAMLParser(yamlContent)
 	if err := parser.Parse(); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
 	// 2. 验证主资源（Pod）是否存在且唯一
 	mainResource, err := parser.ValidateMainResource(common.ResourceTypePod)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// 3. 按依赖顺序创建所有资源（ConfigMap/Secret/PVC -> Pod）
+	// 2.5 统一附属资源的 namespace
+	parser.UnifyNamespace(mainResource)
+
+	// 3. 按依赖顺序创建所有资源（ConfigMap/Secret/PVC -> Service -> Pod）
 	created, err := common.CreateResourcesInOrder(ctx, cli.Kube, parser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resources: %w", err)
+		return nil, nil, fmt.Errorf("failed to create resources: %w", err)
 	}
 
 	// 4. 创建主资源 Pod
 	podObj := &corev1.Pod{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(mainResource.Raw.Object, podObj); err != nil {
-		return nil, fmt.Errorf("failed to convert to Pod: %w", err)
+		return nil, nil, fmt.Errorf("failed to convert to Pod: %w", err)
 	}
 
 	// 确保 namespace 不为空（如果 YAML 中未指定，使用 ParsedResource 中的 namespace）
@@ -69,21 +72,26 @@ func (s *Services) KubePodCreateFromYaml(ctx context.Context, cli *K8sClients, y
 	createdPod, err := cli.Kube.CoreV1().Pods(podObj.Namespace).Create(ctx, podObj, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("Pod %q already exists in namespace %q", podObj.Name, podObj.Namespace)
+			return nil, nil, fmt.Errorf("Pod %q already exists in namespace %q", podObj.Name, podObj.Namespace)
 		}
-		return nil, fmt.Errorf("failed to create Pod: %w", err)
+		return nil, nil, fmt.Errorf("failed to create Pod: %w", err)
 	}
 
-	// 5. 记录创建的所有资源
-	global.Logger.Infof("Multi-resource YAML created successfully:")
+	// 5. 构建创建的资源列表
+	var createdResources []requests.CreatedResourceInfo
 	for resType, names := range created {
 		for _, name := range names {
+			createdResources = append(createdResources, requests.CreatedResourceInfo{
+				Kind:      string(resType),
+				Name:      name,
+				Namespace: podObj.Namespace,
+			})
 			global.Logger.Infof("  - %s: %s/%s", resType, podObj.Namespace, name)
 		}
 	}
-	global.Logger.Infof("  - Pod: %s/%s", createdPod.Namespace, createdPod.Name)
+	global.Logger.Infof("Multi-resource YAML created successfully: Pod %s/%s + %d 附属资源", createdPod.Namespace, createdPod.Name, len(createdResources))
 
-	return createdPod, nil
+	return createdPod, createdResources, nil
 }
 
 // PodList 获取Pod列表

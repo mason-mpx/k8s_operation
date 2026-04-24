@@ -672,26 +672,33 @@ func getDeploymentStatus(dp *appv1.Deployment) (status, reason string) {
 		}
 	}
 
-	// 1. 检查是否处于失败状态
-	if availableCond != nil && availableCond.Status == corev1.ConditionFalse {
-		status = "Failed"
-		reason = availableCond.Reason + ": " + availableCond.Message
-		return
-	}
-
-	// 2. 检查是否处于进度暂停或失败
+	// 1. 确定性失败：Progressing 已明确失败或超时
 	if progressingCond != nil {
 		if progressingCond.Status == corev1.ConditionFalse {
 			status = "Failed"
 			reason = progressingCond.Reason + ": " + progressingCond.Message
 			return
 		}
-		// ProgressDeadlineExceeded 表示更新超时
 		if progressingCond.Reason == "ProgressDeadlineExceeded" {
 			status = "Failed"
 			reason = "更新超时: " + progressingCond.Message
 			return
 		}
+	}
+
+	// 2. Available=False 且 Progressing 也不活跃（非过渡状态）才判定失败
+	//    如果还在 Progressing，则 Available=False 只是过渡状态，应显示 Updating
+	if availableCond != nil && availableCond.Status == corev1.ConditionFalse {
+		isStillProgressing := progressingCond != nil && progressingCond.Status == corev1.ConditionTrue
+		if !isStillProgressing {
+			status = "Failed"
+			reason = availableCond.Reason + ": " + availableCond.Message
+			return
+		}
+		// 还在 Progressing，标记为 Updating
+		status = "Updating"
+		reason = availableCond.Reason + ": " + availableCond.Message
+		return
 	}
 
 	// 3. 期望副本数为 0（停服状态）
@@ -716,12 +723,7 @@ func getDeploymentStatus(dp *appv1.Deployment) (status, reason string) {
 	// 5. 检查就绪状态
 	if readyReplicas < desiredReplicas {
 		status = "Updating"
-		if readyReplicas == 0 {
-			status = "Failed"
-			reason = fmt.Sprintf("0/%d Pod 就绪", desiredReplicas)
-		} else {
-			reason = fmt.Sprintf("%d/%d Pod 就绪", readyReplicas, desiredReplicas)
-		}
+		reason = fmt.Sprintf("%d/%d Pod 就绪", readyReplicas, desiredReplicas)
 		return
 	}
 

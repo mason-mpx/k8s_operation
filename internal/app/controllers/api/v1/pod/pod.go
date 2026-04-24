@@ -2,6 +2,8 @@ package pod
 
 import (
 	"errors"
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"io"
@@ -119,17 +121,27 @@ func (c *PodController) CreateFromYaml(ctx *gin.Context) {
 	svc := services.NewServices()
 
 	// 调用 Service 层创建逻辑
-	podObj, err := svc.KubePodCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
+	podObj, createdResources, err := svc.KubePodCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
 	if err != nil {
 		ctx.Error(err)
 		global.Logger.Error("service.KubePodCreateFromYaml error", zap.Error(err))
 		return
 	}
 
+	msg := "Pod 创建成功"
+	if len(createdResources) > 0 {
+		resNames := make([]string, 0, len(createdResources))
+		for _, res := range createdResources {
+			resNames = append(resNames, res.Kind+"/"+res.Name)
+		}
+		msg = fmt.Sprintf("Pod 创建成功，同时创建了: %s", strings.Join(resNames, ", "))
+	}
+
 	r.Success(gin.H{
-		"message":   "Pod 创建成功",
-		"name":      podObj.Name,
-		"namespace": podObj.Namespace,
+		"message":           msg,
+		"name":              podObj.Name,
+		"namespace":         podObj.Namespace,
+		"created_resources": createdResources,
 	})
 }
 

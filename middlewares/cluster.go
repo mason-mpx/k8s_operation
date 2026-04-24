@@ -25,10 +25,13 @@ var (
 
 func ClusterMiddleware(factory *services.ClusterClientFactory) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1) 取 clusterId
+		// 1) 取 clusterId（支持 header / query 多种参数名）
 		idStr := c.GetHeader("X-Cluster-ID")
 		if idStr == "" {
 			idStr = c.Query("clusterId")
+		}
+		if idStr == "" {
+			idStr = c.Query("cluster_id")
 		}
 		if idStr == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{

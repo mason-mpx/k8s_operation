@@ -56,11 +56,11 @@ const podsApi = {
 
   /**
    * 更新 Pod（整体更新）
-   * 注意：必须使用 POST 方法，后端不支持 PUT
+   * 使用 PUT 方法，与后端 router.PUT("/update") 对应
    * @param {Object} data - Pod YAML / JSON 完整对象
    */
   update(data) {
-    return http.post(`${K8S_BASE}/pod/update`, data)
+    return http.put(`${K8S_BASE}/pod/update`, data)
   },
 
   /**
@@ -258,7 +258,7 @@ const podsApi = {
    * @param {string} data.image - 新镜像地址
    */
   updateImage(data) {
-    return http.post(`${K8S_BASE}/pod/patch_image`, {
+    return http.put(`${K8S_BASE}/pod/patch_image`, {
       namespace: data.namespace,
       name: data.name,
       container: data.container,
@@ -330,6 +330,34 @@ const podsApi = {
    */
   applyYaml(data) {
     return http.put(`${K8S_BASE}/pod/apply_yaml`, data)
+  },
+
+  // =========================
+  // 容器终端（WebSocket）
+  // =========================
+
+  /**
+   * 获取容器终端 WebSocket URL
+   * @param {Object} params
+   * @param {string} params.namespace - 命名空间
+   * @param {string} params.name - Pod名称
+   * @param {string} [params.container] - 容器名称
+   * @param {string} [params.shell] - Shell 类型
+   * @returns {string} WebSocket URL
+   */
+  terminalUrl(params) {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const isRemoteAccess = !['localhost', '127.0.0.1'].includes(window.location.hostname)
+    const host = isRemoteAccess ? 'james521.gnway.cc:80' : window.location.host
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || ''
+    const qs = new URLSearchParams({
+      namespace: params.namespace,
+      name: params.name,
+      container: params.container || '',
+      shell: params.shell || '',
+      token,
+    })
+    return `${proto}//${host}${K8S_BASE}/pod/terminal?${qs.toString()}`
   },
 }
 

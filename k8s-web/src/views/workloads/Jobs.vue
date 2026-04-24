@@ -236,6 +236,13 @@
                   📋
                 </button>
                 <button 
+                  class="action-btn terminal"
+                  @click="openTerminal(job)"
+                  title="容器终端"
+                >
+                  >_ 终端
+                </button>
+                <button 
                   v-if="canOperate && job.status !== 'Complete'"
                   class="action-btn icon-only"
                   @click="restartJob(job)"
@@ -1260,6 +1267,45 @@
         </div>
       </div>
     </div>
+
+    <!-- 容器终端 -->
+    <KubeTerminal
+      :visible="showTerminal"
+      :namespace="terminalPod.namespace"
+      :podName="terminalPod.name"
+      :containerName="terminalPod.container"
+      @close="closeTerminal"
+    />
+
+    <!-- 事件监听浮窗 -->
+    <Teleport to="body">
+      <Transition name="slide-up">
+        <div v-if="watchingStatus" class="watcher-panel">
+          <div class="watcher-header">
+            <span class="watcher-title">
+              <span class="watcher-icon">{{ phaseIcon }}</span>
+              Job 状态监听
+            </span>
+            <button class="watcher-close" @click="stopWatching">×</button>
+          </div>
+          <div class="watcher-body">
+            <div class="watcher-status">
+              <span class="watcher-phase" :style="{ color: phaseColor }">{{ watchPhase }}</span>
+              <span class="watcher-elapsed">{{ formatElapsed(watchElapsed) }}</span>
+            </div>
+            <div class="watcher-progress-bar">
+              <div class="watcher-progress-fill" :style="{ width: watchProgress + '%', background: phaseColor }"></div>
+            </div>
+            <div class="watcher-events" v-if="watchEvents.length > 0">
+              <div v-for="(evt, idx) in watchEvents.slice(-4)" :key="idx" class="watcher-event">
+                <span class="event-type" :class="evt.type?.toLowerCase()">{{ evt.type || 'Normal' }}</span>
+                <span class="event-msg">{{ evt.message || evt.reason }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -1267,10 +1313,12 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, watchEffect } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
+import KubeTerminal from '@/components/KubeTerminal.vue'
 import jobsApi from '@/api/cluster/workloads/jobs'
 import namespacesApi from '@/api/cluster/namespaces'
 import namespaceApi from '@/api/cluster/config/namespace'
 import permissionStore from '@/stores/permission'
+import { useResourceWatcher } from '@/composables/useResourceWatcher'
 
 // ===== 操作权限控制 =====
 // viewer 角色只能查看，不能执行任何修改操作
@@ -1353,6 +1401,87 @@ const jobLogsError = ref('')
 const isStreamingJobLogs = ref(false)
 let jobLogAbortController = null
 const jobLogsContentRef = ref(null)
+
+// ========== 容器终端 ==========
+const showTerminal = ref(false)
+const terminalPod = ref({ namespace: '', name: '', container: '' })
+
+const openTerminal = async (job) => {
+  // 获取 Job 关联的 Pod
+  try {
+    const res = await fetch(`/api/v1/k8s/pod/list?namespace=${job.namespace}&limit=100`, {
+      headers: getAuthHeaders()
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const jobPods = (data.data?.list || []).filter(pod =>
+        pod.name.startsWith(job.name + '-')
+      )
+      const runningPod = jobPods.find(p => p.status === 'Running') || jobPods[0]
+      if (runningPod) {
+        terminalPod.value = {
+          namespace: job.namespace,
+          name: runningPod.name,
+          container: runningPod.containers?.[0] || '',
+        }
+        showTerminal.value = true
+      } else {
+        Message.warning({ content: '该 Job 没有可用的 Pod，无法打开终端', duration: 2000 })
+      }
+    }
+  } catch (e) {
+    Message.error({ content: '获取 Pod 列表失败', duration: 2000 })
+  }
+}
+const closeTerminal = () => { showTerminal.value = false }
+
+// ========== 事件监听 Watcher ==========
+const {
+  watching: watchingStatus,
+  watchPhase,
+  watchProgress,
+  watchEvents,
+  watchElapsed,
+  startWatching,
+  stopWatching,
+  formatElapsed,
+  phaseColor,
+  phaseIcon,
+} = useResourceWatcher()
+
+const startJobWatcher = (job) => {
+  startWatching(
+    { namespace: job.namespace, name: job.name, kind: 'Job' },
+    {
+      getStatus: async () => {
+        const res = await jobsApi.detail({ namespace: job.namespace, name: job.name })
+        const d = res?.data || res || {}
+        const completions = d.completions || 1
+        const succeeded = d.succeeded || 0
+        const status = d.status || 'Unknown'
+        return {
+          status: status,
+          desiredReplicas: completions,
+          readyReplicas: succeeded,
+          updatedReplicas: succeeded,
+        }
+      },
+      getEvents: async () => {
+        try {
+          const res = await jobsApi.events({ namespace: job.namespace, name: job.name, limit: 20, since_seconds: 300 })
+          return res?.data?.items || res?.data || []
+        } catch { return [] }
+      },
+      onComplete: ({ success, elapsed }) => {
+        if (success) Message.success({ content: `Job ${job.name} 已完成（耗时 ${elapsed}s）`, duration: 3000 })
+        fetchJobs()
+      },
+      pollInterval: 2000,
+      eventInterval: 4000,
+      timeout: 600000,
+    },
+  )
+}
 
 // 创建表单
 const currentStep = ref(1) // 当前步骤
@@ -1987,8 +2116,9 @@ const restartJob = async (job) => {
   try {
     const res = await jobsApi.restart({ namespace: job.namespace, name: job.name })
     if (res.code === 0) {
-      Message.success({ content: `Job 已重启为: ${res.data.newJob || '新Job'}` })
+      Message.success({ content: `Job 已重启为: ${res.data.newJob || '新Job'}，开始监听状态...` })
       await fetchJobs()
+      startJobWatcher({ namespace: job.namespace, name: res.data.newJob || job.name })
     } else {
       Message.error({ content: res.msg || '重启失败' })
     }
@@ -2489,8 +2619,11 @@ const startInlineImage = (job) => {
   }
 }
 
-// 内联编辑 - 保存镜像
+// 内联编辑 - 保存镜像（防重入保护，避免 Enter + blur 双重触发）
+let _savingInlineImage = false
 const saveInlineImage = async (job) => {
+  if (_savingInlineImage) return  // 防止 confirm() 导致 blur 再次触发
+  
   const newImage = inlineEdit.value.value?.trim()
   const oldImage = inlineEdit.value.original
   const container = inlineEdit.value.container
@@ -2501,22 +2634,14 @@ const saveInlineImage = async (job) => {
     return
   }
   
-  // 二次确认 - 镜像更新是高危操作
-  if (!confirm(`⚠️ 确认更新镜像？
-
-Job: ${job.namespace}/${job.name}
-容器: ${container}
-旧镜像: ${oldImage}
-新镜像: ${newImage}
-
-⚠️ 注意: Job 不支持滚动更新！
-更新镜像只会修改模板，已运行的 Pod 不会自动重启。
-如需使用新镜像，请手动删除 Pod 或重新创建 Job。`)) {
-    cancelInlineEdit()
-    return
-  }
-  
+  _savingInlineImage = true
   try {
+    // 二次确认 - 镜像更新是高危操作
+    if (!confirm(`⚠️ 确认更新镜像？\n\nJob: ${job.namespace}/${job.name}\n容器: ${container}\n旧镜像: ${oldImage}\n新镜像: ${newImage}\n\n⚠️ 注意: Job 不支持滚动更新！\n更新镜像只会修改模板，已运行的 Pod 不会自动重启。\n如需使用新镜像，请手动删除 Pod 或重新创建 Job。`)) {
+      cancelInlineEdit()
+      return
+    }
+    
     const res = await jobsApi.updateImage({
       namespace: job.namespace,
       name: job.name,
@@ -2533,6 +2658,8 @@ Job: ${job.namespace}/${job.name}
   } catch (e) {
     console.error('更新镜像失败:', e)
     Message.error({ content: e?.msg || e?.message || '更新镜像失败' })
+  } finally {
+    _savingInlineImage = false
   }
 }
 
@@ -3197,22 +3324,23 @@ const createJobFromYaml = async () => {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 0;
+  min-width: 1200px;
   table-layout: auto;
 }
 
 .resource-table th {
   background-color: #f7fafc;
   text-align: left;
-  padding: 16px 20px;
+  padding: 14px 12px;
   font-size: 14px;
   font-weight: 600;
   color: #4a5568;
   border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
 
 .resource-table td {
-  padding: 16px 20px;
+  padding: 14px 12px;
   font-size: 14px;
   color: #2d3748;
   border-bottom: 1px solid #f7fafc;
@@ -3512,13 +3640,13 @@ const createJobFromYaml = async () => {
 
 .action-icons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-wrap: nowrap;
 }
 
 .action-btn {
-  padding: 6px 12px;
+  padding: 5px 8px;
   border: none;
   border-radius: 6px;
   font-size: 12px;
@@ -3527,6 +3655,9 @@ const createJobFromYaml = async () => {
   color: #4a5568;
   transition: all 0.2s;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .action-btn.primary {
@@ -3552,6 +3683,22 @@ const createJobFromYaml = async () => {
 
 .action-btn:hover {
   transform: translateY(-1px);
+}
+
+.action-btn.terminal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #00d4aa;
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.action-btn.terminal:hover {
+  background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+  color: #00ffcc;
+  box-shadow: 0 4px 8px rgba(0, 212, 170, 0.3);
 }
 
 .icon-btn {
@@ -5410,4 +5557,26 @@ const createJobFromYaml = async () => {
 .info-box div:last-child {
   margin-bottom: 0;
 }
+
+/* ===== Watcher 浮窗样式 ===== */
+.watcher-panel { position: fixed; right: 24px; bottom: 24px; width: 370px; background: #1a1b2e; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,.45); z-index: 9000; color: #e2e8f0; font-size: 13px; overflow: hidden; border: 1px solid rgba(99,102,241,.25); }
+.watcher-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(135deg,#1e1f35,#252845); border-bottom: 1px solid rgba(255,255,255,.06); }
+.watcher-title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.watcher-icon { font-size: 16px; }
+.watcher-close { background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.watcher-close:hover { background: rgba(255,255,255,.1); color: #fff; }
+.watcher-body { padding: 14px 16px; }
+.watcher-status { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.watcher-phase { font-weight: 600; font-size: 14px; }
+.watcher-elapsed { color: #94a3b8; }
+.watcher-progress-bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
+.watcher-progress-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+.watcher-events { max-height: 120px; overflow-y: auto; }
+.watcher-event { display: flex; gap: 8px; padding: 4px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.04); }
+.event-type { padding: 1px 6px; border-radius: 3px; font-weight: 500; font-size: 11px; flex-shrink: 0; }
+.event-type.normal { background: rgba(34,197,94,.15); color: #4ade80; }
+.event-type.warning { background: rgba(234,179,8,.15); color: #facc15; }
+.event-msg { color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slide-up-enter-active, .slide-up-leave-active { transition: all .35s cubic-bezier(.4,0,.2,1); }
+.slide-up-enter-from, .slide-up-leave-to { transform: translateY(20px); opacity: 0; }
 </style>

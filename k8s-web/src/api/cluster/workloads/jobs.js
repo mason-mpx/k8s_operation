@@ -133,6 +133,22 @@ const jobsApi = {
   applyYaml(data) {
     return http.put(`${K8S_BASE}/job/apply-yaml`, data)
   },
+
+  // =========================
+  // 事件与状态监听
+  // =========================
+
+  /**
+   * 获取 Job 关联的 Events
+   * @param {Object} params
+   * @param {string} params.namespace - 命名空间
+   * @param {string} params.name - Job 名称
+   * @param {number} [params.limit=20] - 最大事件数
+   * @param {number} [params.since_seconds=300] - 最近多少秒内的事件
+   */
+  events(params) {
+    return http.get(`${K8S_BASE}/job/events`, { params })
+  },
 }
 
 export default jobsApi

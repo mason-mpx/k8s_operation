@@ -34,5 +34,11 @@ func (r *KubeDeploymentRouter) Inject(router *gin.RouterGroup) {
 		router.GET("/history", deployment.History)                 // 获取 Deployment 历史版本
 		router.GET("/yaml", deployment.Yaml)                        // 获取 Deployment YAML 配置
 		router.PUT("/apply_yaml", deployment.ApplyYaml)             // 应用 Deployment YAML 配置
+
+		// 滚动更新管理
+		router.POST("/update-strategy", deployment.UpdateStrategy)   // 更新滚动更新策略
+		router.POST("/pause", deployment.PauseRollout)               // 暂停 Rollout
+		router.POST("/resume", deployment.ResumeRollout)             // 恢复 Rollout
+		router.GET("/rollout-status", deployment.RolloutStatus)      // 获取 Rollout 状态
 	}
 }

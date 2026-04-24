@@ -1,6 +1,9 @@
-﻿package daemonset
+package daemonset
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"k8soperation/global"
@@ -74,16 +77,27 @@ func (c *KubeDaemonSetController) CreateFromYaml(ctx *gin.Context) {
 	}
 	cli := middlewares.MustGetK8sClients(ctx)
 	svc := services.NewServices()
-	ds, err := svc.KubeDaemonSetCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
+	ds, createdResources, err := svc.KubeDaemonSetCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
 	if err != nil {
 		ctx.Error(err)
 		global.Logger.Error("service.KubeDaemonSetCreateFromYaml error", zap.Error(err))
 		return
 	}
+
+	msg := "DaemonSet 创建成功"
+	if len(createdResources) > 0 {
+		resNames := make([]string, 0, len(createdResources))
+		for _, res := range createdResources {
+			resNames = append(resNames, res.Kind+"/"+res.Name)
+		}
+		msg = fmt.Sprintf("DaemonSet 创建成功，同时创建了: %s", strings.Join(resNames, ", "))
+	}
+
 	r.Success(gin.H{
-		"message":   "DaemonSet 创建成功",
-		"name":      ds.Name,
-		"namespace": ds.Namespace,
+		"message":           msg,
+		"name":              ds.Name,
+		"namespace":         ds.Namespace,
+		"created_resources": createdResources,
 	})
 }
 

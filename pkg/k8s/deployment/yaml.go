@@ -50,6 +50,19 @@ func ApplyYaml(ctx context.Context, client kubernetes.Interface, namespace, name
 	// 保留资源版本以支持更新
 	deploy.ResourceVersion = existing.ResourceVersion
 
+	// spec.selector 是 immutable 字段，必须保留原值，否则 K8s 会拒绝更新
+	deploy.Spec.Selector = existing.Spec.Selector
+
+	// 确保 Pod template labels 包含 selector 要求的所有标签（否则会校验失败）
+	if deploy.Spec.Template.Labels == nil {
+		deploy.Spec.Template.Labels = make(map[string]string)
+	}
+	if existing.Spec.Selector != nil {
+		for k, v := range existing.Spec.Selector.MatchLabels {
+			deploy.Spec.Template.Labels[k] = v
+		}
+	}
+
 	// 更新 Deployment
 	updated, err := client.AppsV1().Deployments(namespace).Update(ctx, &deploy, metav1.UpdateOptions{})
 	if err != nil {

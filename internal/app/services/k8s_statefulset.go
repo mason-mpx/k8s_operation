@@ -105,30 +105,33 @@ func (s *Services) KubeStatefulSetRollback(ctx context.Context, cli *K8sClients,
 	return statefulset.RollbackStatefulSet(ctx, cli.Kube, param.Name, param.Namespace, param.RevisionName)
 }
 
-// KubeStatefulSetCreateFromYaml 从 YAML 创建 StatefulSet（支持多资源：PVC+StatefulSet）
-func (s *Services) KubeStatefulSetCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*appv1.StatefulSet, error) {
+// KubeStatefulSetCreateFromYaml 从 YAML 创建 StatefulSet（支持多资源：PVC/ConfigMap/Secret/Service+StatefulSet）
+func (s *Services) KubeStatefulSetCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*appv1.StatefulSet, []requests.CreatedResourceInfo, error) {
 	// 1. 使用多资源解析器解析 YAML
 	parser := common.NewMultiYAMLParser(yamlContent)
 	if err := parser.Parse(); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
 	// 2. 验证主资源（StatefulSet）是否存在且唯一
 	mainResource, err := parser.ValidateMainResource(common.ResourceTypeStatefulSet)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// 3. 按依赖顺序创建所有资源（PVC -> Service -> StatefulSet）
+	// 2.5 统一附属资源的 namespace
+	parser.UnifyNamespace(mainResource)
+
+	// 3. 按依赖顺序创建所有资源（PVC/ConfigMap/Secret -> Service -> StatefulSet）
 	created, err := common.CreateResourcesInOrder(ctx, cli.Kube, parser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resources: %w", err)
+		return nil, nil, fmt.Errorf("failed to create resources: %w", err)
 	}
 
 	// 4. 创建主资源 StatefulSet
 	sts := &appv1.StatefulSet{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(mainResource.Raw.Object, sts); err != nil {
-		return nil, fmt.Errorf("failed to convert to StatefulSet: %w", err)
+		return nil, nil, fmt.Errorf("failed to convert to StatefulSet: %w", err)
 	}
 
 	// 确保 namespace 不为空（如果 YAML 中未指定，使用 ParsedResource 中的 namespace）
@@ -139,19 +142,24 @@ func (s *Services) KubeStatefulSetCreateFromYaml(ctx context.Context, cli *K8sCl
 	createdSts, err := cli.Kube.AppsV1().StatefulSets(sts.Namespace).Create(ctx, sts, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("StatefulSet %q already exists in namespace %q", sts.Name, sts.Namespace)
+			return nil, nil, fmt.Errorf("StatefulSet %q already exists in namespace %q", sts.Name, sts.Namespace)
 		}
-		return nil, fmt.Errorf("failed to create StatefulSet: %w", err)
+		return nil, nil, fmt.Errorf("failed to create StatefulSet: %w", err)
 	}
 
-	// 5. 记录创建的所有资源
-	global.Logger.Infof("Multi-resource YAML created successfully:")
+	// 5. 构建创建的资源列表
+	var createdResources []requests.CreatedResourceInfo
 	for resType, names := range created {
 		for _, name := range names {
+			createdResources = append(createdResources, requests.CreatedResourceInfo{
+				Kind:      string(resType),
+				Name:      name,
+				Namespace: sts.Namespace,
+			})
 			global.Logger.Infof("  - %s: %s/%s", resType, sts.Namespace, name)
 		}
 	}
-	global.Logger.Infof("  - StatefulSet: %s/%s", createdSts.Namespace, createdSts.Name)
+	global.Logger.Infof("Multi-resource YAML created successfully: StatefulSet %s/%s + %d 附属资源", createdSts.Namespace, createdSts.Name, len(createdResources))
 
-	return createdSts, nil
+	return createdSts, createdResources, nil
 }

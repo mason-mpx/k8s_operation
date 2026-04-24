@@ -27,15 +27,24 @@ export const getPipelineDetail = (id) => {
 
 /**
  * 创建流水线
- * @param {Object} data - 创建参数
- * @param {string} data.name - 流水线名称
+ * @param {Object} data - 创建参数，对应后端 PipelineCreateRequest
+ * @param {string} data.name - 流水线名称（必填）
  * @param {string} data.description - 描述
- * @param {string} data.git_repo - Git仓库URL
+ * @param {string} data.git_repo - Git仓库URL（必填）
  * @param {string} data.git_branch - Git分支，默认main
  * @param {string} data.jenkins_url - Jenkins服务器地址
- * @param {string} data.jenkins_job - Jenkins Job名称
+ * @param {string} data.jenkins_job - Jenkins Job名称（非 custom 类型可留空自动推导）
+ * @param {string} data.language_type - 语言类型: go/java/frontend/python/custom
  * @param {Array} data.env_vars - 环境变量 [{name, value}]
- * @param {Object} data.deploy_config - 部署配置
+ * @param {Object} data.deploy_config - 部署配置 {replicas, strategy, resources}
+ * @param {boolean} data.auto_deploy - 是否自动部署
+ * @param {number} data.target_cluster_id - 目标集群ID
+ * @param {string} data.target_namespace - 目标命名空间
+ * @param {string} data.target_workload_kind - 工作负载类型: Deployment/StatefulSet/DaemonSet
+ * @param {string} data.target_workload_name - 工作负载名称
+ * @param {string} data.target_container - 容器名称（留空则更新第一个容器）
+ * @param {string} data.deploy_env - 部署环境: dev/test/staging/prod
+ * @param {boolean} data.require_approval - 是否需要审批
  */
 export const createPipeline = (data) => {
   return http.post(`${BASE_URL}/create`, data)
@@ -43,17 +52,26 @@ export const createPipeline = (data) => {
 
 /**
  * 更新流水线
- * @param {Object} data - 更新参数
- * @param {number} data.id - 流水线ID
+ * @param {Object} data - 更新参数，对应后端 PipelineUpdateRequest
+ * @param {number} data.id - 流水线ID（必填）
  * @param {string} data.name - 流水线名称
  * @param {string} data.description - 描述
  * @param {string} data.git_repo - Git仓库URL
  * @param {string} data.git_branch - Git分支
  * @param {string} data.jenkins_url - Jenkins服务器地址
  * @param {string} data.jenkins_job - Jenkins Job名称
- * @param {string} data.status - 状态
- * @param {Array} data.env_vars - 环境变量
- * @param {Object} data.deploy_config - 部署配置
+ * @param {string} data.language_type - 语言类型: go/java/frontend/python/custom
+ * @param {string} data.status - 状态: idle/running/disabled
+ * @param {Array} data.env_vars - 环境变量 [{name, value}]
+ * @param {Object} data.deploy_config - 部署配置 {replicas, strategy, resources}
+ * @param {boolean} data.auto_deploy - 是否自动部署
+ * @param {number} data.target_cluster_id - 目标集群ID
+ * @param {string} data.target_namespace - 目标命名空间
+ * @param {string} data.target_workload_kind - 工作负载类型
+ * @param {string} data.target_workload_name - 工作负载名称
+ * @param {string} data.target_container - 容器名称
+ * @param {string} data.deploy_env - 部署环境
+ * @param {boolean} data.require_approval - 是否需要审批
  */
 export const updatePipeline = (data) => {
   return http.post(`${BASE_URL}/update`, data)

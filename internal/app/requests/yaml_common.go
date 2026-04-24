@@ -31,6 +31,13 @@ func ValidYamlCreateRequest(data interface{}, ctx *gin.Context) map[string][]str
 	return valid.ValidateOptions(data, rules, messages)
 }
 
+// CreatedResourceInfo 记录附带创建的资源信息
+type CreatedResourceInfo struct {
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
 // YamlApplyRequest YAML 应用请求（用于更新已有资源）
 type YamlApplyRequest struct {
 	Yaml string `json:"yaml" valid:"yaml" binding:"required"` // YAML 内容

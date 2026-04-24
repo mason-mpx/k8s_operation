@@ -24,6 +24,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080', // Gin 后端
         changeOrigin: true,
+        ws: true, // 支持 WebSocket 代理（终端等功能需要）
       },
     },
   },

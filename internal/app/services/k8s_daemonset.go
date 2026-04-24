@@ -114,30 +114,33 @@ func (s *Services) KubeDaemonSetHistory(ctx context.Context, cli *K8sClients, pa
 	return daemonset.GetDaemonSetHistory(ctx, cli.Kube, param.Namespace, param.Name)
 }
 
-// KubeDaemonSetCreateFromYaml 从 YAML 创建 DaemonSet（支持多资源：ConfigMap/Secret+DaemonSet）
-func (s *Services) KubeDaemonSetCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*appv1.DaemonSet, error) {
+// KubeDaemonSetCreateFromYaml 从 YAML 创建 DaemonSet（支持多资源：ConfigMap/Secret/Service+DaemonSet）
+func (s *Services) KubeDaemonSetCreateFromYaml(ctx context.Context, cli *K8sClients, yamlContent string) (*appv1.DaemonSet, []requests.CreatedResourceInfo, error) {
 	// 1. 使用多资源解析器解析 YAML
 	parser := common.NewMultiYAMLParser(yamlContent)
 	if err := parser.Parse(); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
 	// 2. 验证主资源（DaemonSet）是否存在且唯一
 	mainResource, err := parser.ValidateMainResource(common.ResourceTypeDaemonSet)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+	// 2.5 统一附属资源的 namespace
+	parser.UnifyNamespace(mainResource)
 
 	// 3. 按依赖顺序创建所有资源（ConfigMap/Secret/PVC -> Service -> DaemonSet）
 	created, err := common.CreateResourcesInOrder(ctx, cli.Kube, parser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resources: %w", err)
+		return nil, nil, fmt.Errorf("failed to create resources: %w", err)
 	}
 
 	// 4. 创建主资源 DaemonSet
 	ds := &appv1.DaemonSet{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(mainResource.Raw.Object, ds); err != nil {
-		return nil, fmt.Errorf("failed to convert to DaemonSet: %w", err)
+		return nil, nil, fmt.Errorf("failed to convert to DaemonSet: %w", err)
 	}
 
 	// 确保 namespace 不为空（如果 YAML 中未指定，使用 ParsedResource 中的 namespace）
@@ -148,19 +151,24 @@ func (s *Services) KubeDaemonSetCreateFromYaml(ctx context.Context, cli *K8sClie
 	createdDs, err := cli.Kube.AppsV1().DaemonSets(ds.Namespace).Create(ctx, ds, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("DaemonSet %q already exists in namespace %q", ds.Name, ds.Namespace)
+			return nil, nil, fmt.Errorf("DaemonSet %q already exists in namespace %q", ds.Name, ds.Namespace)
 		}
-		return nil, fmt.Errorf("failed to create DaemonSet: %w", err)
+		return nil, nil, fmt.Errorf("failed to create DaemonSet: %w", err)
 	}
 
-	// 5. 记录创建的所有资源
-	global.Logger.Infof("Multi-resource YAML created successfully:")
+	// 5. 构建创建的资源列表
+	var createdResources []requests.CreatedResourceInfo
 	for resType, names := range created {
 		for _, name := range names {
+			createdResources = append(createdResources, requests.CreatedResourceInfo{
+				Kind:      string(resType),
+				Name:      name,
+				Namespace: ds.Namespace,
+			})
 			global.Logger.Infof("  - %s: %s/%s", resType, ds.Namespace, name)
 		}
 	}
-	global.Logger.Infof("  - DaemonSet: %s/%s", createdDs.Namespace, createdDs.Name)
+	global.Logger.Infof("Multi-resource YAML created successfully: DaemonSet %s/%s + %d 附属资源", createdDs.Namespace, createdDs.Name, len(createdResources))
 
-	return createdDs, nil
+	return createdDs, createdResources, nil
 }

@@ -1,7 +1,9 @@
-﻿package deployment
+package deployment
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"k8soperation/global"
@@ -133,16 +135,28 @@ func (c *KubeDeploymentController) CreateFromYaml(ctx *gin.Context) {
 	}
 	cli := middlewares.MustGetK8sClients(ctx)
 	svc := services.NewServices()
-	dp, err := svc.KubeDeploymentCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
+	dp, createdResources, err := svc.KubeDeploymentCreateFromYaml(ctx.Request.Context(), cli, req.Yaml)
 	if err != nil {
 		ctx.Error(err)
 		global.Logger.Error("service.KubeDeploymentCreateFromYaml error", zap.Error(err))
 		return
 	}
+
+	// 构建成功消息，包含附属资源信息
+	msg := "Deployment 创建成功"
+	if len(createdResources) > 0 {
+		resNames := make([]string, 0, len(createdResources))
+		for _, res := range createdResources {
+			resNames = append(resNames, res.Kind+"/"+res.Name)
+		}
+		msg = fmt.Sprintf("Deployment 创建成功，同时创建了: %s", strings.Join(resNames, ", "))
+	}
+
 	r.Success(gin.H{
-		"message":   "Deployment 创建成功",
-		"name":      dp.Name,
-		"namespace": dp.Namespace,
+		"message":           msg,
+		"name":              dp.Name,
+		"namespace":         dp.Namespace,
+		"created_resources": createdResources,
 	})
 }
 
@@ -525,5 +539,127 @@ func (c *KubeDeploymentController) ApplyYaml(ctx *gin.Context) {
 		"namespace": param.Namespace,
 		"name":      param.Name,
 		"message":   "YAML 应用成功",
+	})
+}
+
+// ==================== 滚动更新管理 ====================
+
+// UpdateStrategy godoc
+// @Summary 更新滚动更新策略
+// @Description 更新 Deployment 的滚动更新策略（maxSurge/maxUnavailable/minReadySeconds 等）
+// @Tags K8s Deployment 管理
+// @Accept json
+// @Produce json
+// @Param body body requests.KubeDeploymentRollingUpdateRequest true "滚动更新策略参数"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/k8s/deployment/update-strategy [post]
+func (c *KubeDeploymentController) UpdateStrategy(ctx *gin.Context) {
+	param := requests.NewKubeDeploymentRollingUpdateRequest()
+	r := response.NewResponse(ctx)
+	if ok := valid.Validate(ctx, param, requests.ValidKubeDeploymentRollingUpdateRequest); !ok {
+		return
+	}
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	config, err := svc.KubeUpdateDeploymentStrategy(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("更新滚动策略失败", zap.Error(err))
+		return
+	}
+	r.Success(gin.H{
+		"message":  "滚动更新策略已更新",
+		"strategy": config,
+	})
+}
+
+// PauseRollout godoc
+// @Summary 暂停 Rollout
+// @Description 暂停 Deployment 的滚动更新（等同于 kubectl rollout pause）
+// @Tags K8s Deployment 管理
+// @Accept json
+// @Produce json
+// @Param body body requests.KubeDeploymentPauseResumeRequest true "参数"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/k8s/deployment/pause [post]
+func (c *KubeDeploymentController) PauseRollout(ctx *gin.Context) {
+	param := requests.NewKubeDeploymentPauseResumeRequest()
+	r := response.NewResponse(ctx)
+	if ok := valid.Validate(ctx, param, requests.ValidKubeDeploymentPauseResumeRequest); !ok {
+		return
+	}
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	if err := svc.KubePauseDeployment(ctx.Request.Context(), cli, param); err != nil {
+		ctx.Error(err)
+		global.Logger.Error("暂停 Rollout 失败", zap.Error(err))
+		return
+	}
+	r.Success(gin.H{
+		"message": "Rollout 已暂停",
+	})
+}
+
+// ResumeRollout godoc
+// @Summary 恢复 Rollout
+// @Description 恢复 Deployment 的滚动更新（等同于 kubectl rollout resume）
+// @Tags K8s Deployment 管理
+// @Accept json
+// @Produce json
+// @Param body body requests.KubeDeploymentPauseResumeRequest true "参数"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/k8s/deployment/resume [post]
+func (c *KubeDeploymentController) ResumeRollout(ctx *gin.Context) {
+	param := requests.NewKubeDeploymentPauseResumeRequest()
+	r := response.NewResponse(ctx)
+	if ok := valid.Validate(ctx, param, requests.ValidKubeDeploymentPauseResumeRequest); !ok {
+		return
+	}
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	if err := svc.KubeResumeDeployment(ctx.Request.Context(), cli, param); err != nil {
+		ctx.Error(err)
+		global.Logger.Error("恢复 Rollout 失败", zap.Error(err))
+		return
+	}
+	r.Success(gin.H{
+		"message": "Rollout 已恢复",
+	})
+}
+
+// RolloutStatus godoc
+// @Summary 获取 Rollout 状态
+// @Description 获取 Deployment 的滚动更新详细状态（副本进度、策略配置、RS 列表等）
+// @Tags K8s Deployment 管理
+// @Produce json
+// @Param namespace query string true "命名空间"
+// @Param name query string true "Deployment 名称"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/k8s/deployment/rollout-status [get]
+func (c *KubeDeploymentController) RolloutStatus(ctx *gin.Context) {
+	param := requests.NewKubeDeploymentRolloutStatusRequest()
+	r := response.NewResponse(ctx)
+	if ok := valid.Validate(ctx, param, requests.ValidKubeDeploymentRolloutStatusRequest); !ok {
+		return
+	}
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	status, err := svc.KubeGetRolloutStatus(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("获取 Rollout 状态失败", zap.Error(err))
+		return
+	}
+	r.Success(gin.H{
+		"data":    status,
+		"message": "获取 Rollout 状态成功",
 	})
 }

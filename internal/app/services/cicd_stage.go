@@ -29,6 +29,7 @@ type StageDefinition struct {
 }
 
 // DefaultStageDefinitions 默认阶段定义（与 Jenkinsfile 保持一致）
+// 完整闭环：拉取 → 编译 → 测试 → 代码扫描 → 质量门禁 → 构建制品 → 上传制品库 → 打包镜像 → 推送镜像 → 审批 → 部署
 var DefaultStageDefinitions = []StageDefinition{
 	{Order: 1, Type: models.StageTypeClean, Name: "清理工作空间", Enabled: true},
 	{Order: 2, Type: models.StageTypeCheckout, Name: "代码检出", Enabled: true},
@@ -36,10 +37,14 @@ var DefaultStageDefinitions = []StageDefinition{
 	{Order: 4, Type: models.StageTypeCompile, Name: "编译检查", Enabled: true},
 	{Order: 5, Type: models.StageTypeTest, Name: "单元测试", Enabled: true},
 	{Order: 6, Type: models.StageTypeLint, Name: "代码检查", Enabled: true},
-	{Order: 7, Type: models.StageTypeBuild, Name: "构建镜像", Enabled: true},
-	{Order: 8, Type: models.StageTypePush, Name: "推送镜像", Enabled: true},
-	{Order: 9, Type: models.StageTypeApproval, Name: "人工审批", Enabled: false},  // 默认关闭
-	{Order: 10, Type: models.StageTypeDeploy, Name: "部署", Enabled: false},            // 默认关闭
+	{Order: 7, Type: models.StageTypeSonar, Name: "SonarQube 代码扫描", Enabled: false},       // 默认关闭，由 EnableSonar 控制
+	{Order: 8, Type: models.StageTypeQualityGate, Name: "质量门禁检查", Enabled: false}, // 默认关闭，由 EnableSonar 控制
+	{Order: 9, Type: models.StageTypeBuildBinary, Name: "构建制品", Enabled: true},
+	{Order: 10, Type: models.StageTypeUploadArtifact, Name: "上传制品库", Enabled: true},
+	{Order: 11, Type: models.StageTypeBuild, Name: "打包镜像", Enabled: true},
+	{Order: 12, Type: models.StageTypePush, Name: "推送镜像", Enabled: true},
+	{Order: 13, Type: models.StageTypeApproval, Name: "人工审批", Enabled: false},  // 默认关闭
+	{Order: 14, Type: models.StageTypeDeploy, Name: "部署", Enabled: false},            // 默认关闭
 }
 
 // ==================== 阶段执行服务 ====================
@@ -85,6 +90,10 @@ func (s *Services) getStageDefinitionsForPipeline(pipeline *models.CicdPipeline)
 	// 根据流水线配置调整
 	for i := range stages {
 		switch stages[i].Type {
+		case models.StageTypeSonar:
+			stages[i].Enabled = pipeline.EnableSonar
+		case models.StageTypeQualityGate:
+			stages[i].Enabled = pipeline.EnableSonar
 		case models.StageTypeApproval:
 			stages[i].Enabled = pipeline.RequireApproval
 		case models.StageTypeDeploy:
@@ -384,6 +393,35 @@ func (s *Services) UpdateStageFromJenkins(ctx context.Context, runID int64, jenk
 			}
 			if !found {
 				jenkinsStage, found = jenkinsMap["推送镜像"]
+			}
+		case models.StageTypeSonar:
+			jenkinsStage, found = jenkinsMap["SonarQube Analysis"]
+			if !found {
+				jenkinsStage, found = jenkinsMap["SonarQube"]
+			}
+			if !found {
+				jenkinsStage, found = jenkinsMap["代码扫描"]
+			}
+		case models.StageTypeQualityGate:
+			jenkinsStage, found = jenkinsMap["Quality Gate"]
+			if !found {
+				jenkinsStage, found = jenkinsMap["质量门禁"]
+			}
+		case models.StageTypeBuildBinary:
+			jenkinsStage, found = jenkinsMap["Build Binary"]
+			if !found {
+				jenkinsStage, found = jenkinsMap["Package"]
+			}
+			if !found {
+				jenkinsStage, found = jenkinsMap["构建制品"]
+			}
+			if !found {
+				jenkinsStage, found = jenkinsMap["打包"]
+			}
+		case models.StageTypeUploadArtifact:
+			jenkinsStage, found = jenkinsMap["Upload Artifact"]
+			if !found {
+				jenkinsStage, found = jenkinsMap["上传制品"]
 			}
 		}
 

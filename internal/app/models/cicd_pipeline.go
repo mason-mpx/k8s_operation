@@ -29,6 +29,28 @@ const (
 	TriggerTypeScheduled = "scheduled" // 定时触发
 )
 
+// 语言类型常量（对应 Jenkins 通用构建模板）
+const (
+	LanguageTypeGo       = "go"       // Go 项目
+	LanguageTypeJava     = "java"     // Java Spring 项目
+	LanguageTypeFrontend = "frontend" // 前端项目 (Vue/React)
+	LanguageTypePython   = "python"   // Python 项目
+	LanguageTypeCustom   = "custom"   // 自定义（需手动指定 jenkins_job）
+)
+
+// DefaultJenkinsJobMap 语言类型 -> Jenkins 通用 Builder Job 名称
+var DefaultJenkinsJobMap = map[string]string{
+	LanguageTypeGo:       "k8s-builder-go",
+	LanguageTypeJava:     "k8s-builder-java",
+	LanguageTypeFrontend: "k8s-builder-frontend",
+	LanguageTypePython:   "k8s-builder-python",
+}
+
+// ValidLanguageTypes 合法的语言类型列表
+var ValidLanguageTypes = []string{
+	LanguageTypeGo, LanguageTypeJava, LanguageTypeFrontend, LanguageTypePython, LanguageTypeCustom,
+}
+
 // EnvVar 环境变量结构
 type EnvVar struct {
 	Name  string `json:"name"`
@@ -132,6 +154,7 @@ type CicdPipeline struct {
 	JenkinsURL          string `gorm:"column:jenkins_url" json:"jenkins_url"`
 	JenkinsJob          string `gorm:"column:jenkins_job" json:"jenkins_job"`
 	JenkinsCredentialID string `gorm:"column:jenkins_credential_id" json:"jenkins_credential_id"`
+	LanguageType        string `gorm:"column:language_type;size:20;default:'custom'" json:"language_type"` // 语言类型：go/java/frontend/python/custom
 
 	// 部署配置（构建成功后自动部署）
 	AutoDeploy         bool   `gorm:"column:auto_deploy" json:"auto_deploy"`                    // 是否自动部署
@@ -142,6 +165,7 @@ type CicdPipeline struct {
 	TargetContainer    string `gorm:"column:target_container" json:"target_container"`         // 容器名称
 	DeployEnv          string `gorm:"column:deploy_env" json:"deploy_env"`                      // 部署环境(dev/staging/prod)
 	RequireApproval    bool   `gorm:"column:require_approval" json:"require_approval"`          // 是否需要审批
+	EnableSonar        bool   `gorm:"column:enable_sonar" json:"enable_sonar"`                    // 是否启用 SonarQube 代码扫描
 
 	// 最新部署信息
 	LastDeployImage   string `gorm:"column:last_deploy_image" json:"last_deploy_image"`     // 最新部署镜像
@@ -218,10 +242,22 @@ const (
 	StageTypeCompile      = "compile"      // 编译检查
 	StageTypeTest         = "test"         // 单元测试
 	StageTypeLint         = "lint"         // 代码检查
-	StageTypeBuild        = "build"        // 构建镜像
-	StageTypePush         = "push"         // 推送镜像
-	StageTypeApproval     = "approval"     // 人工审批
-	StageTypeDeploy       = "deploy"       // 部署
+	StageTypeSonar          = "sonar"           // SonarQube 代码扫描
+	StageTypeQualityGate    = "quality_gate"    // 质量门禁检查
+	StageTypeBuildBinary    = "build_binary"    // 构建二进制制品
+	StageTypeUploadArtifact = "upload_artifact" // 上传制品到制品库
+	StageTypeBuild          = "build"           // 构建镜像
+	StageTypePush           = "push"            // 推送镜像
+	StageTypeApproval       = "approval"        // 人工审批
+	StageTypeDeploy         = "deploy"          // 部署
+)
+
+// 质量门禁状态
+const (
+	QualityGateOK    = "OK"    // 通过
+	QualityGateWarn  = "WARN"  // 警告
+	QualityGateError = "ERROR" // 未通过
+	QualityGateNone  = "NONE"  // 未扫描
 )
 
 // 阶段状态常量
@@ -300,6 +336,8 @@ type StageDisplayInfo struct {
 	ApprovalInfo *StageApprovalInfo `json:"approval_info,omitempty"`
 	// 部署信息
 	DeployInfo   *StageDeployInfo   `json:"deploy_info,omitempty"`
+	// SonarQube 代码质量信息
+	SonarInfo    *StageSonarInfo    `json:"sonar_info,omitempty"`
 }
 
 // StageApprovalInfo 审批信息
@@ -325,6 +363,29 @@ type StageDeployInfo struct {
 	DeployedAt   uint64 `json:"deployed_at,omitempty"`        // 部署完成时间
 }
 
+// StageSonarInfo SonarQube 代码质量信息
+type StageSonarInfo struct {
+	ProjectKey       string  `json:"project_key"`                 // SonarQube 项目 Key
+	ProjectName      string  `json:"project_name,omitempty"`      // SonarQube 项目名称
+	QualityGate      string  `json:"quality_gate"`                // 质量门禁状态: OK/WARN/ERROR/NONE
+	DashboardURL     string  `json:"dashboard_url,omitempty"`     // SonarQube Dashboard 链接
+	Bugs             int     `json:"bugs"`                        // Bug 数量
+	Vulnerabilities  int     `json:"vulnerabilities"`             // 漏洞数量
+	CodeSmells       int     `json:"code_smells"`                 // 代码异味数量
+	Coverage         float64 `json:"coverage"`                    // 代码覆盖率 (%)
+	Duplications     float64 `json:"duplications"`                // 重复代码率 (%)
+	LinesOfCode      int     `json:"lines_of_code"`               // 代码行数
+	SecurityHotspots int     `json:"security_hotspots"`           // 安全热点数量
+	ReliabilityRating string `json:"reliability_rating"`          // 可靠性评级: A/B/C/D/E
+	SecurityRating    string `json:"security_rating"`             // 安全性评级: A/B/C/D/E
+	Maintainability   string `json:"maintainability_rating"`      // 可维护性评级: A/B/C/D/E
+	NewBugs          int     `json:"new_bugs,omitempty"`          // 新增 Bug
+	NewVulnerabilities int   `json:"new_vulnerabilities,omitempty"` // 新增漏洞
+	NewCodeSmells    int     `json:"new_code_smells,omitempty"`   // 新增代码异味
+	NewCoverage      float64 `json:"new_coverage,omitempty"`      // 新代码覆盖率
+	ScanTime         uint64  `json:"scan_time,omitempty"`         // 扫描时间
+}
+
 // PipelineListItem 列表查询返回结构（去除敏感字段）
 type PipelineListItem struct {
 	ID              int64  `json:"id"`
@@ -333,6 +394,7 @@ type PipelineListItem struct {
 	GitRepo         string `json:"git_repo"`
 	GitBranch       string `json:"git_branch"`
 	JenkinsJob      string `json:"jenkins_job"`
+	LanguageType    string `json:"language_type"`
 	Status          string `json:"status"`
 	LastRunStatus   string `json:"last_run_status"`
 	LastRunTime     uint64 `json:"last_run_time"`
@@ -349,6 +411,7 @@ func (p *CicdPipeline) ToPipelineListItem() *PipelineListItem {
 		GitRepo:         p.GitRepo,
 		GitBranch:       p.GitBranch,
 		JenkinsJob:      p.JenkinsJob,
+		LanguageType:    p.LanguageType,
 		Status:          p.Status,
 		LastRunStatus:   p.LastRunStatus,
 		LastRunTime:     p.LastRunTime,
