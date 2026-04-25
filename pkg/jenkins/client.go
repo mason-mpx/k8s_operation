@@ -508,6 +508,33 @@ func (c *Client) GetPipelineRun(ctx context.Context, jobName string, buildNumber
 	return &run, nil
 }
 
+// getCrumb 获取 Jenkins CSRF Crumb（防跨站请求伪造令牌）
+func (c *Client) getCrumb(ctx context.Context) (string, string, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, "/crumbIssuer/api/json", nil)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	// 404 表示 Jenkins 未启用 CSRF 保护，不需要 crumb
+	if resp.StatusCode == http.StatusNotFound {
+		return "", "", nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("获取Crumb失败: HTTP %d", resp.StatusCode)
+	}
+
+	var crumbData struct {
+		Crumb             string `json:"crumb"`
+		CrumbRequestField string `json:"crumbRequestField"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&crumbData); err != nil {
+		return "", "", fmt.Errorf("解析Crumb失败: %w", err)
+	}
+
+	return crumbData.CrumbRequestField, crumbData.Crumb, nil
+}
+
 // UpdateJobScriptPath 更新 Pipeline Job 的 Script Path（通过 config.xml API）
 // 仅对 Pipeline SCM 类型的 Job 有效，自动将 <scriptPath> 替换为指定路径
 func (c *Client) UpdateJobScriptPath(ctx context.Context, jobName string, newScriptPath string) error {
@@ -552,7 +579,10 @@ func (c *Client) UpdateJobScriptPath(ctx context.Context, jobName string, newScr
 	// 4. 替换 scriptPath
 	newConfigStr := scriptPathRe.ReplaceAllString(configStr, expected)
 
-	// 5. POST 更新 config.xml
+	// 5. 获取 CSRF Crumb（Jenkins 2.x 防护）
+	crumbField, crumbValue, _ := c.getCrumb(ctx)
+
+	// 6. POST 更新 config.xml
 	updateReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+configPath, strings.NewReader(newConfigStr))
 	if err != nil {
 		return fmt.Errorf("创建更新请求失败: %w", err)
@@ -561,6 +591,10 @@ func (c *Client) UpdateJobScriptPath(ctx context.Context, jobName string, newScr
 		updateReq.SetBasicAuth(c.Username, c.APIToken)
 	}
 	updateReq.Header.Set("Content-Type", "application/xml")
+	// 带上 CSRF crumb
+	if crumbField != "" && crumbValue != "" {
+		updateReq.Header.Set(crumbField, crumbValue)
+	}
 
 	updateResp, err := c.HTTPClient.Do(updateReq)
 	if err != nil {

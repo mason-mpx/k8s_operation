@@ -320,8 +320,7 @@
                 <div class="input-hint">
                   <template v-if="pipelineData.language_type !== 'custom'">
                     <template v-if="pipelineData.jenkins_job && pipelineData.jenkins_job.trim()">
-                      <span style="color:#52c41a;">&#10004;</span> 使用自定义 Job <strong>{{ pipelineData.jenkins_job }}</strong>，平台会在构建前自动将其 Script Path 同步为:
-                      <code style="color:#1890ff;display:inline-block;margin-top:2px;">configs/jenkins-templates/{{ templateFileMap[pipelineData.language_type] || 'custom' }}</code>，无需手动配置。
+                      <span style="color:#52c41a;">&#10004;</span> 使用自定义 Job <strong>{{ pipelineData.jenkins_job }}</strong>，平台会自动注入 <code style="color:#1890ff;">LANGUAGE_TYPE={{ pipelineData.language_type }}</code> 参数，Jenkinsfile 分发器会自动加载对应模板。
                     </template>
                     <template v-else>
                       留空将自动使用平台内置 Job: <strong>k8s-builder-{{ pipelineData.language_type }}</strong>（推荐）

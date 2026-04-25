@@ -62,10 +62,13 @@ pipeline {
     }
 
     environment {
-        REGISTRY_CREDS = credentials('harbor-registry')
-        HMAC_SECRET    = credentials('hmac-secret')
-        MAVEN_OPTS     = '-Xmx1024m -Xms512m -XX:+TieredCompilation -XX:TieredStopAtLevel=1'
+        REGISTRY_CREDS   = credentials('harbor-registry')
+        HMAC_SECRET      = credentials('hmac-secret')
+        MAVEN_OPTS       = '-Xmx1024m -Xms512m -XX:+TieredCompilation -XX:TieredStopAtLevel=1'
         MAVEN_LOCAL_REPO = "${env.WORKSPACE}/.m2/repository"
+        // Maven 自动安装配置（服务器无 Maven 时自动下载）
+        MAVEN_VERSION    = '3.9.9'
+        MAVEN_INSTALL_DIR = '/var/lib/jenkins/tools/maven'
     }
 
     stages {
@@ -133,10 +136,73 @@ pipeline {
             }
         }
 
+        // ==================== 构建工具自动检测与安装 ====================
+        stage('Setup Build Tools') {
+            steps {
+                echo "=== 检测构建工具 ==="
+                script {
+                    // 1. 检测 Maven：mvnw → 系统 mvn → 自动下载
+                    if (fileExists('mvnw')) {
+                        sh 'chmod +x mvnw'
+                        env.MVN_CMD = './mvnw'
+                        echo "[Setup] 检测到 Maven Wrapper，使用 ./mvnw"
+                    } else if (sh(script: 'which mvn 2>/dev/null', returnStatus: true) == 0) {
+                        env.MVN_CMD = 'mvn'
+                        echo "[Setup] 检测到系统 Maven: ${sh(script: 'mvn --version | head -1', returnStdout: true).trim()}"
+                    } else {
+                        echo "[Setup] Maven 未安装，自动下载 Maven ${MAVEN_VERSION}..."
+                        def mavenDir = "${MAVEN_INSTALL_DIR}/apache-maven-${MAVEN_VERSION}"
+                        def installed = sh(script: "test -x ${mavenDir}/bin/mvn && echo yes || echo no", returnStdout: true).trim()
+                        if (installed != 'yes') {
+                            sh """
+                                set -e
+                                mkdir -p ${MAVEN_INSTALL_DIR}
+                                echo '[Setup] 下载 Maven (阿里云镜像)...'
+                                curl -sSL https://mirrors.aliyun.com/apache/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \\
+                                    | tar xz -C ${MAVEN_INSTALL_DIR}/
+                                echo '[Setup] Maven 安装完成'
+                            """
+                        } else {
+                            echo "[Setup] Maven 已缓存，跳过下载"
+                        }
+                        env.MVN_CMD = "${mavenDir}/bin/mvn"
+                    }
+
+                    // 2. 生成阿里云 Maven 镜像 settings.xml（加速依赖下载）
+                    def settingsFile = "${env.WORKSPACE}/.m2/settings.xml"
+                    sh "mkdir -p ${env.WORKSPACE}/.m2"
+                    writeFile file: settingsFile, text: """\
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <name>Aliyun Maven Mirror</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>
+"""
+                    env.MVN_SETTINGS = settingsFile
+                    echo "[Setup] 已配置阿里云 Maven 镜像加速"
+
+                    // 3. 检测 Java 版本
+                    def javaVer = sh(script: 'java -version 2>&1 | head -1', returnStdout: true).trim()
+                    echo "[Setup] Java: ${javaVer}"
+                    sh "${env.MVN_CMD} --version | head -2"
+                }
+            }
+            post {
+                success { script { stageCallback('dependencies', 'success') } }
+                failure { script { stageCallback('dependencies', 'failed') } }
+            }
+        }
+
         stage('Compile') {
             steps {
                 echo "=== Maven 编译 ==="
-                sh 'mvn clean compile -DskipTests -B -T 1C -Dmaven.repo.local=${MAVEN_LOCAL_REPO}'
+                sh "${MVN_CMD} clean compile -DskipTests -B -T 1C -s ${MVN_SETTINGS} -Dmaven.repo.local=${MAVEN_LOCAL_REPO}"
             }
             post {
                 success { script { stageCallback('compile', 'success') } }
@@ -148,7 +214,7 @@ pipeline {
             when { expression { return !params.SKIP_TESTS } }
             steps {
                 echo "=== 单元测试 ==="
-                sh 'mvn test -B -T 1C -Dmaven.repo.local=${MAVEN_LOCAL_REPO} -Dsurefire.useFile=false'
+                sh "${MVN_CMD} test -B -T 1C -s ${MVN_SETTINGS} -Dmaven.repo.local=${MAVEN_LOCAL_REPO} -Dsurefire.useFile=false"
             }
             post {
                 success { script { stageCallback('test', 'success') } }
@@ -169,10 +235,10 @@ pipeline {
                     def binaries    = params.SONAR_JAVA_BINARIES?.trim() ?: 'target/classes'
                     def exclusions  = params.SONAR_EXCLUSIONS?.trim()   ?: '**/test/**,**/generated/**'
 
-                    // 使用 Jenkins SonarQube Scanner 插件
                     withSonarQubeEnv('SonarQube') {
                         sh """
-                            mvn sonar:sonar \\
+                            ${env.MVN_CMD} sonar:sonar \\
+                                -s ${env.MVN_SETTINGS} \\
                                 -Dsonar.projectKey=${projectKey} \\
                                 -Dsonar.projectName=${projectName} \\
                                 -Dsonar.projectVersion=${env.FINAL_TAG} \\
@@ -224,7 +290,7 @@ pipeline {
         stage('Package') {
             steps {
                 echo "=== 打包 ==="
-                sh "mvn ${params.MAVEN_GOALS} -T 1C -Dmaven.repo.local=${MAVEN_LOCAL_REPO}"
+                sh "${MVN_CMD} ${params.MAVEN_GOALS} -T 1C -s ${MVN_SETTINGS} -Dmaven.repo.local=${MAVEN_LOCAL_REPO}"
                 archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true, allowEmptyArchive: true
             }
             post {
