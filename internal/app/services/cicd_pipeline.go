@@ -499,22 +499,6 @@ func (s *Services) triggerJenkinsBuild(ctx context.Context, pipeline *models.Cic
 		zap.String("jenkins_user", client.Username),
 	)
 
-	// 自动同步 Jenkins Job 的 Script Path（根据语言类型自动设置正确的模板路径）
-	if scriptPath, ok := models.DefaultScriptPathMap[pipeline.LanguageType]; ok {
-		if err := client.UpdateJobScriptPath(ctx, pipeline.JenkinsJob, scriptPath); err != nil {
-			global.Logger.Warn("[流水线] 自动同步 Script Path 失败（不影响构建）",
-				zap.String("job_name", pipeline.JenkinsJob),
-				zap.String("target_script_path", scriptPath),
-				zap.Error(err),
-			)
-		} else {
-			global.Logger.Info("[流水线] Script Path 已同步",
-				zap.String("job_name", pipeline.JenkinsJob),
-				zap.String("script_path", scriptPath),
-			)
-		}
-	}
-
 	// 触发构建等待超时，优先使用配置，默认 60 秒
 	triggerTimeout := 60 * time.Second
 	if global.JenkinsSetting != nil && global.JenkinsSetting.TriggerTimeout > 0 {
