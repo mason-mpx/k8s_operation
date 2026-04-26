@@ -241,8 +241,7 @@ pipeline {
                                 -Dsonar.sources=${sources} \\
                                 -Dsonar.exclusions=${exclusions} \\
                                 -Dsonar.go.coverage.reportPaths=coverage.out \\
-                                -Dsonar.branch.name=${env.GIT_BRANCH_NAME} \\
-                                -Dsonar.links.scm=${params.GIT_REPO} \\
+                                -Dsonar.scm.disabled=true \\
                                 -Dsonar.links.ci=${env.BUILD_URL}
                         """
                     }
@@ -436,7 +435,8 @@ ENTRYPOINT ["/app/${appName}"]
         aborted { script { callbackPlatform('ABORTED', '构建中止') } }
         always {
             sh "nerdctl rmi ${env.FULL_IMAGE} || true"
-            cleanWs()
+            // Go 缓存已在 workspace 外（GOMODCACHE/GOCACHE），只清源码
+            sh 'rm -rf bin .git coverage.out 2>/dev/null || true'
         }
     }
 }

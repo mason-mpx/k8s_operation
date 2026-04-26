@@ -54,13 +54,16 @@ pipeline {
         REGISTRY_CREDS = credentials('harbor-registry')
         HMAC_SECRET    = credentials('hmac-secret')
         NPM_REGISTRY   = 'https://registry.npmmirror.com'
+        // npm 缓存放 workspace 外，跨构建持久复用
+        NPM_CACHE_DIR  = '/var/lib/jenkins/.npm-cache'
     }
 
     stages {
 
         stage('Clean Workspace') {
             steps {
-                deleteDir()
+                // 选择性清理：npm 缓存在外部目录，不受影响
+                sh 'find . -mindepth 1 -maxdepth 1 | xargs rm -rf 2>/dev/null || true'
                 script {
                     // 语言类型交叉校验：防止自定义 Job 配错脚本
                     def expectedType = 'frontend'
@@ -123,13 +126,14 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                echo "=== 安装依赖 ==="
+                echo "=== 安装依赖（复用缓存） ==="
                 script {
                     if (!fileExists('package.json')) { echo "未检测到 package.json，跳过"; return }
                     sh """
                         set -e
                         npm config set registry ${NPM_REGISTRY}
-                        npm ci --prefer-offline || npm install
+                        npm config set cache ${NPM_CACHE_DIR}
+                        npm ci --prefer-offline --cache ${NPM_CACHE_DIR} || npm install --prefer-offline --cache ${NPM_CACHE_DIR}
                     """
                 }
             }
@@ -188,8 +192,7 @@ pipeline {
                                 -Dsonar.projectVersion=${env.FINAL_TAG} \\
                                 -Dsonar.sources=${sources} \\
                                 -Dsonar.exclusions=${exclusions} \\
-                                -Dsonar.branch.name=${env.GIT_BRANCH_NAME} \\
-                                -Dsonar.links.scm=${params.GIT_REPO} \\
+                                -Dsonar.scm.disabled=true \\
                                 -Dsonar.links.ci=${env.BUILD_URL}
                         """
                     }
@@ -351,7 +354,10 @@ CMD ["nginx", "-g", "daemon off;"]
         }
         failure { script { callbackPlatform('FAILURE', '前端项目构建失败') } }
         aborted { script { callbackPlatform('ABORTED', '构建中止') } }
-        always { sh "nerdctl rmi ${env.FULL_IMAGE} || true"; cleanWs() }
+        always {
+            sh "nerdctl rmi ${env.FULL_IMAGE} || true"
+            sh 'rm -rf node_modules dist .git 2>/dev/null || true'
+        }
     }
 }
 
