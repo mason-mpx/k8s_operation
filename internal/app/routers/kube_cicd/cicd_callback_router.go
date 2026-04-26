@@ -11,6 +11,7 @@ type CicdCallbackRouter struct {
 	pipelineCtrl *cicd.PipelineController
 	stageCtrl    *cicd.StageController
 	releaseCtrl  *cicd.CicdReleaseController
+	artifactCtrl *cicd.ArtifactController
 }
 
 func NewCicdCallbackRouter() *CicdCallbackRouter {
@@ -18,15 +19,18 @@ func NewCicdCallbackRouter() *CicdCallbackRouter {
 		pipelineCtrl: cicd.NewPipelineController(),
 		stageCtrl:    cicd.NewStageController(),
 		releaseCtrl:  cicd.NewCicdReleaseController(),
+		artifactCtrl: cicd.NewArtifactController(),
 	}
 }
 
 func (r *CicdCallbackRouter) Inject(rg *gin.RouterGroup) {
 	// 流水线回调
 	// POST /api/v1/k8s/cicd/pipeline/callback
+	// POST /api/v1/k8s/cicd/pipeline/sonar-callback （SonarQube 扫描结果回调）
 	pipeline := rg.Group("/pipeline")
 	{
 		pipeline.POST("/callback", r.pipelineCtrl.Callback)
+		pipeline.POST("/sonar-callback", r.pipelineCtrl.SonarCallback)
 	}
 
 	// 阶段回调
@@ -41,5 +45,12 @@ func (r *CicdCallbackRouter) Inject(rg *gin.RouterGroup) {
 	callback := rg.Group("/callback")
 	{
 		callback.POST("/build", r.releaseCtrl.BuildCallback)
+	}
+
+	// 制品上传回调（Jenkins 构建完成后自动上传制品）
+	// POST /api/v1/k8s/cicd/artifact/upload
+	artifact := rg.Group("/artifact")
+	{
+		artifact.POST("/upload", r.artifactCtrl.Upload)
 	}
 }

@@ -515,6 +515,7 @@ func (s *Services) UpdateBuildStagesComplete(ctx context.Context, runID int64, s
 		// 同步创建审批记录到 cicd_approval 表，对接审批管理页面
 		run, _ := s.dao.PipelineRunGetByID(ctx, runID)
 		if run != nil {
+			now := time.Now().Unix()
 			approval := &models.CicdApproval{
 				PipelineID:    approvalStage.PipelineID,
 				PipelineRunID: runID,
@@ -523,6 +524,9 @@ func (s *Services) UpdateBuildStagesComplete(ctx context.Context, runID int64, s
 				Image:         imageURL,
 				RequestUserID: run.TriggerUserID,
 				RequestReason: "流水线构建完成，等待人工审批",
+				ExpireTime:    uint64(now + 86400*7), // 7天过期
+				CreatedAt:     uint64(now),
+				ModifiedAt:    uint64(now),
 			}
 			_, _ = s.dao.ApprovalCreate(ctx, approval)
 			global.Logger.Info("[流水线] 自动创建审批记录",

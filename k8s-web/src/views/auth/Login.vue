@@ -351,9 +351,9 @@ const handleSubmit = async () => {
       const loginData = await loginRequest(form.value.username, form.value.password)
       if (loginData) {
         storeAuth(loginData.token, loginData.user, true)
-        // 注册后跳转到集群列表页（引导用户先选择/添加集群）
+        // 注册后跳转到原页面或集群列表页
         const redirect = route.query.redirect || '/clusters'
-        router.push(redirect)
+        router.replace(redirect)
       }
       return
     }
@@ -362,9 +362,10 @@ const handleSubmit = async () => {
     const loginData = await loginRequest(form.value.username, form.value.password)
     if (loginData) {
       storeAuth(loginData.token, loginData.user, form.value.remember)
-      // 跳转到集群列表页（引导用户先选择集群，再进入集群功能）
+      // 跳转到原页面或集群列表页（支持从钉钉审批链接跳转后 redirect 回去）
       const redirect = route.query.redirect || '/clusters'
-      router.push(redirect)
+      // 使用 replace 而非 push，避免登录页残留在历史记录中
+      router.replace(redirect)
     }
   } catch (e) {
     error.value = e?.response?.data?.msg || e?.response?.data?.message || e?.message || '请求失败'
