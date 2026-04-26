@@ -1753,13 +1753,44 @@ func (s *Services) GetSonarReport(ctx context.Context, pipelineID int64, runID i
 	}
 
 	// 从 stages_result JSON 中提取 SonarQube 数据
+	hasSonarData := false
 	if run.StagesResult != nil {
 		if sonarData, ok := run.StagesResult["sonar_report"]; ok {
 			report["sonar_report"] = sonarData
+			hasSonarData = true
 		}
 	}
 
-	// 如果没有扫描数据，返回默认模拟数据（方便前端开发调试）
+	// 如果有 sonar 阶段但没有回调数据（Jenkins sonar-callback 未成功回调），返回阶段状态信息
+	if hasSonar && !hasSonarData {
+		qgStatus := models.QualityGateNone
+		message := "代码扫描已完成，但扫描结果数据暂未回传，请稍后刷新"
+		if sonarStage.Status == "success" {
+			message = "SonarQube 扫描已成功完成，指标数据正在加载中"
+		}
+		if hasQG && qgStage.Status == "success" {
+			qgStatus = models.QualityGateOK
+		} else if hasQG && qgStage.Status == "failed" {
+			qgStatus = models.QualityGateError
+		}
+		report["sonar_report"] = map[string]interface{}{
+			"project_key":            pipeline.Name,
+			"quality_gate":           qgStatus,
+			"bugs":                   0,
+			"vulnerabilities":        0,
+			"code_smells":            0,
+			"coverage":               0.0,
+			"duplications":           0.0,
+			"lines_of_code":          0,
+			"security_hotspots":      0,
+			"reliability_rating":     "A",
+			"security_rating":        "A",
+			"maintainability_rating": "A",
+			"message":                message,
+		}
+	}
+
+	// 如果没有代码扫描阶段，返回默认模拟数据（方便前端开发调试）
 	if !hasSonar {
 		report["sonar_report"] = map[string]interface{}{
 			"project_key":          pipeline.Name,

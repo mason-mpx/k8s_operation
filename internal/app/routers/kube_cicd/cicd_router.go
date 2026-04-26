@@ -53,7 +53,7 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		pipeline.GET("/template-verify", r.pipelineCtrl.TemplateVerify)     // 模板化发布验证
 		pipeline.GET("/template-simulate", r.pipelineCtrl.TemplateSimulate) // 模拟模板化发布流程
 		pipeline.GET("/sonar-report", r.pipelineCtrl.SonarReport)          // SonarQube 代码质量报告
-		pipeline.POST("/sonar-callback", r.pipelineCtrl.SonarCallback)     // SonarQube 扫描结果回调
+		// sonar-callback 已移至 cicd_callback_router.go（公开接口，跳过 JWT，Jenkins 回调无需认证）
 		// callback 已移至 cicd_callback_router.go（公开接口，跳过 JWT）
 	}
 
@@ -168,7 +168,7 @@ func (r *CicdRouter) Inject(rg *gin.RouterGroup) {
 		artifact.GET("/detail", r.artifactCtrl.Detail)             // 制品详情
 		artifact.GET("/by-run", r.artifactCtrl.ListByRunID)        // 某次运行的制品列表
 		artifact.POST("/create", r.artifactCtrl.CreateRecord)      // 创建制品记录（镜像类型 / 无文件）
-		artifact.POST("/upload", r.artifactCtrl.Upload)            // 上传制品（Jenkins 回调 / 手动上传）
+		// upload 已移至 cicd_callback_router.go（公开接口，Jenkins 回调无需 JWT，手动上传也可用）
 		artifact.POST("/attach", r.artifactCtrl.AttachFile)        // 为已有制品补传/替换文件
 		artifact.POST("/update", r.artifactCtrl.Update)            // 更新制品信息
 		artifact.GET("/download", r.artifactCtrl.Download)         // 下载制品文件

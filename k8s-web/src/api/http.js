@@ -7,9 +7,21 @@ import {pinia} from '@/stores'
 // 判断是否通过穿透地址访问（非 localhost）
 const isRemoteAccess = !['localhost', '127.0.0.1'].includes(window.location.hostname)
 
+// 动态计算远程 API 地址：
+// 1. 优先使用环境变量 VITE_REMOTE_API_URL
+// 2. 否则使用当前域名 + 后端穿透端口（从环境变量 VITE_REMOTE_API_PORT 获取，默认 59508）
+const getRemoteBaseURL = () => {
+  if (import.meta.env.VITE_REMOTE_API_URL) {
+    return import.meta.env.VITE_REMOTE_API_URL
+  }
+  // 使用当前访问域名 + 后端端口，确保 DDNS 切换后仍可用
+  const backendPort = import.meta.env.VITE_REMOTE_API_PORT || '59508'
+  return `${window.location.protocol}//${window.location.hostname}:${backendPort}`
+}
+
 const http = axios.create({
-  // 穿透访问时直接请求后端穿透地址，本地访问时走 Vite proxy
-  baseURL: isRemoteAccess ? 'http://james521.gnway.cc:80' : '',
+  // 穿透访问时动态请求后端穿透地址，本地访问时走 Vite proxy
+  baseURL: isRemoteAccess ? getRemoteBaseURL() : '',
   timeout: 45000,
   withCredentials: false, // JWT Header 模式：不走 Cookie
 })
@@ -171,7 +183,7 @@ http.interceptors.response.use(
       // refresh 也需要带旧 token（你的后端 refresh 是 Bearer oldToken）
       const oldToken = getToken()
       const r = await refreshClient.post(
-        '/auth/refresh',
+        '/api/v1/auth/refresh',
         {},
         {
           headers: oldToken ? {Authorization: `Bearer ${oldToken}`} : {},
