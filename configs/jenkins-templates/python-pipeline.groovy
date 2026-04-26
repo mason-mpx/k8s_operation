@@ -195,8 +195,7 @@ pipeline {
                                 -Dsonar.sources=${sources} \\
                                 -Dsonar.exclusions=${exclusions} \\
                                 -Dsonar.python.coverage.reportPaths=coverage.xml \\
-                                -Dsonar.branch.name=${env.GIT_BRANCH_NAME} \\
-                                -Dsonar.links.scm=${params.GIT_REPO} \\
+                                -Dsonar.scm.disabled=true \\
                                 -Dsonar.links.ci=${env.BUILD_URL}
                         """
                     }
@@ -357,7 +356,10 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
         }
         failure { script { callbackPlatform('FAILURE', 'Python 项目构建失败') } }
         aborted { script { callbackPlatform('ABORTED', '构建中止') } }
-        always { sh "nerdctl rmi ${env.FULL_IMAGE} || true"; cleanWs() }
+        always {
+            sh "nerdctl rmi ${env.FULL_IMAGE} || true"
+            sh 'rm -rf .git venv __pycache__ coverage.xml 2>/dev/null || true'
+        }
     }
 }
 
