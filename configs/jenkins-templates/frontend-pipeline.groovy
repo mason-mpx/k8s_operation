@@ -25,7 +25,7 @@ metadata:
 spec:
   containers:
   - name: node
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:18-alpine3.18
+    image: docker.m.daocloud.io/library/node:18-alpine3.18
     imagePullPolicy: Always
     command: ['sleep', '99d']
     resources:
@@ -44,9 +44,11 @@ spec:
     - name: workspace-volume
       mountPath: /home/jenkins/agent
   - name: kaniko
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/gcr.io/kaniko-project/executor:debug
+    image: gcr.m.daocloud.io/kaniko-project/executor:debug
     imagePullPolicy: Always
     command: ['sleep', '99d']
+    securityContext:
+      runAsUser: 0
     resources:
       requests:
         cpu: '200m'
@@ -58,7 +60,7 @@ spec:
     - name: workspace-volume
       mountPath: /home/jenkins/agent
   - name: jnlp
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/jenkins/inbound-agent:latest-jdk21
+    image: docker.m.daocloud.io/jenkins/inbound-agent:latest-jdk21
     imagePullPolicy: Always
   volumes:
   - name: npm-cache
