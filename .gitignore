@@ -29,3 +29,9 @@ deploy/registry-secret.yaml
 deploy/backend/secret.yaml
 deploy/jenkins/secret.yaml
 .DS_Store
+# 编译产物，不纳入版本控制
+*.exe
+*.exe~
+bin/
+output/*.tar
+k8soperation
