@@ -1,5 +1,4 @@
-“<template>
-  ：
+<template>
   <div class="pipeline-detail-view">
     <!-- 顶部导航 -->
     <div class="breadcrumb">
@@ -52,8 +51,8 @@
           <div class="last-run-row">
             <div class="last-run-info">
               <span class="run-label">上次运行</span>
-              <span :class="['run-status-badge', `status-${pipeline.last_run_status}`]">
-                {{ runStatusText(pipeline.last_run_status) }}
+              <span :class="['run-status-badge', `status-${effectiveRunStatus}`]">
+                {{ runStatusText(effectiveRunStatus) }}
               </span>
               <span class="run-time">{{ formatDate(pipeline.last_run_time) }}</span>
             </div>
@@ -94,7 +93,7 @@
             <svg viewBox="0 0 24 24" fill="currentColor">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
-            {{ pipeline.status === 'running' ? '重新运行' : '运行' }}
+            {{ pipeline.status === 'running' ? '重新发布' : '发布' }}
           </button>
           <button
             v-if="pipeline.status === 'running' || pipeline.last_run_status === 'pending'"
@@ -166,6 +165,17 @@
           运行历史
         </button>
         <button
+          :class="['tab-btn', { active: activeTab === 'promote' }]"
+          @click="activeTab = 'promote'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+          镜像晋级
+        </button>
+        <button
           :class="['tab-btn', { active: activeTab === 'config' }]"
           @click="activeTab = 'config'"
         >
@@ -195,17 +205,17 @@
             <h3 class="section-title">最近运行状态</h3>
             <div class="status-cards">
               <div class="status-card">
-                <div class="card-icon" :class="`status-${pipeline.last_run_status}`">
-                  <svg v-if="pipeline.last_run_status === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <div class="card-icon" :class="`status-${effectiveRunStatus}`">
+                  <svg v-if="effectiveRunStatus === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                     <polyline points="22 4 12 14.01 9 11.01"/>
                   </svg>
-                  <svg v-else-if="pipeline.last_run_status === 'failed'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg v-else-if="effectiveRunStatus === 'failed'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="15" y1="9" x2="9" y2="15"/>
                     <line x1="9" y1="9" x2="15" y2="15"/>
                   </svg>
-                  <svg v-else-if="pipeline.last_run_status === 'running'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg v-else-if="effectiveRunStatus === 'running' || effectiveRunStatus === 'publishing'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"/>
                     <polyline points="12 6 12 12 16 14"/>
                   </svg>
@@ -217,7 +227,7 @@
                 </div>
                 <div class="card-content">
                   <span class="card-label">运行状态</span>
-                  <span class="card-value">{{ runStatusText(pipeline.last_run_status) }}</span>
+                  <span class="card-value">{{ runStatusText(effectiveRunStatus) }}</span>
                 </div>
               </div>
               <div class="status-card">
@@ -320,6 +330,56 @@
               <div class="error-content">
                 <p class="error-message">{{ latestRun.error_message }}</p>
                 <p class="error-time">失败时间: {{ formatFullDate(latestRun.finished_at) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- GitOps 同步状态（仅在 GitOps 模式下显示） -->
+          <div v-if="pipeline.deploy_mode === 'gitops'" class="section gitops-section">
+            <h3 class="section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="title-icon">
+                <polyline points="16 3 21 3 21 8"/>
+                <line x1="4" y1="20" x2="21" y2="3"/>
+                <polyline points="21 16 21 21 16 21"/>
+                <line x1="15" y1="15" x2="21" y2="21"/>
+                <line x1="4" y1="4" x2="9" y2="9"/>
+              </svg>
+              GitOps 同步状态
+            </h3>
+            <div class="gitops-info-card">
+              <div class="gitops-grid">
+                <div class="gitops-item">
+                  <span class="gitops-label">部署模式</span>
+                  <span class="gitops-value tag-gitops">GitOps (ArgoCD)</span>
+                </div>
+                <div v-if="latestRun && latestRun.argo_app_name" class="gitops-item">
+                  <span class="gitops-label">ArgoCD Application</span>
+                  <span class="gitops-value code-text">{{ latestRun.argo_app_name }}</span>
+                </div>
+                <div v-if="latestRun && latestRun.workflow_name" class="gitops-item">
+                  <span class="gitops-label">Argo Workflow</span>
+                  <span class="gitops-value code-text">{{ latestRun.workflow_name }}</span>
+                </div>
+                <div v-if="latestRun && latestRun.sync_status" class="gitops-item">
+                  <span class="gitops-label">同步状态</span>
+                  <span :class="['gitops-value', 'sync-status-badge', `sync-${(latestRun.sync_status || '').toLowerCase()}`]">
+                    {{ latestRun.sync_status }}
+                  </span>
+                </div>
+                <div v-if="latestRun && latestRun.sync_revision" class="gitops-item">
+                  <span class="gitops-label">同步版本</span>
+                  <span class="gitops-value code-text">{{ (latestRun.sync_revision || '').substring(0, 8) }}</span>
+                </div>
+              </div>
+              <!-- 手动同步按钮 -->
+              <div class="gitops-actions">
+                <button class="btn btn-sync" @click="handleGitOpsSync" :disabled="syncingGitOps">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                  {{ syncingGitOps ? '同步中...' : '手动触发同步' }}
+                </button>
               </div>
             </div>
           </div>
@@ -445,10 +505,16 @@
             <PipelineHorizontalView
               :stages="pipelineStages"
               :pipeline-id="pipelineId"
+              :pipeline="pipeline"
+              :cluster-id="pipeline.target_cluster_id"
+              :can-approve="canApprove"
               @approve="handleApproveStage"
               @deploy="handleDeployStage"
               @retry-deploy="handleRetryDeploy"
+              @rollback="handleRollback"
               @view-logs="activeTab = 'logs'; loadLogs()"
+              @view-pods="handleViewPods"
+              @refresh="loadPipeline"
             />
           </template>
 
@@ -655,6 +721,15 @@
                     <p>该阶段需要人工审批确认才能继续部署</p>
                   </div>
                 </div>
+                <!-- 非管理员：显示等待提示，禁用操作 -->
+                <div v-if="!canApprove" class="approval-no-permission">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0;color:#f59e0b">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                  </svg>
+                  <span>此审批需要管理员处理，您没有审批权限</span>
+                </div>
+                <!-- 管理员：显示完整操作面板 -->
+                <template v-if="canApprove">
                 <div class="approval-options">
                   <label :class="['approval-option', { selected: approvalDecision === 'approve' }]" @click="approvalDecision = 'approve'">
                     <div class="option-radio"><span class="radio-inner"></span></div>
@@ -685,6 +760,7 @@
                     {{ approving ? '处理中...' : (approvalDecision === 'approve' ? '确认通过' : '确认拒绝') }}
                   </button>
                 </div>
+                </template>
               </div>
 
               <!-- 审批已通过 -->
@@ -725,7 +801,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   <div class="warning-content">
                     <span class="warning-text">{{ selectedStage.config_warning }}</span>
-                    <router-link :to="`/cicd/pipelines/${pipeline.id}/edit`" class="config-link">
+                    <router-link :to="pipelineEditUrl" class="config-link">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       去配置
                     </router-link>
@@ -1010,6 +1086,11 @@
             <p>点击上方阶段卡片查看详情</p>
           </div>
           </template>
+        </div>
+
+        <!-- 镜像晋级 -->
+        <div v-if="activeTab === 'promote'" class="promote-tab">
+          <PromotionPanel :pipeline-id="pipelineId" :pipeline="pipeline" />
         </div>
 
         <!-- 构建日志 -->
@@ -1657,6 +1738,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
+import permissionStore from '@/stores/permission.js'
 import {
   getPipelineDetail,
   runPipeline,
@@ -1674,14 +1756,15 @@ import {
   getDeployHistory
 } from '@/api/platform/pipeline'
 import deploymentsApi from '@/api/cluster/workloads/deployments'
-import { PipelineHorizontalView, CodeQualityPanel } from '@/components/cicd'
-import { getSonarReport } from '@/api/cicd'
+import { PipelineHorizontalView, CodeQualityPanel, PromotionPanel } from '@/components/cicd'
+import { getSonarReport, triggerGitOpsSync } from '@/api/cicd'
 
 export default {
   name: 'PipelineDetail',
   components: {
     PipelineHorizontalView,
-    CodeQualityPanel
+    CodeQualityPanel,
+    PromotionPanel
   },
   setup() {
     const { confirm: showConfirm } = useConfirmDialog()
@@ -1742,10 +1825,19 @@ export default {
     const showRunDialog = ref(false)
     const runSubmitting = ref(false)
 
+    // 审批权限：只有管理员角色才能操作审批按鈕
+    const canApprove = computed(() => {
+      if (permissionStore.state.isSuperAdmin) return true
+      const roleTypes = permissionStore.roleTypes?.value || []
+      const approvalRoles = ['super_admin', 'platform_admin', 'cluster_admin', 'sre']
+      return approvalRoles.some(role => roleTypes.includes(role))
+    })
+
     // 审批和部署操作相关
     const approving = ref(false)
     const deploying = ref(false)
     const rollingBack = ref(false)  // 回滚中
+    const syncingGitOps = ref(false)  // GitOps 同步中
     const cancelling = ref(false)   // 取消中
     const approvalDecision = ref('approve')  // 默认通过
     const approvalComment = ref('')  // 审批备注
@@ -1811,6 +1903,32 @@ export default {
     // 是否有运行中的阶段（包括 running 和 deploying）
     const hasRunningStage = computed(() => {
       return pipelineStages.value.some(stage => stage.status === 'running' || stage.status === 'deploying')
+    })
+
+    // 有效运行状态：只要最后一个部署阶段未完成，就显示「发布中」
+    // 核心逻辑：构建成功 ≠ 发布完成，审批/部署未结束前都属于发布流程中
+    const effectiveRunStatus = computed(() => {
+      const rawStatus = pipeline.value.last_run_status
+      // 只有构建成功时才需要判断后续阶段
+      if (rawStatus !== 'success') return rawStatus
+      // 检查是否存在部署/审批阶段且尚未全部完成
+      const stages = pipelineStages.value
+      if (!stages || stages.length === 0) return rawStatus
+      // 找到最后一个部署阶段
+      const deployStages = stages.filter(s => (s.type || s.stage_type) === 'deploy')
+      const approvalStages = stages.filter(s => (s.type || s.stage_type) === 'approval')
+      // 如果没有部署/审批阶段，直接返回原状态
+      if (deployStages.length === 0 && approvalStages.length === 0) return rawStatus
+      // 任一部署阶段失败 / 审批被拒绝 → 整体视为失败（避免一直卡在「发布中」）
+      if (deployStages.some(s => s.status === 'failed') ||
+          approvalStages.some(s => s.status === 'failed' || s.status === 'rejected')) {
+        return 'failed'
+      }
+      // 检查最后一个部署阶段是否已完成
+      const lastDeploy = deployStages[deployStages.length - 1]
+      if (lastDeploy && lastDeploy.status === 'success') return 'success'
+      // 部署阶段未完成（pending/deploying/waiting等），显示发布中
+      return 'publishing'
     })
 
     // 当前运行中的阶段（包括 running 和 deploying）
@@ -1964,8 +2082,22 @@ export default {
       return durations[stageType] || '-'
     }
 
+    // 校验流水线 ID 是否有效（避免路由切走后 route.params.id 变 undefined 导致 id=NaN 的无效请求）
+    const isValidPipelineId = () => {
+      const pid = Number(pipelineId.value)
+      return Number.isInteger(pid) && pid > 0
+    }
+
     // 加载流水线详情
     const loadPipeline = async () => {
+      // 守卫：id 非法时不发请求，并停止一切轮询
+      if (!isValidPipelineId()) {
+        stopPolling()
+        stopDeployPolling()
+        errorMsg.value = '无效的流水线ID'
+        loading.value = false
+        return
+      }
       loading.value = true
       errorMsg.value = ''
       try {
@@ -2001,6 +2133,11 @@ export default {
 
       // 每 1.5 秒轮询状态和阶段（更快响应，实时体验）
       statusPollingTimer = setInterval(async () => {
+        // 守卫：路由已切走或 id 失效时立即停止轮询，避免 status?id=NaN 的无效请求
+        if (!isValidPipelineId()) {
+          stopPolling()
+          return
+        }
         try {
           const response = await getPipelineStatus(pipelineId.value)
           if (response.code === 0) {
@@ -2036,6 +2173,24 @@ export default {
               if (status === 'success' || status === 'SUCCESS') {
                 // 构建成功，显示绿色 ✓
                 Message.success({ content: `构建成功！${statusText}` })
+                
+                // 构建成功后自动跳转到审批阶段（如果有）
+                if (route.query.auto_select === 'approval') {
+                  await loadStages()
+                  const approvalStage = pipelineStages.value.find(s => s.type === 'approval' && (s.status === 'waiting' || s.status === 'pending'))
+                  if (approvalStage) {
+                    stageViewMode.value = 'vertical'
+                    selectedStage.value = approvalStage
+                    stageDetailExpanded.value = true
+                    highlightApproval.value = true
+                    Message.info({ content: '构建完成，请审批后继续部署', duration: 4000 })
+                    setTimeout(() => {
+                      const panel = document.querySelector('.stage-detail-panel')
+                      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                    }, 300)
+                    setTimeout(() => { highlightApproval.value = false }, 5000)
+                  }
+                }
               } else if (status === 'failed' || status === 'FAILURE') {
                 // 构建失败，显示红色 ✗ + 错误信息
                 const errorMsg = response.data.latest_run?.error_message || '构建失败'
@@ -2052,6 +2207,10 @@ export default {
 
       // 每 2 秒轮询日志（如果在日志 Tab 或有选中阶段）
       logsPollingTimer = setInterval(async () => {
+        if (!isValidPipelineId()) {
+          stopPolling()
+          return
+        }
         if (pipeline.value.status === 'running') {
           // 在日志 Tab 或选中了阶段时加载日志
           if (activeTab.value === 'logs' || (selectedStage.value && stageDetailExpanded.value)) {
@@ -2223,8 +2382,9 @@ export default {
           // 刷新状态并开始轮询
           await loadPipeline()
           await loadStages()
-          // 自动切换到日志 Tab
-          activeTab.value = 'logs'
+          // 自动切换到执行阶段 Tab，让用户实时看到各阶段进度
+          activeTab.value = 'stages'
+          // 同时后台加载日志备用
           loadLogs(true)
         } else {
           throw new Error(response.msg)
@@ -2301,7 +2461,42 @@ export default {
     }
 
     const handleEdit = () => {
-      router.push(`/cicd/pipelines/${pipelineId.value}/edit`)
+      const deployMode = pipeline.value.deploy_mode || 'jenkins'
+      if (deployMode === 'gitops') {
+        router.push(`/cicd/gitops/${pipelineId.value}/edit`)
+      } else {
+        router.push(`/cicd/pipelines/${pipelineId.value}/edit`)
+      }
+    }
+
+    // 动态编辑 URL（用于模板 router-link）
+    const pipelineEditUrl = computed(() => {
+      const deployMode = pipeline.value.deploy_mode || 'jenkins'
+      if (deployMode === 'gitops') {
+        return `/cicd/gitops/${pipeline.value.id}/edit`
+      }
+      return `/cicd/pipelines/${pipeline.value.id}/edit`
+    })
+
+    // 手动触发 GitOps (ArgoCD) 同步
+    const handleGitOpsSync = async () => {
+      if (!pipelineId.value) return
+      syncingGitOps.value = true
+      try {
+        const response = await triggerGitOpsSync(parseInt(pipelineId.value))
+        if (response.code === 0) {
+          Message.success('ArgoCD 同步已触发')
+          // 刷新数据
+          await loadPipeline()
+        } else {
+          Message.error(response.msg || '触发同步失败')
+        }
+      } catch (error) {
+        console.error('GitOps 同步失败:', error)
+        Message.error(error.msg || '触发同步失败')
+      } finally {
+        syncingGitOps.value = false
+      }
     }
 
     const viewRunLogs = (run) => {
@@ -2572,6 +2767,11 @@ export default {
 
       // 每 3 秒轮询部署状态
       deployPollingTimer = setInterval(async () => {
+        // 守卫：id 失效时停止部署轮询，避免向 stages 发送 id=NaN 请求
+        if (!isValidPipelineId()) {
+          stopDeployPolling()
+          return
+        }
         try {
           await loadStages()
 
@@ -2874,6 +3074,45 @@ export default {
       }
     }
 
+    /**
+     * 处理查看 Pod 事件
+     * @param {{ type: 'logs'|'terminal'|'detail', pod: Object }} payload
+     */
+    const handleViewPods = (payload) => {
+      if (!payload?.pod) return
+      const { type, pod } = payload
+      const clusterId = pipeline.value?.target_cluster_id
+
+      switch (type) {
+        case 'terminal':
+          // 跳转到 Pod 终端页面
+          if (clusterId) {
+            const terminalUrl = `/c/${clusterId}/workloads/pods?namespace=${encodeURIComponent(pod.namespace)}&name=${encodeURIComponent(pod.name)}&tab=terminal`
+            router.push(terminalUrl)
+          } else {
+            Message.warning({ content: '缺少集群信息，无法跳转终端' })
+          }
+          break
+        case 'logs':
+          // 跳转到 Pod 日志页面
+          if (clusterId) {
+            const logsUrl = `/c/${clusterId}/workloads/pods?namespace=${encodeURIComponent(pod.namespace)}&name=${encodeURIComponent(pod.name)}&tab=logs`
+            router.push(logsUrl)
+          } else {
+            Message.warning({ content: '缺少集群信息，无法跳转日志' })
+          }
+          break
+        default:
+          // 默认跳转到 Pod 详情列表
+          if (clusterId) {
+            router.push({
+              path: `/c/${clusterId}/workloads/pods`,
+              query: { namespace: pod.namespace, name: pod.name }
+            })
+          }
+      }
+    }
+
     // 格式化
     const statusText = (status) => {
       const map = { idle: '空闲', running: '运行中', disabled: '已禁用', error: '错误' }
@@ -2881,7 +3120,7 @@ export default {
     }
 
     const runStatusText = (status) => {
-      const map = { success: '成功', failed: '失败', running: '运行中', pending: '等待中', aborted: '已中止', '': '未运行' }
+      const map = { success: '成功', failed: '失败', running: '运行中', pending: '等待中', aborted: '已中止', publishing: '发布中', '': '未运行' }
       return map[status] || status
     }
 
@@ -3102,6 +3341,7 @@ export default {
     })
 
     return {
+      pipelineId,
       pipeline,
       loading,
       errorMsg,
@@ -3130,6 +3370,7 @@ export default {
       failedStages,
       hasRunningStage,
       currentRunningStage,
+      effectiveRunStatus,
       getConnectorStatus,
       getStageStatusCount,
       loadPipeline,
@@ -3143,6 +3384,9 @@ export default {
       runSubmitting,
       handleStop,
       handleEdit,
+      pipelineEditUrl,
+      handleGitOpsSync,
+      syncingGitOps,
       viewRunLogs,
       toggleStageExpand,
       selectStage,
@@ -3165,6 +3409,7 @@ export default {
       rollbackInProgress,
       submitApproval,
       approving,
+      canApprove,
       deploying,
       rollingBack,
       cancelling,
@@ -3173,6 +3418,7 @@ export default {
       highlightApproval,
       copyLogs,
       downloadLogs,
+      handleViewPods,
       statusText,
       runStatusText,
       deployStatusText,
@@ -3409,6 +3655,17 @@ export default {
   color: #64748b;
 }
 
+.run-status-badge.status-publishing {
+  background: #dbeafe;
+  color: #2563eb;
+  animation: pulse-publishing 1.5s infinite;
+}
+
+@keyframes pulse-publishing {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .run-time {
   font-size: 13px;
   color: #94a3b8;
@@ -3556,6 +3813,7 @@ export default {
 .card-icon.status-success { background: #d1fae5; color: #059669; }
 .card-icon.status-failed { background: #fee2e2; color: #dc2626; }
 .card-icon.status-running { background: #fef3c7; color: #d97706; }
+.card-icon.status-publishing { background: #dbeafe; color: #2563eb; }
 .card-icon.neutral { background: #e2e8f0; color: #64748b; }
 
 .card-content {
@@ -5841,6 +6099,20 @@ export default {
   margin-bottom: 20px;
 }
 
+/* 无权限提示条 */
+.approval-no-permission {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
 .approval-icon {
   width: 48px;
   height: 48px;
@@ -7925,5 +8197,110 @@ export default {
   text-align: center;
   color: #94a3b8;
   font-size: 14px;
+}
+
+/* ==================== GitOps 同步状态 ==================== */
+.gitops-section {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  padding: 0;
+}
+.gitops-section .section-title {
+  padding: 16px 20px 8px;
+  margin: 0;
+  border-bottom: none;
+}
+.gitops-info-card {
+  padding: 12px 20px 16px;
+}
+.gitops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.gitops-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gitops-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+.gitops-value {
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+}
+.gitops-value.code-text {
+  font-family: monospace;
+  font-size: 13px;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  max-width: fit-content;
+}
+.gitops-value.tag-gitops {
+  color: #0d9488;
+  font-weight: 600;
+}
+.sync-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sync-status-badge.sync-synced {
+  background: #d1fae5;
+  color: #065f46;
+}
+.sync-status-badge.sync-outofsync {
+  background: #fef3c7;
+  color: #92400e;
+}
+.sync-status-badge.sync-unknown {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+.sync-status-badge.sync-progressing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.gitops-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #ccfbf1;
+}
+.btn-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-sync:hover {
+  background: #0f766e;
+}
+.btn-sync:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-sync svg {
+  width: 16px;
+  height: 16px;
 }
 </style>

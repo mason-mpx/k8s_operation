@@ -32,5 +32,9 @@ func Register() {
 	registerAppStore()
 	// AI 助手
 	registerAIAssistant()
+	// CRD/CR 动态资源
+	registerCRD()
+	// HPA/VPA 弹性扩缩容
+	register_k8s_Autoscaler()
 	// 后续可以继续扩展
 }

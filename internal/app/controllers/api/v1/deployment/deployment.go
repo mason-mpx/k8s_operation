@@ -84,9 +84,12 @@ func (c *KubeDeploymentController) Detail(ctx *gin.Context) {
 		global.Logger.Error("service.KubeDeploymentDetail error", zap.Error(err))
 		return
 	}
+	status, statusReason := deployment.GetDeploymentStatus(dp)
 	r.Success(gin.H{
-		"message": "获取 Deployment 详情成功",
-		"data":    dp,
+		"message":       "获取 Deployment 详情成功",
+		"status":        status,
+		"status_reason": statusReason,
+		"data":          dp,
 	})
 }
 
@@ -662,4 +665,32 @@ func (c *KubeDeploymentController) RolloutStatus(ctx *gin.Context) {
 		"data":    status,
 		"message": "获取 Rollout 状态成功",
 	})
+}
+
+// UpdateResources godoc
+// @Summary 快速修改容器资源限制
+// @Description 直接修改 Deployment 容器的 CPU/Memory requests/limits，用于快速应对 OOM 等场景
+// @Tags K8s Deployment 管理
+// @Accept json
+// @Produce json
+// @Param body body requests.KubeDeploymentUpdateResourcesRequest true "资源配置"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/k8s/deployment/update-resources [post]
+func (c *KubeDeploymentController) UpdateResources(ctx *gin.Context) {
+	param := requests.NewKubeDeploymentUpdateResourcesRequest()
+	r := response.NewResponse(ctx)
+	if ok := valid.Validate(ctx, param, requests.ValidKubeDeploymentUpdateResourcesRequest); !ok {
+		return
+	}
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	result, err := svc.KubeUpdateDeploymentResources(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("更新容器资源限制失败", zap.Error(err))
+		return
+	}
+	r.Success(result)
 }

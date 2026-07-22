@@ -113,7 +113,7 @@ const podsApi = {
    * @param {number} [params.since_seconds=3600] - 最近N秒的事件
    */
   events(params) {
-    return http.post(`${K8S_BASE}/deployment/events`, {
+    return http.post(`${K8S_BASE}/pod/events`, {
       namespace: params.namespace,
       kind: 'Pod',
       name: params.name,
@@ -278,7 +278,7 @@ const podsApi = {
    * @returns {Promise} - { pod_name, namespace, total_cpu, total_memory, containers: [{ name, cpu, memory }] }
    */
   metrics(params) {
-    return http.get(`${K8S_BASE}/pod/metrics`, {params})
+    return http.get(`${K8S_BASE}/pod/metrics`, {params, _silent: true})
   },
 
   /**
@@ -288,7 +288,7 @@ const podsApi = {
    * @returns {Promise} - { "pod-name": { metrics... }, ... }
    */
   metricsList(params) {
-    return http.get(`${K8S_BASE}/pod/metrics/list`, {params})
+    return http.get(`${K8S_BASE}/pod/metrics/list`, {params, _silent: true})
   },
 
   // =========================

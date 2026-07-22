@@ -19,6 +19,10 @@ type PipelineCreateRequest struct {
 	LanguageType string           `json:"language_type" valid:"language_type"` // go/java/frontend/python/custom
 	EnvVars      []models.EnvVar  `json:"env_vars"`
 	DeployConfig map[string]any   `json:"deploy_config"`
+
+	// GitOps 部署模式配置
+	DeployMode   string              `json:"deploy_mode"`   // jenkins | gitops（默认 jenkins）
+	GitOpsConfig *models.GitOpsConfig `json:"gitops_config"` // GitOps 配置（DeployMode=gitops 时必填）
 	
 	// 部署配置
 	AutoDeploy         bool   `json:"auto_deploy"`          // 是否自动部署
@@ -31,11 +35,15 @@ type PipelineCreateRequest struct {
 	RequireApproval    bool   `json:"require_approval"`     // 是否需要审批
 	EnableSonar        bool   `json:"enable_sonar"`         // 是否启用 SonarQube
 	EnableArtifactUpload bool `json:"enable_artifact_upload"` // 是否启用制品上传
+
+	// 发布联动告警静默
+	EnableDeploySilence  bool   `json:"enable_deploy_silence"`   // 部署时自动创建静默规则
+	SilenceBufferMinutes int    `json:"silence_buffer_minutes"`  // 静默缓冲时间(分钟)
+	SilenceSeverities    string `json:"silence_severities"`      // 静默的告警级别
 }
 
 func NewPipelineCreateRequest() *PipelineCreateRequest {
 	return &PipelineCreateRequest{
-		GitBranch:    "main",
 		LanguageType: "custom",
 	}
 }
@@ -46,11 +54,13 @@ func ValidPipelineCreateRequest(data interface{}, ctx *gin.Context) map[string][
 		"git_repo":      []string{"required", "url"},
 		// jenkins_job 不再强制必填，模板化时可由 language_type 自动推导
 		"language_type": []string{"in:go,java,frontend,python,custom"},
+		"deploy_mode":   []string{"in:jenkins,gitops"},
 	}
 	messages := govalidator.MapData{
 		"name":          []string{"required:流水线名称不能为空", "between:流水线名称长度应在1-100之间"},
 		"git_repo":      []string{"required:Git仓库地址不能为空", "url:Git仓库地址格式无效"},
 		"language_type": []string{"in:语言类型无效，可选值: go, java, frontend, python, custom"},
+		"deploy_mode":   []string{"in:部署模式无效，可选值: jenkins, gitops"},
 	}
 	return valid.ValidateOptions(data, rules, messages)
 }
@@ -69,7 +79,7 @@ type PipelineBatchItem struct {
 	Name         string          `json:"name"`          // 必填：流水线名称
 	Description  string          `json:"description"`   // 可选：描述
 	GitRepo      string          `json:"git_repo"`      // 必填：Git 仓库地址
-	GitBranch    string          `json:"git_branch"`    // 可选：分支，默认 main
+	GitBranch    string          `json:"git_branch"`    // 可选：分支，留空用配置默认值
 	LanguageType string          `json:"language_type"` // 推荐：go/java/frontend/python/custom
 	EnvVars      []models.EnvVar `json:"env_vars"`      // 可选：环境变量
 
@@ -84,6 +94,11 @@ type PipelineBatchItem struct {
 	RequireApproval    bool   `json:"require_approval"`
 	EnableSonar        bool   `json:"enable_sonar"`
 	EnableArtifactUpload bool `json:"enable_artifact_upload"`
+
+	// 发布联动告警静默
+	EnableDeploySilence  bool   `json:"enable_deploy_silence"`
+	SilenceBufferMinutes int    `json:"silence_buffer_minutes"`
+	SilenceSeverities    string `json:"silence_severities"`
 }
 
 func ValidPipelineBatchCreateRequest(data interface{}, ctx *gin.Context) map[string][]string {
@@ -122,6 +137,11 @@ type PipelineUpdateRequest struct {
 	RequireApproval    *bool   `json:"require_approval"`     // 是否需要审批
 	EnableSonar        *bool   `json:"enable_sonar"`         // 是否启用 SonarQube
 	EnableArtifactUpload *bool `json:"enable_artifact_upload"` // 是否启用制品上传
+
+	// 发布联动告警静默
+	EnableDeploySilence  *bool   `json:"enable_deploy_silence"`   // 部署时自动创建静默规则
+	SilenceBufferMinutes *int    `json:"silence_buffer_minutes"`  // 静默缓冲时间(分钟)
+	SilenceSeverities    *string `json:"silence_severities"`      // 静默的告警级别
 }
 
 func NewPipelineUpdateRequest() *PipelineUpdateRequest {
@@ -135,6 +155,7 @@ func ValidPipelineUpdateRequest(data interface{}, ctx *gin.Context) map[string][
 		"git_repo":      []string{"url"},
 		"jenkins_job":   []string{"between:1,100"},
 		"language_type": []string{"in:go,java,frontend,python,custom"},
+		"deploy_mode":   []string{"in:jenkins,gitops"},
 		"status":        []string{"in:idle,running,disabled"},
 	}
 	messages := govalidator.MapData{
@@ -143,6 +164,7 @@ func ValidPipelineUpdateRequest(data interface{}, ctx *gin.Context) map[string][
 		"git_repo":      []string{"url:Git仓库地址格式无效"},
 		"jenkins_job":   []string{"between:Jenkins Job名称长度应在1-100之间"},
 		"language_type": []string{"in:语言类型无效，可选值: go, java, frontend, python, custom"},
+		"deploy_mode":   []string{"in:部署模式无效，可选值: jenkins, gitops"},
 		"status":        []string{"in:状态值无效，可选值: idle, running, disabled"},
 	}
 	return valid.ValidateOptions(data, rules, messages)
@@ -306,7 +328,7 @@ func ValidPipelineHistoryRequest(data interface{}, ctx *gin.Context) map[string]
 // ==================== Jenkins构建状态回调（生产级） ====================
 
 // PipelineCallbackRequest Jenkins 构建回调请求
-// 幂等键: job_name + build_number 或 pipeline_id + build_number
+// 幂等键: run_id（优先）或 pipeline_id + build_number
 type PipelineCallbackRequest struct {
 	// 必须字段
 	JobName     string `json:"job_name" valid:"job_name"`         // Jenkins Job 名称
@@ -315,6 +337,7 @@ type PipelineCallbackRequest struct {
 
 	// 平台关联字段
 	PipelineID int64  `json:"pipeline_id" valid:"pipeline_id"` // 流水线ID（用于快速匹配）
+	RunID      int64  `json:"run_id"`                           // 运行记录ID（精确匹配，避免 build_number 重复问题）
 	RequestID  string `json:"request_id" valid:"request_id"`   // 请求ID（用于日志追踪）
 
 	// 构建产物 - 支持 image 或 image_url
@@ -391,6 +414,7 @@ type StageCallbackRequest struct {
 	JobName     string `json:"job_name" valid:"job_name"`         // Jenkins Job 名称
 	BuildNumber int    `json:"build_number" valid:"build_number"` // 构建号
 	PipelineID  int64  `json:"pipeline_id" valid:"pipeline_id"`   // 流水线ID
+	RunID       int64  `json:"run_id"`                            // 运行记录ID（优先精确匹配，避免 build_number 重用/多流水线共用 Job 定位到旧记录）
 	StageType   string `json:"stage_type" valid:"stage_type"`     // 阶段类型: checkout/dependencies/compile/test/lint/build/push/approval/deploy
 	Status      string `json:"status" valid:"status"`             // 阶段状态: running/success/failed/waiting
 }
@@ -399,7 +423,7 @@ func ValidStageCallbackRequest(data interface{}, ctx *gin.Context) map[string][]
 	rules := govalidator.MapData{
 		"job_name":     []string{"required"},
 		"build_number": []string{"required"},
-		"stage_type":   []string{"required", "in:clean,scm,checkout,dependencies,compile,test,lint,build,push,sonar,quality_gate,approval,deploy"},
+		"stage_type":   []string{"required", "in:clean,scm,checkout,dependencies,compile,test,lint,build,push,sonar,quality_gate,build_binary,upload_artifact,prepare_agents,approval,deploy"},
 		"status":       []string{"required", "in:running,success,failed,waiting"},
 	}
 	messages := govalidator.MapData{
@@ -409,4 +433,16 @@ func ValidStageCallbackRequest(data interface{}, ctx *gin.Context) map[string][]
 		"status":       []string{"required:状态不能为空", "in:状态值无效"},
 	}
 	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ==================== GitOps 回调请求 ====================
+
+// GitOpsSyncCallbackRequest ArgoCD 同步状态 Webhook 回调请求
+type GitOpsSyncCallbackRequest struct {
+	AppName      string `json:"app_name" form:"app_name"`           // ArgoCD Application 名称
+	SyncStatus   string `json:"sync_status" form:"sync_status"`     // Synced / OutOfSync / Unknown
+	SyncRevision string `json:"sync_revision" form:"sync_revision"` // Git commit SHA
+	HealthStatus string `json:"health_status" form:"health_status"` // Healthy / Progressing / Degraded
+	PipelineID   int64  `json:"pipeline_id" form:"pipeline_id"`     // 流水线ID
+	RunID        int64  `json:"run_id" form:"run_id"`               // 运行记录ID
 }

@@ -91,5 +91,28 @@ export default {
       method: 'patch',
       data
     })
+  },
+
+  /**
+   * 批量删除 PVC
+   */
+  batchDelete(items) {
+    const promises = items.map(item =>
+      request({
+        url: `${K8S_BASE}/pvc/delete`,
+        method: 'delete',
+        params: { namespace: item.namespace, name: item.name }
+      })
+    )
+    return Promise.all(promises)
+  },
+
+  /** 强制删除 PVC（清除 finalizers） */
+  graceDelete(params) {
+    return request({
+      url: `${K8S_BASE}/pvc/grace-delete`,
+      method: 'delete',
+      params
+    })
   }
 }

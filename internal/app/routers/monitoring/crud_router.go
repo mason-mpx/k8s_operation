@@ -1,8 +1,10 @@
 package monitoring
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8soperation/internal/app/models"
@@ -45,6 +47,11 @@ func (r *MonitorCRUDRouter) Inject(router *gin.RouterGroup) {
 		rule.PUT("/:id", r.UpdateAlertRule)
 		rule.DELETE("/:id", r.DeleteAlertRule)
 		rule.PUT("/:id/toggle", r.ToggleAlertRule)
+		rule.POST("/import-yaml", r.ImportAlertRulesYAML)
+		rule.GET("/export-yaml", r.ExportAlertRulesYAML)
+		rule.POST("/batch-bind-channels", r.BatchBindChannels)
+		rule.POST("/batch-delete", r.BatchDeleteAlertRules)
+		rule.POST("/batch-update", r.BatchUpdateAlertRules)
 	}
 
 	// 告警事件
@@ -55,6 +62,7 @@ func (r *MonitorCRUDRouter) Inject(router *gin.RouterGroup) {
 		event.GET("/:id", r.GetAlertEvent)
 		event.PUT("/:id/ack", r.AckAlertEvent)
 		event.PUT("/:id/resolve", r.ResolveAlertEvent)
+		event.POST("/batch-delete", r.BatchDeleteAlertEvents)
 	}
 
 	// 通知渠道管理
@@ -66,6 +74,8 @@ func (r *MonitorCRUDRouter) Inject(router *gin.RouterGroup) {
 		notify.PUT("/:id", r.UpdateNotifyChannel)
 		notify.DELETE("/:id", r.DeleteNotifyChannel)
 		notify.POST("/:id/test", r.TestNotifyChannel)
+		notify.POST("/batch-delete", r.BatchDeleteNotifyChannels)
+		notify.POST("/batch-update", r.BatchUpdateNotifyChannels)
 	}
 
 	// 静默规则管理
@@ -76,6 +86,7 @@ func (r *MonitorCRUDRouter) Inject(router *gin.RouterGroup) {
 		silence.POST("", r.CreateSilenceRule)
 		silence.PUT("/:id", r.UpdateSilenceRule)
 		silence.DELETE("/:id", r.DeleteSilenceRule)
+		silence.POST("/batch-delete", r.BatchDeleteSilenceRules)
 	}
 
 	// 抑制规则管理
@@ -106,6 +117,16 @@ func (r *MonitorCRUDRouter) Inject(router *gin.RouterGroup) {
 		tpl.DELETE("/:id", r.DeleteNotifyTemplate)
 		tpl.POST("/preview", r.PreviewNotifyTemplate)
 		tpl.PUT("/:id/default", r.SetDefaultTemplate)
+	}
+
+	// 通知路由策略管理（大厂级多群自动路由）
+	route := router.Group("/notify-route")
+	{
+		route.GET("", r.ListRoutePolicies)
+		route.GET("/:id", r.GetRoutePolicy)
+		route.POST("", r.CreateRoutePolicy)
+		route.PUT("/:id", r.UpdateRoutePolicy)
+		route.DELETE("/:id", r.DeleteRoutePolicy)
 	}
 }
 
@@ -281,6 +302,34 @@ func (r *MonitorCRUDRouter) ToggleAlertRule(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "操作成功"})
 }
 
+func (r *MonitorCRUDRouter) BatchDeleteAlertRules(c *gin.Context) {
+	var req services.BatchDeleteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "参数错误: " + err.Error()})
+		return
+	}
+	result, err := r.svc.BatchDeleteAlertRules(c.Request.Context(), req.IDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result, "msg": fmt.Sprintf("批量删除完成: 成功%d 失败%d", result.Success, result.Failed)})
+}
+
+func (r *MonitorCRUDRouter) BatchUpdateAlertRules(c *gin.Context) {
+	var req services.BatchUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "参数错误: " + err.Error()})
+		return
+	}
+	result, err := r.svc.BatchUpdateAlertRules(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result, "msg": fmt.Sprintf("批量更新完成: 成功%d 失败%d", result.Success, result.Failed)})
+}
+
 // ==================== 告警事件 ====================
 
 func (r *MonitorCRUDRouter) ListAlertEvents(c *gin.Context) {
@@ -334,4 +383,55 @@ func (r *MonitorCRUDRouter) ResolveAlertEvent(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "已解决"})
+}
+
+// ==================== YAML 批量导入/导出 ====================
+
+func (r *MonitorCRUDRouter) ImportAlertRulesYAML(c *gin.Context) {
+	var req services.AlertRuleImportReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "参数错误: " + err.Error()})
+		return
+	}
+	result, err := r.svc.ImportAlertRulesFromYAML(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": result, "msg": fmt.Sprintf("导入完成: 新建%d 更新%d 跳过%d 失败%d", result.Created, result.Updated, result.Skipped, result.Failed)})
+}
+
+func (r *MonitorCRUDRouter) ExportAlertRulesYAML(c *gin.Context) {
+	group := c.Query("group")
+
+	// 支持按 ID 导出：?ids=1,2,3
+	var ids []int64
+	if idsStr := c.Query("ids"); idsStr != "" {
+		for _, idStr := range strings.Split(idsStr, ",") {
+			idStr = strings.TrimSpace(idStr)
+			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+	}
+
+	yamlContent, err := r.svc.ExportAlertRulesToYAML(c.Request.Context(), group, ids)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
+		return
+	}
+
+	// 判断是下载还是预览
+	if c.Query("download") == "true" {
+		filename := "alert-rules.yaml"
+		if group != "" {
+			filename = fmt.Sprintf("alert-rules-%s.yaml", group)
+		}
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.Header("Content-Type", "application/x-yaml; charset=utf-8")
+		c.String(http.StatusOK, yamlContent)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"yaml": yamlContent}})
 }

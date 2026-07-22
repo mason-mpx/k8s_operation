@@ -1,23 +1,87 @@
 // ==============================================================================
-// K8s Operation Platform - 前端项目通用构建模板（Vue/React/Angular）
+// K8s Operation Platform - 前端项目通用构建模板（K8s Pod Agent + Kaniko 容器化版）
 // ==============================================================================
 // 设计理念：一个模板服务 100+ 前端项目，所有项目差异通过参数传入
+// 运行模式：Jenkins K8s 动态 Pod Agent，每次构建创建独立 Pod，完成后自动销毁
+// 镜像构建：使用 Kaniko（无需 Docker daemon、无需特权容器）
 // 支持框架：Vue.js, React, Angular, Next.js, Nuxt.js 等
 //
 // ======================== Jenkins Job 配置方式 ========================
-// 推荐使用 "Pipeline script from SCM"（版本化管理，自动同步更新）：
-//   1. Jenkins → New Item → Pipeline → 命名为 k8s-builder-frontend
+//   1. Jenkins → New Item → Pipeline → 命名为 frontend-pipeline
 //   2. Pipeline → Definition: Pipeline script from SCM
 //   3. SCM: Git → Repository URL: 平台仓库地址
 //   4. Script Path: configs/jenkins-templates/frontend-pipeline.groovy
 // ==============================================================================
 
 pipeline {
-    agent any
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins-build: frontend
+spec:
+  containers:
+  - name: node
+    image: docker.m.daocloud.io/library/node:22-alpine
+    imagePullPolicy: IfNotPresent
+    command: ['sleep', '99d']
+    resources:
+      requests:
+        cpu: '500m'
+        memory: '1Gi'
+      limits:
+        cpu: '4'
+        memory: '4Gi'
+    env:
+    - name: NPM_CONFIG_REGISTRY
+      value: 'https://registry.npmmirror.com'
+    volumeMounts:
+    - name: npm-cache
+      mountPath: /root/.npm
+    - name: workspace-volume
+      mountPath: /home/jenkins/agent
+  - name: kaniko
+    image: gcr.m.daocloud.io/kaniko-project/executor:debug
+    imagePullPolicy: IfNotPresent
+    command: ['sleep', '99d']
+    securityContext:
+      runAsUser: 0
+    resources:
+      requests:
+        cpu: '500m'
+        memory: '1Gi'
+      limits:
+        cpu: '2'
+        memory: '4Gi'
+    volumeMounts:
+    - name: workspace-volume
+      mountPath: /home/jenkins/agent
+  - name: jnlp
+    image: docker.m.daocloud.io/jenkins/inbound-agent:latest-jdk21
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    imagePullPolicy: IfNotPresent
+  volumes:
+  - name: npm-cache
+    persistentVolumeClaim:
+      claimName: jenkins-npm-cache
+  - name: workspace-volume
+    emptyDir: {}
+"""
+        }
+    }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
-        disableConcurrentBuilds()
+        // 并发限制由平台 config.yaml 的 MaxConcurrentBuilds 控制，通过参数动态注入
         buildDiscarder(logRotator(numToKeepStr: '20'))
         skipDefaultCheckout(true)
     }
@@ -28,104 +92,81 @@ pipeline {
         string(name: 'IMAGE_REPO', defaultValue: '', description: '镜像仓库地址（必填）')
         string(name: 'IMAGE_TAG', defaultValue: '', description: '镜像标签（空则自动生成）')
         string(name: 'DOCKERFILE_PATH', defaultValue: '', description: 'Dockerfile 路径（空则自动生成纯运行时 Dockerfile）')
-        string(name: 'LANGUAGE_TYPE', defaultValue: '', description: '平台注入的语言类型（用于交叉校验，不要手动修改）')
+        booleanParam(name: 'USE_PROJECT_DOCKERFILE', defaultValue: false, description: '使用项目根目录的 Dockerfile（而非平台自动生成）')
+        string(name: 'EXTRA_REPOS', defaultValue: '', description: '额外依赖仓库列表（格式: url|path[|branch];url|path[|branch]）')
+        string(name: 'LANGUAGE_TYPE', defaultValue: '', description: '平台注入的语言类型')
 
         string(name: 'PIPELINE_ID', defaultValue: '', description: '平台流水线ID')
         string(name: 'RUN_ID', defaultValue: '', description: '平台运行记录ID')
         string(name: 'PLATFORM_CALLBACK_URL', defaultValue: '', description: '平台回调地址')
 
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: '跳过测试')
-        string(name: 'NODE_VERSION', defaultValue: '18', description: 'Node.js 版本')
+        string(name: 'NODE_VERSION', defaultValue: '22', description: 'Node.js 版本')
+        string(name: 'NPM_INSTALL_ARGS', defaultValue: '', description: 'npm 安装额外参数（留空即可；npm ci 失败会自动回退 npm install --legacy-peer-deps。特殊项目可填 --force 等）')
         string(name: 'BUILD_COMMAND', defaultValue: 'npm run build', description: '构建命令')
         string(name: 'BUILD_OUTPUT_DIR', defaultValue: 'dist', description: '构建产物目录')
         string(name: 'GIT_CREDENTIAL_ID', defaultValue: 'gitee-id', description: 'Git 凭证ID')
+        string(name: 'REGISTRY_CREDENTIAL_ID', defaultValue: 'harbor-registry', description: '镜像仓库凭证ID')
+        string(name: 'HMAC_CREDENTIAL_ID', defaultValue: 'hmac-secret', description: 'HMAC签名凭证ID')
 
-        // SonarQube 代码质量扫描参数
         booleanParam(name: 'ENABLE_SONAR', defaultValue: false, description: '启用 SonarQube 代码质量扫描')
-        string(name: 'SONAR_PROJECT_KEY', defaultValue: '', description: 'SonarQube 项目 Key（空则使用 Job 名称）')
-        string(name: 'SONAR_PROJECT_NAME', defaultValue: '', description: 'SonarQube 项目名称（空则使用 Job 名称）')
+        string(name: 'SONAR_PROJECT_KEY', defaultValue: '', description: 'SonarQube 项目 Key')
+        string(name: 'SONAR_PROJECT_NAME', defaultValue: '', description: 'SonarQube 项目名称')
         string(name: 'SONAR_SOURCES', defaultValue: 'src', description: '源代码目录')
         string(name: 'SONAR_EXCLUSIONS', defaultValue: '**/node_modules/**,**/dist/**,**/*.spec.*,**/*.test.*', description: '排除扫描的文件模式')
-        booleanParam(name: 'SONAR_QUALITY_GATE', defaultValue: true, description: '启用质量门禁检查（不通过则构建失败）')
-
-        // 平台注入的质量门禁阈值（由平台 UI 配置，自动传入）
+        booleanParam(name: 'SONAR_QUALITY_GATE', defaultValue: true, description: '启用质量门禁检查')
         string(name: 'SONAR_COVERAGE_THRESHOLD', defaultValue: '80', description: '代码覆盖率阈值（%）')
         string(name: 'SONAR_NEW_BUGS_MAX', defaultValue: '0', description: '新增 Bug 最大允许数')
         string(name: 'SONAR_CODE_SMELLS_MAX', defaultValue: '10', description: '代码异味最大允许数')
         string(name: 'SONAR_VULNERABILITIES_MAX', defaultValue: '0', description: '安全漏洞最大允许数')
         string(name: 'SONAR_DUPLICATIONS_MAX', defaultValue: '3', description: '代码重复率阈值（%）')
-        string(name: 'SONAR_GATE_ACTION', defaultValue: 'block', description: '门禁失败策略: block(阻断) | warn(告警) | skip(跳过)')
-
-        // 制品上传参数
+        string(name: 'SONAR_GATE_ACTION', defaultValue: 'block', description: '门禁失败策略: block | warn | skip')
         booleanParam(name: 'ENABLE_ARTIFACT_UPLOAD', defaultValue: true, description: '启用制品上传到平台制品库')
+
+        // 并发控制（由平台 config.yaml 的 MaxConcurrentBuilds 自动注入，无需手动修改）
+        string(name: 'MAX_CONCURRENT_BUILDS', defaultValue: '10', description: '最大并发构建数（平台自动注入，勿手动修改）')
     }
 
     environment {
-        REGISTRY_CREDS = credentials('harbor-registry')
-        HMAC_SECRET    = credentials('hmac-secret')
-        NPM_REGISTRY   = 'https://registry.npmmirror.com'
-        // npm 缓存放 workspace 外，跨构建持久复用
-        NPM_CACHE_DIR  = '/var/lib/jenkins/.npm-cache'
-        // BuildKit 层缓存目录（跨构建持久复用，二次构建仅重建变化层）
-        BUILDKIT_CACHE = '/var/lib/jenkins/.buildkit-cache'
+        REGISTRY_CREDS = credentials("${params.REGISTRY_CREDENTIAL_ID ?: 'harbor-registry'}")
+        HMAC_SECRET    = credentials("${params.HMAC_CREDENTIAL_ID ?: 'hmac-secret'}")
     }
 
     stages {
 
         stage('Clean Workspace') {
             steps {
-                // 强制清理：npm 缓存在外部目录，不受影响
-                sh '''
-                    rm -rf .git 2>/dev/null || true
-                    find . -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
-                '''
+                sh 'rm -rf .git 2>/dev/null || true; find . -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true'
                 script {
-                    // 语言类型交叉校验：防止自定义 Job 配错脚本
+                    // 动态设置并发限制（从平台 config.yaml 的 MaxConcurrentBuilds 注入，需 Throttle Concurrent Builds 插件）
+                    def maxConcurrent = (params.MAX_CONCURRENT_BUILDS ?: '10').toInteger()
+                    properties([
+                        [$class: 'ThrottleJobProperty',
+                         maxConcurrentPerNode: 0,
+                         maxConcurrentTotal: maxConcurrent,
+                         categories: [],
+                         throttleEnabled: true,
+                         throttleOption: 'project'
+                        ]
+                    ])
                     def expectedType = 'frontend'
                     def actualType = params.LANGUAGE_TYPE?.trim()
                     if (actualType && actualType != expectedType) {
-                        def scriptMap = [
-                            'go': 'go-pipeline.groovy',
-                            'java': 'java-spring-pipeline.groovy',
-                            'frontend': 'frontend-pipeline.groovy',
-                            'python': 'python-pipeline.groovy'
-                        ]
-                        def correctScript = scriptMap[actualType] ?: "${actualType}-pipeline.groovy"
-                        error("""
-=== 模板类型不匹配 ===
-平台配置语言类型: ${actualType}
-当前模板类型: ${expectedType} (frontend-pipeline.groovy)
-
-解决方案（二选一）:
-  1. 修改 Jenkins Job 的 Script Path 为: configs/jenkins-templates/${correctScript}
-  2. 在平台将 Jenkins Job 名称留空，使用自动匹配
-""")
+                        def scriptMap = ['go': 'go-pipeline.groovy', 'java': 'java-spring-pipeline.groovy', 'frontend': 'frontend-pipeline.groovy', 'python': 'python-pipeline.groovy']
+                        error("模板类型不匹配: 语言=${actualType}, 当前=frontend. 请修改 Script Path 为: configs/jenkins-templates/${scriptMap[actualType] ?: "${actualType}-pipeline.groovy"}")
                     }
-
                     if (!params.GIT_REPO?.trim()) { error("GIT_REPO 不能为空") }
                     if (!params.IMAGE_REPO?.trim()) { error("IMAGE_REPO 不能为空") }
 
                     def targetBranch = params.GIT_BRANCH?.trim() ?: 'main'
-
-                    // 强制清除 .git（防止浅克隆残留导致 fetch 拉不到最新代码）
                     sh 'rm -rf .git 2>/dev/null || true'
-
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "*/${targetBranch}"]],
-                        extensions: [
-                            [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
+                    checkout([$class: 'GitSCM', branches: [[name: "*/${targetBranch}"]],
+                        extensions: [[$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
                             [$class: 'LocalBranch', localBranch: targetBranch],
-                            [$class: 'CloneOption', depth: 1, shallow: true, noTags: true, timeout: 10, honorRefspec: true]
-                        ],
-                        userRemoteConfigs: [[url: params.GIT_REPO, credentialsId: params.GIT_CREDENTIAL_ID ?: 'gitee-id']]
-                    ])
+                            [$class: 'CloneOption', depth: 1, shallow: true, noTags: true, timeout: 10, honorRefspec: true]],
+                        userRemoteConfigs: [[url: params.GIT_REPO, credentialsId: params.GIT_CREDENTIAL_ID ?: 'gitee-id']]])
                     env.TARGET_BRANCH = targetBranch
-
-                    // 验证拉取的是最新代码
-                    def latestCommit = sh(script: 'git log -1 --format="%h %s (%ci)"', returnStdout: true).trim()
-                    echo "[Checkout] ✅ 最新提交: ${latestCommit}"
-                    echo "[Checkout] 分支: ${targetBranch} | 仓库: ${params.GIT_REPO}"
+                    echo "[Checkout] ✅ ${sh(script: 'git log -1 --format=\"%h %s\"', returnStdout: true).trim()}"
                 }
             }
         }
@@ -148,17 +189,108 @@ pipeline {
             }
         }
 
+        // ==================== 克隆额外依赖仓库 ====================
+        stage('Clone Extra Repos') {
+            when { expression { return params.EXTRA_REPOS?.trim() } }
+            steps {
+                echo "=== 克隆私有依赖仓库 ==="
+                script {
+                    def extraRepos = params.EXTRA_REPOS.trim()
+                    extraRepos.split(';').each { entry ->
+                        def parts = entry.split('\\|')
+                        if (parts.size() >= 2) {
+                            def repoUrl = parts[0].trim()
+                            def targetPath = parts[1].trim()
+                            def branch = parts.size() >= 3 ? parts[2].trim() : 'master'
+                            echo "[Extra Repos] 克隆: ${repoUrl} → ${targetPath} (${branch})"
+                            try {
+                                sh "mkdir -p \$(dirname ${targetPath})"
+                                sh "git clone --depth 1 -b ${branch} ${repoUrl} ${targetPath}"
+                            } catch (Exception e) {
+                                echo "[Extra Repos] 克隆失败: ${repoUrl} (${branch})，尝试默认分支..."
+                                try { sh "git clone --depth 1 ${repoUrl} ${targetPath}" }
+                                catch (Exception e2) { echo "[Extra Repos] 最终克隆失败: ${repoUrl}，跳过" }
+                            }
+                        }
+                    }
+                    echo "[Extra Repos] ✅ 所有依赖仓库克隆完成"
+                }
+            }
+        }
+
+        // ==================== 准备构建探针（SkyWalking/OpenTelemetry） ====================
+        stage('Prepare Build Agents') {
+            when { expression { return params.ENABLE_TRACING?.toBoolean() } }
+            steps {
+                echo "=== 准备 APM 探针 ==="
+                container('node') {
+                    script {
+                        def agentsDir = '.agents'
+                        sh "mkdir -p ${agentsDir}"
+                        env.AGENT_DOCKER_COPY_LINES = ''
+                        env.AGENT_ENV_LINES = ''
+                        def agentsPrepared = []
+
+                        def platformUrl = params.PLATFORM_CALLBACK_URL?.trim()
+                        if (platformUrl) {
+                            def apiBase = platformUrl.replaceAll('/api/v1/k8s/cicd/pipeline/callback.*', '/api/v1/k8s/cicd')
+                            def listUrl = "${apiBase}/agent/by-scope?scope=frontend"
+                            try {
+                                def response = sh(script: "wget -q -O - '${listUrl}' 2>/dev/null || curl -s '${listUrl}'", returnStdout: true).trim()
+                                if (response) {
+                                    def json = new groovy.json.JsonSlurper().parseText(response)
+                                    def agentList = json?.data?.list ?: json?.list ?: []
+                                    agentList.each { agent ->
+                                        def fileName = agent.file_name ?: "${agent.name}"
+                                        def destPath = agent.docker_copy_dest ?: "/app/${fileName}"
+                                        def localDir = "${agentsDir}/${agent.name}"
+                                        def localPath = "${localDir}/${fileName}"
+                                        sh "mkdir -p ${localDir}"
+                                        def downloadUrl = "${apiBase}/agent/download?name=${agent.name}"
+                                        def dlResult = sh(script: "wget -q -O '${localPath}' '${downloadUrl}' || curl -s -o '${localPath}' '${downloadUrl}'", returnStatus: true)
+                                        if (dlResult == 0) {
+                                            env.AGENT_DOCKER_COPY_LINES += "COPY ${localPath} ${destPath}\n"
+                                            if (agent.env_key && agent.env_value) {
+                                                env.AGENT_ENV_LINES += "ENV ${agent.env_key}=\"${agent.env_value}\"\n"
+                                            }
+                                            // 自动解压归档文件（tgz/zip），供项目自带 Dockerfile 直接 COPY
+                                            def lowerName = fileName.toLowerCase()
+                                            if (lowerName.endsWith('.tgz') || lowerName.endsWith('.tar.gz')) {
+                                                sh "mkdir -p ./${agent.name} && tar -xzf ${localPath} -C ./${agent.name}/"
+                                                echo "[Agents] 已解压 tgz → ./${agent.name}/"
+                                            } else if (lowerName.endsWith('.zip')) {
+                                                sh "mkdir -p ./${agent.name} && unzip -q ${localPath} -d ./${agent.name}/"
+                                                echo "[Agents] 已解压 zip → ./${agent.name}/"
+                                            } else {
+                                                sh "mkdir -p ./${agent.name}"
+                                                sh "cp ${localPath} ./${agent.name}/${fileName}"
+                                                echo "[Agents] 已复制单文件 → ./${agent.name}/${fileName}"
+                                            }
+                                            agentsPrepared << agent.name
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                echo "[Agents] 平台 API 不可用: ${e.message}"
+                            }
+                        }
+                        echo "[Agents] === 准备完成: ${agentsPrepared.join(', ') ?: '无'} ==="
+                    }
+                }
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
-                echo "=== 安装依赖（复用缓存） ==="
-                script {
-                    if (!fileExists('package.json')) { echo "未检测到 package.json，跳过"; return }
-                    sh """
-                        set -e
-                        npm config set registry ${NPM_REGISTRY}
-                        npm config set cache ${NPM_CACHE_DIR}
-                        npm ci --prefer-offline --cache ${NPM_CACHE_DIR} || npm install --prefer-offline --cache ${NPM_CACHE_DIR}
-                    """
+                echo "=== 安装依赖 ==="
+                container('node') {
+                    script {
+                        if (!fileExists('package.json')) { echo "未检测到 package.json，跳过"; return }
+                        def extraArgs = params.NPM_INSTALL_ARGS?.trim() ?: ''
+                        echo "[依赖安装] 额外参数: '${extraArgs ?: '(无)'}'"
+                        // PVC 缓存 .npm 加速，--prefer-offline 优先走缓存
+                        sh "npm install --legacy-peer-deps --prefer-offline ${extraArgs}"
+                    }
                 }
             }
             post {
@@ -171,10 +303,9 @@ pipeline {
             when { expression { return !params.SKIP_TESTS } }
             steps {
                 echo "=== 代码检查 + 测试 ==="
-                sh '''
-                    npm run lint 2>/dev/null || true
-                    npm run test:unit 2>/dev/null || npm test 2>/dev/null || true
-                '''
+                container('node') {
+                    sh 'npm run lint 2>/dev/null || true; npm run test:unit 2>/dev/null || npm test 2>/dev/null || true'
+                }
             }
             post {
                 success { script { stageCallback('test', 'success') } }
@@ -185,11 +316,13 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 echo "=== 构建前端 ==="
-                sh """
-                    set -e
-                    ${params.BUILD_COMMAND}
-                    test -d ${params.BUILD_OUTPUT_DIR}
-                """
+                container('node') {
+                    sh """
+                        set -e
+                        ${params.BUILD_COMMAND}
+                        test -d ${params.BUILD_OUTPUT_DIR}
+                    """
+                }
             }
             post {
                 success { script { stageCallback('compile', 'success'); stageCallback('build_binary', 'success') } }
@@ -197,391 +330,245 @@ pipeline {
             }
         }
 
-        // ==================== SonarQube 代码质量扫描（性能优化版） ====================
-        // 优化要点：
-        //   1. -Dsonar.scm.disabled=true       → 禁用 git blame（节省 60%+ 时间）
-        //   2. -Dsonar.qualitygate.wait=false  → 扫描阶段不阻塞，由 Quality Gate 阶段异步等待
-        //   3. -Dsonar.threads=4               → 启用 4 线程并行分析（多核 CPU 加速 30-50%）
-        //   4. exclusions 追加 build/.next/.nuxt → 避免扫描编译产物目录
         stage('SonarQube Analysis') {
             when { expression { return params.ENABLE_SONAR } }
             steps {
                 script {
                     try {
-                        echo "=== SonarQube 代码质量扫描（轻量模式） ==="
                         def projectKey  = params.SONAR_PROJECT_KEY?.trim()  ?: env.JOB_NAME.replaceAll('/', '_')
                         def projectName = params.SONAR_PROJECT_NAME?.trim() ?: env.JOB_NAME
-                        def sources     = params.SONAR_SOURCES?.trim()      ?: 'src'
-                        def exclusions  = params.SONAR_EXCLUSIONS?.trim()   ?: '**/node_modules/**,**/dist/**'
-
                         withSonarQubeEnv('SonarQube') {
-                            sh """
-                                sonar-scanner \\
-                                    -Dsonar.projectKey=${projectKey} \\
-                                    -Dsonar.projectName=${projectName} \\
-                                    -Dsonar.projectVersion=${env.FINAL_TAG} \\
-                                    -Dsonar.sources=${sources} \\
-                                    -Dsonar.exclusions=${exclusions},**/build/**,**/.next/**,**/.nuxt/**,**/.output/** \\
-                                    -Dsonar.scm.disabled=true \\
-                                    -Dsonar.qualitygate.wait=false \\
-                                    -Dsonar.threads=4 \\
-                                    -Dsonar.links.ci=${env.BUILD_URL}
-                            """
+                            container('node') {
+                                sh """
+                                    if ! command -v sonar-scanner &>/dev/null; then
+                                        wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux-x64.zip -O /tmp/sonar.zip 2>/dev/null || true
+                                        [ -f /tmp/sonar.zip ] && unzip -qo /tmp/sonar.zip -d /tmp/ && export PATH="/tmp/sonar-scanner-5.0.1.3006-linux-x64/bin:\$PATH"
+                                    fi
+                                    sonar-scanner -Dsonar.projectKey=${projectKey} -Dsonar.projectName=${projectName} \
+                                        -Dsonar.sources=${params.SONAR_SOURCES ?: 'src'} \
+                                        -Dsonar.exclusions=${params.SONAR_EXCLUSIONS ?: '**/node_modules/**'},**/build/**,**/.next/** \
+                                        -Dsonar.scm.disabled=true -Dsonar.qualitygate.wait=false -Dsonar.threads=4
+                                """
+                            }
                         }
-                        echo "[SonarQube] 扫描已提交，等待质量门禁..."
                         stageCallback('sonar', 'success')
                     } catch (e) {
-                        echo "[SonarQube] ❌ 扫描失败: ${e.message}"
-                        echo "[SonarQube] 常见原因: 1) SonarQube 服务未启动  2) Jenkins 与 SonarQube 网络不通  3) SonarQube Token 过期"
-                        stageCallback('sonar', 'failed')
-                        env.SONAR_ANALYSIS_FAILED = 'true'
+                        stageCallback('sonar', 'failed'); env.SONAR_ANALYSIS_FAILED = 'true'
                         error("SonarQube 扫描失败: ${e.message}")
                     }
                 }
             }
         }
 
-        // ==================== SonarQube 质量门禁检查（平台阈值驱动） ====================
         stage('Quality Gate') {
-            when {
-                allOf {
-                    expression { return params.ENABLE_SONAR && params.SONAR_QUALITY_GATE }
-                    expression { return env.SONAR_ANALYSIS_FAILED != 'true' }
-                    expression { return (params.SONAR_GATE_ACTION ?: 'block') != 'skip' }
-                }
-            }
+            when { allOf { expression { return params.ENABLE_SONAR && params.SONAR_QUALITY_GATE }; expression { return env.SONAR_ANALYSIS_FAILED != 'true' }; expression { return (params.SONAR_GATE_ACTION ?: 'block') != 'skip' } } }
             steps {
-                echo "=== 质量门禁检查（策略: ${params.SONAR_GATE_ACTION ?: 'block'}） ==="
                 script {
                     def gateAction = params.SONAR_GATE_ACTION ?: 'block'
                     def qg = waitForQualityGate(webhookSecretId: '', abortPipeline: false)
                     env.SONAR_QUALITY_GATE_STATUS = qg.status
-
-                    def metricsReport = checkPlatformThresholds()
-                    env.SONAR_METRICS_REPORT = metricsReport
-
-                    if (qg.status != 'OK') {
-                        echo "[Quality Gate] ❌ SonarQube 门禁状态: ${qg.status}"
-                        echo "[Quality Gate] 平台阈值检查:\n${metricsReport}"
-                        sonarReportCallback(qg.status)
-
-                        if (gateAction == 'block') {
-                            error("SonarQube Quality Gate 未通过: ${qg.status}")
-                        } else {
-                            echo "[Quality Gate] ⚠️ 门禁未通过但策略为 warn，继续构建"
-                            currentBuild.result = 'UNSTABLE'
-                        }
-                    } else {
-                        echo "[Quality Gate] ✅ 通过！状态: ${qg.status}"
-                        echo "[Quality Gate] 平台阈值检查:\n${metricsReport}"
-                        sonarReportCallback(qg.status)
-                    }
+                    if (qg.status != 'OK' && gateAction == 'block') { error("Quality Gate 未通过: ${qg.status}") }
                 }
             }
-            post {
-                success { script { stageCallback('quality_gate', 'success') } }
-                failure { script { stageCallback('quality_gate', 'failed') } }
-            }
+            post { success { script { stageCallback('quality_gate', 'success') } }; failure { script { stageCallback('quality_gate', 'failed') } } }
         }
 
-        // ==================== 制品归档（Quality Gate 之后、Build Image 之前，失败即终止流水线） ====================
         stage('Upload Artifact') {
             when { expression { return params.ENABLE_ARTIFACT_UPLOAD && params.PLATFORM_CALLBACK_URL?.trim() } }
             steps {
-                echo "=== 上传制品到平台制品库（tar.gz 打包加速） ==="
-                script {
+                container('node') {
+                    script {
                         def outputDir = params.BUILD_OUTPUT_DIR ?: 'dist'
-                        if (!fileExists(outputDir)) { error("[制品上传] 构建产物目录不存在: ${outputDir}") }
-
-                        def appName = params.GIT_REPO?.split('/')?.getAt(-1)?.replace('.git', '') ?: 'frontend-app'
+                        if (!fileExists(outputDir)) { error("构建产物目录不存在: ${outputDir}") }
+                        def appName = params.GIT_REPO?.tokenize('/')?.last()?.replace('.git', '') ?: 'frontend-app'
                         def archiveName = "${appName}-${env.FINAL_TAG}.tar.gz"
                         sh "tar czf ${archiveName} -C ${outputDir} ."
-                        def fileSize = sh(script: "stat -c%s ${archiveName} 2>/dev/null || stat -f%z ${archiveName}", returnStdout: true).trim()
-                        echo "[制品上传] 上传文件: ${archiveName} (${fileSize} bytes)"
-
-                        def uploadUrl = params.PLATFORM_CALLBACK_URL
-                            .replace('/pipeline/callback', '/artifact/upload')
-                            .replace('/stage/callback', '/artifact/upload')
-
-                        def curlStatus = sh(script: """
-                            set -e
-                            curl -s -w '%{http_code}' -o /tmp/artifact_resp.json \\
-                                -X POST '${uploadUrl}' \\
-                                -F 'file=@${archiveName}' \\
-                                -F 'pipeline_id=${params.PIPELINE_ID ?: 0}' \\
-                                -F 'run_id=${params.RUN_ID ?: 0}' \\
-                                -F 'build_number=${env.BUILD_NUMBER}' \\
-                                -F 'version=${env.FINAL_TAG}' \\
-                                -F 'language_type=frontend' \\
-                                -F 'artifact_type=dist' \\
-                                -F 'git_repo=${params.GIT_REPO}' \\
-                                -F 'git_branch=${env.GIT_BRANCH_NAME}' \\
-                                -F 'git_commit=${env.GIT_COMMIT_SHORT}' \\
-                                --connect-timeout 10 \\
-                                --max-time 300 \\
-                                --tcp-nodelay \\
-                                -H "Expect:" \\
-                                --retry 2 --retry-delay 5
-                        """, returnStdout: true).trim()
-
-                        if (curlStatus.endsWith('200')) {
-                            echo "[制品上传] ✅ 上传成功"
-                        } else {
-                            echo "[制品上传] ❌ 上传失败: HTTP ${curlStatus[-3..-1]}"
-                            def respBody = sh(script: "cat /tmp/artifact_resp.json 2>/dev/null || echo '{}'", returnStdout: true).trim()
-                            echo "[制品上传] 响应内容: ${respBody}"
-                            echo "[制品上传] 上传地址: ${uploadUrl}"
-                            error("制品上传失败: HTTP ${curlStatus[-3..-1]}")
-                        }
-                        sh "rm -f ${archiveName} /tmp/artifact_resp.json 2>/dev/null || true"
+                        def uploadUrl = params.PLATFORM_CALLBACK_URL.replace('/pipeline/callback', '/artifact/upload').replace('/stage/callback', '/artifact/upload')
+                        def curlStatus = sh(script: "curl -s -w '%{http_code}' -o /tmp/resp.json -X POST '${uploadUrl}' -F 'file=@${archiveName}' -F 'pipeline_id=${params.PIPELINE_ID ?: 0}' -F 'run_id=${params.RUN_ID ?: 0}' -F 'version=${env.FINAL_TAG}' -F 'language_type=frontend' -F 'artifact_type=dist' --connect-timeout 10 --max-time 300", returnStdout: true).trim()
+                        if (!curlStatus.endsWith('200')) { error("制品上传失败: HTTP ${curlStatus[-3..-1]}") }
+                        echo "[制品上传] ✅ 上传成功"
+                        sh "rm -f ${archiveName} /tmp/resp.json 2>/dev/null || true"
+                    }
                 }
             }
-            post {
-                success { script { stageCallback('upload_artifact', 'success') } }
-                failure { script { stageCallback('upload_artifact', 'failed') } }
-            }
+            post { success { script { stageCallback('upload_artifact', 'success') } }; failure { script { stageCallback('upload_artifact', 'failed') } } }
         }
 
-        stage('Build Image') {
+        // ==================== Kaniko 构建 + 推送镜像 ====================
+        stage('Build & Push Image') {
             steps {
-                echo "=== 构建镜像（纯运行时，仅打包 dist 静态文件） ==="
-                script {
-                    def dockerfile = params.DOCKERFILE_PATH?.trim()
-                    def outputDir = params.BUILD_OUTPUT_DIR ?: 'dist'
+                echo "=== Kaniko 构建并推送镜像 ==="
+                container('kaniko') {
+                    script {
+                        def dockerfile = params.DOCKERFILE_PATH?.trim()
+                        def outputDir = params.BUILD_OUTPUT_DIR ?: 'dist'
 
-                    // 优先级：1) 参数指定路径 → 2) 项目自带 Dockerfile → 3) 自动生成
-                    // __PLATFORM_GENERATE__ 为平台哨兵值，表示强制使用平台生成
-                    def forceGenerate = (dockerfile == '__PLATFORM_GENERATE__')
-                    if (!dockerfile || forceGenerate) {
-                        if (fileExists('Dockerfile')) {
-                            dockerfile = 'Dockerfile'
-                            echo "[Build Image] 检测到项目自带 Dockerfile，优先使用（确保自定义配置生效）"
-                        } else {
-                            dockerfile = '.Dockerfile.runtime'
+                        // Dockerfile 选择优先级：
+                        // 1. DOCKERFILE_PATH 显式指定 → 直接使用
+                        // 2. USE_PROJECT_DOCKERFILE=true 且项目根有 Dockerfile → 使用项目自带
+                        // 3. 平台自动生成生产级 Dockerfile（Gzip + 缓存 + 安全头 + API 代理 + WebSocket）
+                        if (!dockerfile || dockerfile == '__PLATFORM_GENERATE__') {
+                            if (dockerfile != '__PLATFORM_GENERATE__' && params.USE_PROJECT_DOCKERFILE && fileExists('Dockerfile')) {
+                                dockerfile = 'Dockerfile'
+                                echo "[Build Image] 使用项目自带 Dockerfile"
+                            } else {
+                                dockerfile = '.Dockerfile.runtime'
+
+                            // 生产级 Nginx 配置
+                            writeFile file: 'nginx-app.conf', text: """\
+upstream backend {
+    server 127.0.0.1:8080;
+}
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Gzip 压缩
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/javascript application/json application/javascript application/xml image/svg+xml;
+
+    # 静态资源缓存（30天 + immutable）
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # API 反向代理 + WebSocket 支持
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        client_max_body_size 200m;
+    }
+
+    # 健康检查端点
+    location /health {
+        access_log off;
+        return 200 "ok";
+        add_header Content-Type text/plain;
+    }
+
+    # SPA History 模式 fallback
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # 安全响应头
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+"""
+
+                            // 运行时后端地址注入脚本（通过 API_BACKEND_URL 环境变量动态配置）
+                            writeFile file: 'backend-url-entrypoint.sh', text: """\
+#!/bin/sh
+if [ -n "\$API_BACKEND_URL" ]; then
+    echo "Configuring backend URL: \$API_BACKEND_URL"
+    sed -i "s|server 127.0.0.1:8080;|server \${API_BACKEND_URL#http://};|g" /etc/nginx/conf.d/default.conf
+fi
+"""
+
                             writeFile file: dockerfile, text: """\
 FROM nginx:1.25-alpine
-RUN apk --no-cache add tzdata && \\
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.huaweicloud.com#g' /etc/apk/repositories && apk --no-cache add tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 COPY ${outputDir}/ /usr/share/nginx/html/
-RUN echo 'server { listen 80; server_name _; root /usr/share/nginx/html; index index.html; location / { try_files \$uri \$uri/ /index.html; } location /health { access_log off; return 200 ok; } }' > /etc/nginx/conf.d/default.conf
-RUN chown -R nginx:nginx /usr/share/nginx/html && \\
-    chown -R nginx:nginx /var/cache/nginx && \\
-    touch /var/run/nginx.pid && chown nginx:nginx /var/run/nginx.pid
+COPY nginx-app.conf /etc/nginx/conf.d/default.conf
+COPY backend-url-entrypoint.sh /docker-entrypoint.d/90-backend-url.sh
+RUN chmod +x /docker-entrypoint.d/90-backend-url.sh
+RUN chown -R nginx:nginx /usr/share/nginx/html && chown -R nginx:nginx /var/cache/nginx && touch /var/run/nginx.pid && chown nginx:nginx /var/run/nginx.pid
 USER nginx
 EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
-    CMD wget -qO- http://localhost/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD wget -qO- http://localhost/health || exit 1
 CMD ["nginx", "-g", "daemon off;"]
 """
-                            echo "[Build Image] ${forceGenerate ? '强制' : '项目无 Dockerfile，'}已自动生成纯运行时 Dockerfile（Nginx）"
+                            }
+                            echo "[Build Image] 平台统一生成 Dockerfile（Nginx + Gzip + 缓存 + 安全头）"
                         }
-                    }
 
-                    // 使用 BuildKit 本地层缓存 + Dockerfile 内容哈希防止缓存过期
-                    def cacheDir = "${env.BUILDKIT_CACHE}/${env.JOB_NAME}".replaceAll('[^a-zA-Z0-9/_.-]', '_')
-                    def dfHash = sh(script: "md5sum ${dockerfile} | awk '{print \$1}'", returnStdout: true).trim()
-                    def cacheHashFile = "${cacheDir}/.dockerfile_hash"
-                    def oldHash = sh(script: "cat ${cacheHashFile} 2>/dev/null || echo ''", returnStdout: true).trim()
-                    def cacheArgs = ''
-                    if (dfHash != oldHash) {
-                        echo "[Build Image] Dockerfile 内容已变化（${oldHash ?: '无缓存'} → ${dfHash}），清除旧缓存"
-                        sh "rm -rf ${cacheDir} 2>/dev/null || true"
-                    } else {
-                        echo "[Build Image] Dockerfile 未变化，复用 BuildKit 层缓存"
-                        cacheArgs = "--cache-from type=local,src=${cacheDir}"
+                        def registryHost = params.IMAGE_REPO.split('/')[0]
+                        sh """
+                            mkdir -p /kaniko/.docker
+                            echo '{"auths":{"${registryHost}":{"username":"${REGISTRY_CREDS_USR}","password":"${REGISTRY_CREDS_PSW}"}}}' > /kaniko/.docker/config.json
+                            /kaniko/executor \
+                                --context=. \
+                                --dockerfile=${dockerfile} \
+                                --destination=${env.FULL_IMAGE} \
+                                --cache=true \
+                                --cache-repo=${registryHost}/kaniko-cache/frontend \
+                                --label git.commit=${env.GIT_COMMIT_FULL} \
+                                --label git.branch=${env.GIT_BRANCH_NAME} \
+                                --label build.mode=k8s-kaniko \
+                                --snapshot-mode=redo \
+                                --use-new-run
+                        """
+                        env.IMAGE_DIGEST = ''; env.IMAGE_WITH_DIGEST = env.FULL_IMAGE
+                        echo "[Build & Push] ✅ ${env.FULL_IMAGE}"
                     }
-                    sh """
-                        set -e
-                        mkdir -p ${cacheDir}
-                        echo '${dfHash}' > ${cacheHashFile}
-                        nerdctl build \\
-                            -t ${env.FULL_IMAGE} \\
-                            -f ${dockerfile} \\
-                            ${cacheArgs} \\
-                            --cache-to type=local,dest=${cacheDir},mode=max \\
-                            --label git.commit=${env.GIT_COMMIT_FULL} \\
-                            --label git.branch=${env.GIT_BRANCH_NAME} \\
-                            --label build.number=${env.BUILD_NUMBER} \\
-                            --label build.mode=platform-compile \\
-                            .
-                    """
                 }
             }
             post {
-                success { script { stageCallback('build', 'success') } }
-                failure { script { stageCallback('build', 'failed') } }
+                success { script { stageCallback('build', 'success'); stageCallback('push', 'success') } }
+                failure { script { stageCallback('build', 'failed'); stageCallback('push', 'failed') } }
             }
         }
-
-        stage('Push Image') {
-            steps {
-                script {
-                    def registryHost = params.IMAGE_REPO.split('/')[0]
-                    sh """
-                        set -e
-                        echo \${REGISTRY_CREDS_PSW} | nerdctl login -u \${REGISTRY_CREDS_USR} --password-stdin ${registryHost}
-                        nerdctl push ${env.FULL_IMAGE}
-                    """
-                    env.IMAGE_DIGEST = sh(
-                        script: "nerdctl inspect ${env.FULL_IMAGE} --format '{{range .RepoDigests}}{{println .}}{{end}}' 2>/dev/null | grep -oE 'sha256:[a-f0-9]+' | head -1 || echo ''",
-                        returnStdout: true
-                    ).trim()
-                    env.IMAGE_WITH_DIGEST = env.IMAGE_DIGEST ? "${params.IMAGE_REPO}@${env.IMAGE_DIGEST}" : env.FULL_IMAGE
-                }
-            }
-            post {
-                success { script { stageCallback('push', 'success') } }
-                failure { script { stageCallback('push', 'failed') } }
-            }
-        }
-
     }
 
     post {
-        success {
-            script {
-                def msg
-                if (!params.ENABLE_SONAR) {
-                    msg = '前端项目构建成功'
-                } else if (env.SONAR_ANALYSIS_FAILED == 'true') {
-                    msg = "前端项目构建成功 | SonarQube: UNAVAILABLE（扫描阶段连接失败，请检查 SonarQube 服务状态）"
-                } else {
-                    msg = "前端项目构建成功 | SonarQube: ${env.SONAR_QUALITY_GATE_STATUS ?: 'SKIPPED'}"
-                }
-                callbackPlatform('SUCCESS', msg)
-            }
-        }
+        success { script { callbackPlatform('SUCCESS', "前端项目构建成功${params.ENABLE_SONAR ? ' | SonarQube: ' + (env.SONAR_QUALITY_GATE_STATUS ?: 'SKIPPED') : ''}") } }
         failure { script { callbackPlatform('FAILURE', '前端项目构建失败') } }
         aborted { script { callbackPlatform('ABORTED', '构建中止') } }
-        always {
-            sh "nerdctl rmi ${env.FULL_IMAGE} || true"
-            sh 'rm -rf node_modules dist .git 2>/dev/null || true'
-        }
     }
 }
 
-// ==================== SonarQube 指标回传平台 ====================
-def sonarReportCallback(String qualityGateStatus) {
-    if (!params.PLATFORM_CALLBACK_URL?.trim()) return
-    try {
-        def projectKey = params.SONAR_PROJECT_KEY?.trim() ?: env.JOB_NAME.replaceAll('/', '_')
-        def sonarUrl = params.PLATFORM_CALLBACK_URL.replace('/pipeline/callback', '/pipeline/sonar-callback')
-
-        def metrics = [:]
-        withSonarQubeEnv('SonarQube') {
-            def apiUrl = "${env.SONAR_HOST_URL}/api/measures/component?component=${projectKey}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating"
-            def resp = httpRequest(url: apiUrl, httpMode: 'GET', validResponseCodes: '200', quiet: true)
-            def json = readJSON text: resp.content
-            json.component?.measures?.each { m -> metrics[m.metric] = m.value }
-        }
-
-        def payload = [
-            pipeline_id:            params.PIPELINE_ID ? params.PIPELINE_ID as Long : 0,
-            project_key:            projectKey,
-            project_name:           params.SONAR_PROJECT_NAME?.trim() ?: env.JOB_NAME,
-            quality_gate:           qualityGateStatus,
-            dashboard_url:          "${env.SONAR_HOST_URL}/dashboard?id=${projectKey}",
-            bugs:                   (metrics.bugs ?: '0') as Integer,
-            vulnerabilities:        (metrics.vulnerabilities ?: '0') as Integer,
-            code_smells:            (metrics.code_smells ?: '0') as Integer,
-            coverage:               (metrics.coverage ?: '0.0') as Double,
-            duplications:           (metrics['duplicated_lines_density'] ?: '0.0') as Double,
-            lines_of_code:          (metrics.ncloc ?: '0') as Integer,
-            security_hotspots:      (metrics.security_hotspots ?: '0') as Integer,
-            reliability_rating:     ratingToLetter((metrics.reliability_rating ?: '1') as Double),
-            security_rating:        ratingToLetter((metrics.security_rating ?: '1') as Double),
-            maintainability_rating: ratingToLetter((metrics.sqale_rating ?: '1') as Double)
-        ]
-
-        def body = groovy.json.JsonOutput.toJson(payload)
-        def signature = env.HMAC_SECRET?.trim() ? hmacSha256(env.HMAC_SECRET, "${env.JOB_NAME}:${env.BUILD_NUMBER}:sonar") : ''
-        def headers = signature ? [[name: 'X-Signature', value: signature]] : []
-        httpRequest(url: sonarUrl, httpMode: 'POST', contentType: 'APPLICATION_JSON',
-            requestBody: body, customHeaders: headers, validResponseCodes: '100:599', timeout: 15)
-        echo "[SonarQube] 指标数据已回传平台"
-    } catch (e) {
-        echo "[SonarQube] 指标回传非致命错误: ${e.message}"
-    }
+// ==================== 回调函数 ====================
+// 获取回调地址（兼容首次构建 params 未注册的情况，fallback 到 JCasC 全局环境变量）
+def getCallbackUrl() {
+    return params.PLATFORM_CALLBACK_URL?.trim() ?: env.PLATFORM_CALLBACK_URL?.trim() ?: ''
 }
 
-def ratingToLetter(Double rating) {
-    if (rating <= 1.0) return 'A'
-    if (rating <= 2.0) return 'B'
-    if (rating <= 3.0) return 'C'
-    if (rating <= 4.0) return 'D'
-    return 'E'
-}
-
-// ==================== 平台阈值检查（对比 SonarQube 实际指标与平台配置） ====================
-def checkPlatformThresholds() {
-    def report = []
-    try {
-        def projectKey = params.SONAR_PROJECT_KEY?.trim() ?: env.JOB_NAME.replaceAll('/', '_')
-        def metrics = [:]
-        withSonarQubeEnv('SonarQube') {
-            def apiUrl = "${env.SONAR_HOST_URL}/api/measures/component?component=${projectKey}&metricKeys=coverage,bugs,code_smells,vulnerabilities,duplicated_lines_density"
-            def resp = httpRequest(url: apiUrl, httpMode: 'GET', validResponseCodes: '200', quiet: true)
-            def json = readJSON text: resp.content
-            json.component?.measures?.each { m -> metrics[m.metric] = m.value }
-        }
-        def actualCoverage = (metrics.coverage ?: '0') as Double
-        def thresholdCoverage = (params.SONAR_COVERAGE_THRESHOLD ?: '80') as Double
-        report << "  覆盖率: ${actualCoverage}% (${actualCoverage >= thresholdCoverage ? '✅' : '❌'} 阈值: ≥${thresholdCoverage}%)"
-        def actualBugs = (metrics.bugs ?: '0') as Integer
-        def maxBugs = (params.SONAR_NEW_BUGS_MAX ?: '0') as Integer
-        report << "  Bug: ${actualBugs} (${actualBugs <= maxBugs ? '✅' : '❌'} 阈值: ≤${maxBugs})"
-        def actualSmells = (metrics.code_smells ?: '0') as Integer
-        def maxSmells = (params.SONAR_CODE_SMELLS_MAX ?: '10') as Integer
-        report << "  异味: ${actualSmells} (${actualSmells <= maxSmells ? '✅' : '❌'} 阈值: ≤${maxSmells})"
-        def actualVulns = (metrics.vulnerabilities ?: '0') as Integer
-        def maxVulns = (params.SONAR_VULNERABILITIES_MAX ?: '0') as Integer
-        report << "  漏洞: ${actualVulns} (${actualVulns <= maxVulns ? '✅' : '❌'} 阈值: ≤${maxVulns})"
-        def actualDup = (metrics['duplicated_lines_density'] ?: '0') as Double
-        def maxDup = (params.SONAR_DUPLICATIONS_MAX ?: '3') as Double
-        report << "  重复率: ${actualDup}% (${actualDup <= maxDup ? '✅' : '❌'} 阈值: ≤${maxDup}%)"
-        def allPass = (actualCoverage >= thresholdCoverage) && (actualBugs <= maxBugs) && (actualSmells <= maxSmells) && (actualVulns <= maxVulns) && (actualDup <= maxDup)
-        report.add(0, allPass ? "✅ 平台阈值全部通过" : "❌ 部分指标未达平台阈值")
-    } catch (e) {
-        report << "  ⚠️ 指标查询失败: ${e.message}"
-    }
-    return report.join('\n')
-}
-
-// ==================== 统一回调函数 ====================
 def stageCallback(String stageType, String status) {
-    if (!params.PLATFORM_CALLBACK_URL?.trim()) return
+    def callbackUrl = getCallbackUrl()
+    if (!callbackUrl) return
     try {
-        def payload = [job_name: env.JOB_NAME, build_number: env.BUILD_NUMBER as Integer,
-            pipeline_id: params.PIPELINE_ID ? params.PIPELINE_ID as Long : 0, stage_type: stageType, status: status]
+        def payload = [job_name: env.JOB_NAME, build_number: env.BUILD_NUMBER as Integer, pipeline_id: params.PIPELINE_ID ? params.PIPELINE_ID as Long : 0, run_id: params.RUN_ID ? params.RUN_ID as Long : 0, stage_type: stageType, status: status]
         def body = groovy.json.JsonOutput.toJson(payload)
-        def stageUrl = params.PLATFORM_CALLBACK_URL.replace('/pipeline/callback', '/stage/callback')
+        def stageUrl = callbackUrl.replace('/pipeline/callback', '/stage/callback')
         def signature = env.HMAC_SECRET?.trim() ? hmacSha256(env.HMAC_SECRET, "${env.JOB_NAME}:${env.BUILD_NUMBER}:${stageType}") : ''
         def headers = signature ? [[name: 'X-Signature', value: signature]] : []
-        httpRequest(url: stageUrl, httpMode: 'POST', contentType: 'APPLICATION_JSON',
-            requestBody: body, customHeaders: headers, validResponseCodes: '100:599', timeout: 10)
+        httpRequest(url: stageUrl, httpMode: 'POST', contentType: 'APPLICATION_JSON', requestBody: body, customHeaders: headers, validResponseCodes: '100:599', timeout: 10)
     } catch (e) { echo "[阶段回调] 非致命: ${e.message}" }
 }
 
 def callbackPlatform(String status, String message) {
-    if (!params.PLATFORM_CALLBACK_URL?.trim()) { echo "未配置回调地址"; return }
+    def callbackUrl = getCallbackUrl()
+    if (!callbackUrl) { echo "未配置回调地址"; return }
     def payload = [job_name: env.JOB_NAME, build_number: env.BUILD_NUMBER as Integer, status: status,
         pipeline_id: params.PIPELINE_ID ? params.PIPELINE_ID as Long : 0,
-        image_url: env.FULL_IMAGE ?: '', image_digest: env.IMAGE_DIGEST ?: '',
-        image_with_digest: env.IMAGE_WITH_DIGEST ?: '', git_commit: env.GIT_COMMIT_SHORT ?: '',
-        git_branch: env.GIT_BRANCH_NAME ?: '',
-        duration_sec: currentBuild.duration ? (currentBuild.duration / 1000) as Integer : 0,
-        message: message, build_url: env.BUILD_URL ?: '']
+        run_id: params.RUN_ID ? params.RUN_ID as Long : 0,
+        image_url: env.FULL_IMAGE ?: '', image_digest: env.IMAGE_DIGEST ?: '', image_with_digest: env.IMAGE_WITH_DIGEST ?: '',
+        git_commit: env.GIT_COMMIT_SHORT ?: '', git_branch: env.GIT_BRANCH_NAME ?: '',
+        duration_sec: currentBuild.duration ? (currentBuild.duration / 1000) as Integer : 0, message: message, build_url: env.BUILD_URL ?: '']
     def body = groovy.json.JsonOutput.toJson(payload)
     def signature = env.HMAC_SECRET?.trim() ? hmacSha256(env.HMAC_SECRET, "${env.JOB_NAME}:${env.BUILD_NUMBER}:${status}") : ''
     def headers = signature ? [[name: 'X-Signature', value: signature]] : []
-    httpRequest(url: params.PLATFORM_CALLBACK_URL, httpMode: 'POST', contentType: 'APPLICATION_JSON',
-        requestBody: body, customHeaders: headers, validResponseCodes: '200:299', consoleLogResponseBody: true)
+    httpRequest(url: callbackUrl, httpMode: 'POST', contentType: 'APPLICATION_JSON', requestBody: body, customHeaders: headers, validResponseCodes: '200:299', consoleLogResponseBody: true)
 }
 
 def hmacSha256(String secret, String data) {
-    def result = ''
-    withEnv(["SIGN_SECRET=${secret}", "SIGN_DATA=${data}"]) {
-        result = sh(script: 'set +x && printf "%s" "$SIGN_DATA" | openssl dgst -sha256 -hmac "$SIGN_SECRET" | awk \'{print $2}\'', returnStdout: true).trim()
-    }
-    return result
+    def result = ''; withEnv(["SIGN_SECRET=${secret}", "SIGN_DATA=${data}"]) { result = sh(script: 'set +x && printf "%s" "$SIGN_DATA" | openssl dgst -sha256 -hmac "$SIGN_SECRET" | awk \'{print $2}\'', returnStdout: true).trim() }; return result
 }

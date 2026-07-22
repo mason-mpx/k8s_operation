@@ -1,289 +1,754 @@
--- =====================================================
--- K8s Platform 完整数据库初始化脚本（FULL）
--- 版本: 2.3.0
--- 日期: 2026-05-18
--- 说明: 一键创建数据库 + 全部 50 张表 + 默认种子数据
---      已整合: 用户/RBAC/集群/CI-CD/制品/资源模板/镜像/IAM/应用商城/AI助手/监控
--- 数据库账号: root / 123456
--- 使用方式（任选其一）:
---   ⚠️ PowerShell 不支持 `<` 重定向，请用以下方式之一：
---   1) PowerShell（推荐）:
---      mysql -u root -p123456 --default-character-set=utf8mb4 -e "source D:/k8s-go/k8s_operation/docs/sql/k8s_platform_full_init.sql"
---   2) PowerShell + cmd 包装（支持 < 重定向）:
---      cmd /c "mysql -u root -p123456 --default-character-set=utf8mb4 < docs\sql\k8s_platform_full_init.sql"
---   3) MySQL 客户端内:
---      source D:/k8s-go/k8s_operation/docs/sql/k8s_platform_full_init.sql
---   4) Linux / Git Bash / CMD:
---      mysql -u root -p123456 --default-character-set=utf8mb4 < k8s_platform_full_init.sql
--- =====================================================
-
-
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS `k8s-platform` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ============================================================
+-- K8sOperation 平台全量初始化 SQL
+-- 用法: mysql -u root -p < docs/sql/k8s_platform_full_init.sql
+-- ============================================================
+CREATE DATABASE IF NOT EXISTS `k8s-platform` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE `k8s-platform`;
 
--- =====================================================
--- 1. 用户表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `user` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `username` varchar(255) NOT NULL DEFAULT '' COMMENT '用户名',
-  `password` varchar(255) NOT NULL DEFAULT '' COMMENT '密码(加密)',
-  `role` varchar(50) NOT NULL DEFAULT 'user' COMMENT '基础角色(兼容旧版)',
-  `email` varchar(191) DEFAULT NULL COMMENT '邮箱',
-  `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
-  `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '状态:1=启用,0=禁用',
-  `created_at` int unsigned DEFAULT 0,
-  `modified_at` int unsigned DEFAULT 0,
-  `deleted_at` int unsigned DEFAULT 0,
-  `is_del` tinyint unsigned DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+-- MySQL dump 10.13  Distrib 8.0.31, for Win64 (x86_64)
+--
+-- Host: localhost    Database: k8s-platform
+-- ------------------------------------------------------
+-- Server version	8.3.0
 
--- =====================================================
--- 2. K8s集群表 (含环境字段)
--- =====================================================
-CREATE TABLE IF NOT EXISTS `kube_cluster` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `cluster_name` varchar(191) NOT NULL DEFAULT '' COMMENT '集群名称',
-  `kube_config` longtext NOT NULL COMMENT 'KubeConfig(加密存储)',
-  `cluster_version` varchar(191) NOT NULL DEFAULT '' COMMENT '集群版本',
-  `status` tinyint unsigned NOT NULL DEFAULT 2 COMMENT '状态:0=正常,1=异常,2=未检测',
-  -- 环境相关字段
-  `env_type` varchar(50) DEFAULT 'development' COMMENT '环境类型:development,testing,staging,production',
-  `env_display_name` varchar(100) DEFAULT '' COMMENT '环境显示名称',
-  `env_level` int DEFAULT 1 COMMENT '环境级别:1-4(开发到生产)',
-  `access_mode` varchar(50) DEFAULT 'restricted' COMMENT '访问模式:public,restricted,private',
-  `require_approval` tinyint(1) DEFAULT 0 COMMENT '操作是否需要审批',
-  `approval_users` json DEFAULT NULL COMMENT '审批人列表',
-  `env_color` varchar(20) DEFAULT '' COMMENT '环境颜色标识',
-  `env_description` varchar(500) DEFAULT '' COMMENT '环境描述',
-  `env_labels` json DEFAULT NULL COMMENT '环境标签',
-  `project_ids` json DEFAULT NULL COMMENT '关联项目ID列表',
-  -- 时间和状态字段
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
-  `last_check_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后检查时间',
-  `last_error` varchar(1024) NOT NULL DEFAULT '' COMMENT '最后错误信息',
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `ai_approval_logs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ai_approval_logs` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `approval_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `action` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `comment` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` int unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
+  KEY `idx_approval_id` (`approval_id`),
+  KEY `idx_ai_approval_logs_approval_id` (`approval_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 审批操作日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `ai_approval_requests`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ai_approval_requests` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `conversation_id` int unsigned DEFAULT NULL,
+  `request_user_id` int unsigned NOT NULL,
+  `approver_user_id` int unsigned DEFAULT '0',
+  `intent` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `resource` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resource_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `namespace` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cluster_id` int unsigned DEFAULT '0',
+  `risk_level` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `operation_json` text COLLATE utf8mb4_unicode_ci,
+  `tool_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tool_args_json` text COLLATE utf8mb4_unicode_ci,
+  `tool_call_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `execute_result` text COLLATE utf8mb4_unicode_ci,
+  `executed` tinyint(1) DEFAULT '0',
+  `summary` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` tinyint unsigned DEFAULT '1',
+  `approve_comment` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `expire_at` int unsigned DEFAULT '0',
+  `created_at` int unsigned DEFAULT NULL,
+  `modified_at` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_request_user_id` (`request_user_id`),
   KEY `idx_status` (`status`),
-  KEY `idx_modified` (`modified_at`),
+  KEY `idx_conversation_id` (`conversation_id`),
+  KEY `idx_ai_approval_requests_conversation_id` (`conversation_id`),
+  KEY `idx_ai_approval_requests_request_user_id` (`request_user_id`),
+  KEY `idx_ai_approval_requests_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 高危操作审批请求表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `ai_conversations`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ai_conversations` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `title` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '新对话',
+  `status` tinyint unsigned DEFAULT '1',
+  `created_at` int unsigned DEFAULT NULL,
+  `modified_at` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_ai_conversations_user_id` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 助手会话表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `ai_messages`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ai_messages` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `conversation_id` int unsigned NOT NULL,
+  `role` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci,
+  `intent_json` text COLLATE utf8mb4_unicode_ci,
+  `token_used` bigint DEFAULT '0',
+  `created_at` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_conversation_id` (`conversation_id`),
+  KEY `idx_ai_messages_conversation_id` (`conversation_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 助手消息表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `aiops_analysis_record`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `aiops_analysis_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ref_id` bigint DEFAULT NULL,
+  `title` varchar(300) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `input` text COLLATE utf8mb4_unicode_ci,
+  `result` longtext COLLATE utf8mb4_unicode_ci,
+  `severity` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `suggestions` text COLLATE utf8mb4_unicode_ci,
+  `model` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tokens_used` bigint DEFAULT '0',
+  `latency_ms` bigint DEFAULT '0',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'success',
+  `error` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_id` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_aiops_analysis_record_type` (`type`),
+  KEY `idx_aiops_analysis_record_ref_id` (`ref_id`),
+  KEY `idx_aiops_analysis_record_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `aiops_inspection_report`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `aiops_inspection_report` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `scope` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT 'full',
+  `scope_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `health_score` bigint DEFAULT '0',
+  `level` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `summary` text COLLATE utf8mb4_unicode_ci,
+  `details` longtext COLLATE utf8mb4_unicode_ci,
+  `ai_analysis` longtext COLLATE utf8mb4_unicode_ci,
+  `findings` bigint DEFAULT '0',
+  `suggestions` bigint DEFAULT '0',
+  `duration` bigint DEFAULT '0',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'running',
+  `error` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `triggered_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `completed_at` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_aiops_inspection_report_type` (`type`)
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `app_store_apps`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `app_store_apps` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `display_name` varchar(256) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `category` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `version` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `icon` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(1024) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `provider` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `chart_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `doc_url` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` tinyint unsigned DEFAULT '1',
+  `featured` tinyint unsigned DEFAULT '0',
+  `sort_order` bigint DEFAULT '0',
+  `tags` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `min_k8s` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `namespace` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `values_yaml` text COLLATE utf8mb4_unicode_ci,
+  `created_at` int unsigned DEFAULT NULL,
+  `modified_at` int unsigned DEFAULT NULL,
+  `deleted_at` int unsigned DEFAULT NULL,
+  `is_del` tinyint unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_app_store_apps_name` (`name`),
+  KEY `idx_category` (`category`),
+  KEY `idx_status` (`status`),
+  KEY `idx_app_store_apps_category` (`category`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用商城应用表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `app_store_components`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `app_store_components` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_id` int unsigned NOT NULL,
+  `name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `image` varchar(512) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `replicas` int DEFAULT '1',
+  `ports` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `args` varchar(1024) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cpu_req` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT '50m',
+  `cpu_lim` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT '200m',
+  `mem_req` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT '64Mi',
+  `mem_lim` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT '256Mi',
+  `sort_order` bigint DEFAULT '0',
+  `created_at` int unsigned DEFAULT NULL,
+  `modified_at` int unsigned DEFAULT NULL,
+  `deleted_at` int unsigned DEFAULT NULL,
+  `is_del` tinyint unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_app_id` (`app_id`),
+  KEY `idx_app_store_components_app_id` (`app_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用商城组件表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `app_store_installs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `app_store_installs` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_id` int unsigned NOT NULL,
+  `app_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `cluster_id` int unsigned NOT NULL,
+  `cluster_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `namespace` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `release_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `version` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `values` text COLLATE utf8mb4_unicode_ci,
+  `status` tinyint unsigned DEFAULT '1',
+  `message` varchar(1024) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `operator` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` int unsigned DEFAULT NULL,
+  `modified_at` int unsigned DEFAULT NULL,
+  `deleted_at` int unsigned DEFAULT NULL,
+  `is_del` tinyint unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_app_id` (`app_id`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_app_store_installs_app_id` (`app_id`),
+  KEY `idx_app_store_installs_cluster_id` (`cluster_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用商城安装记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `audit_log`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `audit_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+  `user_id` bigint NOT NULL,
+  `username` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_ip` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `action_display` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `module` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `target_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `target_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `request_uri` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `request_method` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `request_body` text COLLATE utf8mb4_unicode_ci,
+  `response_code` bigint DEFAULT '0',
+  `response_message` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `detail` json DEFAULT NULL,
+  `extra` json DEFAULT NULL,
+  `cluster_id` bigint DEFAULT NULL,
+  `cluster_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `namespace` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `pipeline_id` bigint DEFAULT NULL,
+  `pipeline_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `run_id` bigint DEFAULT NULL COMMENT '关联运行记录ID',
+  `project_id` bigint DEFAULT NULL,
+  `project_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'success',
+  `error_message` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `duration_ms` bigint DEFAULT '0',
+  `created_at` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_module` (`module`),
+  KEY `idx_target` (`target_type`,`target_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_pipeline_id` (`pipeline_id`),
+  KEY `idx_project_id` (`project_id`),
+  KEY `idx_audit_user` (`user_id`),
+  KEY `idx_audit_action` (`action`),
+  KEY `idx_audit_module` (`module`),
+  KEY `idx_audit_target` (`target_type`,`target_id`),
+  KEY `idx_audit_cluster` (`cluster_id`),
+  KEY `idx_audit_pipeline` (`pipeline_id`),
+  KEY `idx_audit_status` (`status`),
+  KEY `idx_audit_created` (`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=822 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审计日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cicd_approval`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_approval` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `pipeline_id` bigint DEFAULT NULL,
+  `pipeline_run_id` bigint DEFAULT NULL,
+  `release_id` bigint DEFAULT NULL,
+  `env_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `image` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `image_digest` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `request_user_id` bigint DEFAULT NULL,
+  `request_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `approve_user_id` bigint DEFAULT NULL,
+  `approve_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `approve_time` bigint unsigned DEFAULT NULL,
+  `expire_time` bigint unsigned DEFAULT NULL,
+  `feishu_token` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
+  `stage_id` bigint DEFAULT NULL,
+  `approval_level` bigint DEFAULT '1',
+  `total_levels` bigint DEFAULT '1',
+  `level_label` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_pipeline_id` (`pipeline_id`),
+  KEY `idx_pipeline_run_id` (`pipeline_run_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_request_user_id` (`request_user_id`),
+  KEY `idx_stage_id` (`stage_id`),
+  KEY `idx_feishu_token` (`feishu_token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD审批记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cicd_artifact`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_artifact` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `pipeline_id` bigint DEFAULT NULL COMMENT '关联流水线ID',
+  `run_id` bigint DEFAULT NULL COMMENT '关联运行记录ID',
+  `build_number` int DEFAULT '0' COMMENT 'Jenkins构建号',
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '制品名称（如 order-service-1.0.0.jar）',
+  `artifact_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '制品类型：jar/war/binary/dist/wheel/image/archive',
+  `version` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '版本号',
+  `language_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '语言类型：go/java/frontend/python',
+  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '文件存储路径',
+  `file_size` bigint NOT NULL DEFAULT '0' COMMENT '文件大小（字节）',
+  `sha256` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'SHA256校验和',
+  `storage_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'local' COMMENT '存储类型：local/s3/oss',
+  `git_repo` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git仓库地址',
+  `git_branch` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git分支',
+  `git_commit` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git Commit SHA',
+  `image_repo` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像仓库地址',
+  `image_tag` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像标签',
+  `image_digest` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像摘要',
+  `build_duration` int NOT NULL DEFAULT '0' COMMENT '构建耗时（秒）',
+  `build_log` text COLLATE utf8mb4_unicode_ci COMMENT '构建摘要日志',
+  `metadata` json DEFAULT NULL COMMENT '扩展元数据',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'ready' COMMENT '状态：uploading/ready/expired/deleted',
+  `download_count` int NOT NULL DEFAULT '0' COMMENT '下载次数',
+  `created_user_id` bigint NOT NULL DEFAULT '0' COMMENT '创建人',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_pipeline_id` (`pipeline_id`),
+  KEY `idx_run_id` (`run_id`),
+  KEY `idx_artifact_type` (`artifact_type`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD 制品库表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cicd_build`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_build` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `app_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '应用名称',
+  `git_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git URL',
+  `git_branch` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git分支',
+  `git_commit` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git Commit',
+  `jenkins_job` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Jenkins Job',
+  `jenkins_queue_id` bigint NOT NULL DEFAULT '0' COMMENT 'Jenkins队列ID',
+  `jenkins_build_number` int NOT NULL DEFAULT '0' COMMENT 'Jenkins构建号',
+  `jenkins_build_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Jenkins构建URL',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT '状态',
+  `message` varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '消息',
+  `image_repo` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像仓库',
+  `image_tag` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像标签',
+  `image_digest` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '镜像摘要',
+  `sbom_ref` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'SBOM引用',
+  `sign_ref` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '签名引用',
+  `created_user_id` bigint NOT NULL DEFAULT '0' COMMENT '创建人',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_app_name` (`app_name`),
+  KEY `idx_jenkins_job` (`jenkins_job`),
+  KEY `idx_status` (`status`),
   KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='K8s集群配置表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD构建记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 3. RBAC - 系统角色表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `sys_role` (
+--
+-- Table structure for table `cicd_build_agent`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_build_agent` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) NOT NULL COMMENT '角色标识(唯一)',
-  `display_name` varchar(100) NOT NULL COMMENT '显示名称',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `role_type` varchar(30) NOT NULL DEFAULT 'custom' COMMENT '角色类型:super_admin,cluster_admin,developer,viewer,custom',
-  `is_system` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否系统内置',
-  `color` varchar(20) DEFAULT '#1890ff' COMMENT '角色颜色标识',
-  `icon` varchar(50) DEFAULT 'user' COMMENT '图标',
-  `sort_order` int DEFAULT 0 COMMENT '排序',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `display_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `category` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `scope` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `version` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `file_name` varchar(300) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `file_path` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `file_size` bigint DEFAULT NULL,
+  `sha256` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `download_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `doc_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `icon` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `docker_copy_dest` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `env_key` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `env_value` varchar(2000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'active',
+  `download_count` bigint DEFAULT '0',
+  `used_count` bigint DEFAULT '0',
+  `created_user_id` bigint DEFAULT NULL,
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
+  `deleted_at` bigint unsigned DEFAULT NULL,
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统角色表';
+  UNIQUE KEY `idx_cicd_build_agent_name` (`name`),
+  KEY `idx_category` (`category`),
+  KEY `idx_scope` (`scope`),
+  KEY `idx_cicd_build_agent_category` (`category`),
+  KEY `idx_cicd_build_agent_scope` (`scope`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD 构建探针表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 4. RBAC - 系统权限表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `sys_permission` (
+--
+-- Table structure for table `cicd_deploy_approval`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_deploy_approval` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pipeline_id` bigint unsigned NOT NULL COMMENT '流水线ID',
+  `release_id` bigint unsigned DEFAULT '0' COMMENT '发布单ID',
+  `env` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '目标环境',
+  `requested_config` text COLLATE utf8mb4_unicode_ci COMMENT '申请的资源配置JSON',
+  `current_config` text COLLATE utf8mb4_unicode_ci COMMENT '当前线上配置JSON',
+  `risk_level` enum('low','medium','high') COLLATE utf8mb4_unicode_ci DEFAULT 'low',
+  `risk_warnings` text COLLATE utf8mb4_unicode_ci COMMENT '风险提示列表JSON',
+  `status` enum('pending','approved','rejected','expired','cancelled') COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `applicant_id` bigint unsigned NOT NULL COMMENT '申请人ID',
+  `applicant_name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `approver_id` bigint unsigned DEFAULT '0' COMMENT '审批人ID',
+  `approver_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `approve_comment` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '审批意见',
+  `applied_at` bigint unsigned DEFAULT '0' COMMENT '申请时间',
+  `approved_at` bigint unsigned DEFAULT '0' COMMENT '审批时间',
+  `expired_at` bigint unsigned DEFAULT '0' COMMENT '过期时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_pipeline` (`pipeline_id`),
+  KEY `idx_status` (`status`,`applied_at`),
+  KEY `idx_applicant` (`applicant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD发布审批记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cicd_env_resource_rule`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_env_resource_rule` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `env` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'dev/test/staging/prod',
+  `service_type` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '服务类型，空=通用',
+  `cpu_limit_max` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '4' COMMENT 'CPU limit 最大值',
+  `memory_limit_max` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '8Gi' COMMENT '内存 limit 最大值',
+  `replicas_max` int NOT NULL DEFAULT '10' COMMENT '副本数上限',
+  `cpu_request_min` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CPU request 最小值',
+  `memory_request_min` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '内存 request 最小值',
+  `replicas_min` int DEFAULT '1' COMMENT '副本数下限',
+  `require_approval` tinyint(1) DEFAULT '0' COMMENT '是否需要审批',
+  `approval_role` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '审批角色：sre/admin',
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '规则说明',
+  `created_at` bigint unsigned DEFAULT '0',
+  `modified_at` bigint unsigned DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_env_type` (`env`,`service_type`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD环境资源规则表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cicd_environment`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_environment` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '权限标识(唯一)',
-  `display_name` varchar(100) NOT NULL COMMENT '显示名称',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `resource_type` varchar(50) NOT NULL COMMENT '资源类型:cluster,namespace,deployment,pod等',
-  `action` varchar(30) NOT NULL COMMENT '操作类型:view,create,update,delete,exec,manage',
-  `parent_id` bigint DEFAULT 0 COMMENT '父权限ID',
-  `path` varchar(200) DEFAULT '' COMMENT '权限路径(树形展示用)',
-  `sort_order` int DEFAULT 0 COMMENT '排序',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `display_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cluster_id` bigint DEFAULT NULL,
+  `namespace` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `color` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `sort_order` bigint DEFAULT NULL,
+  `require_approval` tinyint(1) DEFAULT NULL,
+  `auto_rollback_on_fail` tinyint(1) NOT NULL DEFAULT '0' COMMENT '部署失败时自动回滚到上一版本(建议生产环境开启)',
+  `approval_users` json DEFAULT NULL,
+  `created_user_id` bigint DEFAULT NULL,
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
+  `deleted_at` bigint unsigned DEFAULT NULL,
+  `is_del` tinyint unsigned DEFAULT NULL,
+  `approval_levels` json DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统权限定义表';
+  KEY `idx_name` (`name`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_is_del` (`is_del`),
+  KEY `idx_cicd_environment_name` (`name`),
+  KEY `idx_cicd_environment_cluster_id` (`cluster_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD环境配置表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 5. RBAC - 角色权限关联表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `sys_role_permission` (
+--
+-- Table structure for table `cicd_language_profile`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_language_profile` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `role_id` bigint NOT NULL COMMENT '角色ID',
-  `permission_id` bigint NOT NULL COMMENT '权限ID',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
+  `language_key` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `display_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `icon` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `build_image` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `pre_build` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `build_cmd` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `test_cmd` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `dockerfile` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT 'Dockerfile',
+  `build_ctx` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '.',
+  `dockerfile_template` text COLLATE utf8mb4_unicode_ci,
+  `is_builtin` tinyint(1) DEFAULT '0',
+  `sort_order` bigint DEFAULT '0',
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_role_id` (`role_id`),
-  KEY `idx_permission_id` (`permission_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限关联表';
+  UNIQUE KEY `idx_cicd_language_profile_language_key` (`language_key`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='璇?█閰嶇疆娉ㄥ唽琛';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 6. RBAC - 用户角色关联表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `sys_user_role` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_id` bigint NOT NULL COMMENT '用户ID',
-  `role_id` bigint NOT NULL COMMENT '角色ID',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `created_by` bigint DEFAULT 0 COMMENT '创建人ID',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_role_id` (`role_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关联表';
+--
+-- Table structure for table `cicd_pipeline`
+--
 
--- =====================================================
--- 7. RBAC - 用户集群权限表 (细粒度权限控制)
--- =====================================================
-CREATE TABLE IF NOT EXISTS `sys_user_cluster` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_id` bigint NOT NULL COMMENT '用户ID',
-  `cluster_id` bigint NOT NULL COMMENT '集群ID',
-  `role_type` varchar(30) NOT NULL DEFAULT 'viewer' COMMENT '在该集群的角色类型',
-  `namespaces` text DEFAULT NULL COMMENT '可访问的命名空间(JSON数组,空表示全部)',
-  `can_view` tinyint(1) NOT NULL DEFAULT 1 COMMENT '查看权限',
-  `can_create` tinyint(1) NOT NULL DEFAULT 0 COMMENT '创建权限',
-  `can_update` tinyint(1) NOT NULL DEFAULT 0 COMMENT '更新权限',
-  `can_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '删除权限',
-  `can_exec` tinyint(1) NOT NULL DEFAULT 0 COMMENT '执行权限(进入容器等)',
-  `expire_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '过期时间(0=永不过期)',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `created_by` bigint DEFAULT 0 COMMENT '授权人ID',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_cluster_id` (`cluster_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户集群权限表';
-
--- =====================================================
--- 8. CI/CD - 流水线表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_pipeline` (
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_pipeline` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `project_id` bigint DEFAULT NULL COMMENT '所属项目ID',
-  `name` varchar(191) NOT NULL COMMENT '流水线名称',
-  `description` varchar(500) NOT NULL DEFAULT '' COMMENT '描述',
-  `git_repo` varchar(500) NOT NULL COMMENT 'Git仓库地址',
-  `git_branch` varchar(100) NOT NULL DEFAULT 'main' COMMENT 'Git分支',
-  `jenkins_url` varchar(500) NOT NULL DEFAULT '' COMMENT 'Jenkins服务地址',
-  `jenkins_job` varchar(191) NOT NULL COMMENT 'Jenkins Job名称',
-  `jenkins_credential_id` varchar(191) NOT NULL DEFAULT '' COMMENT 'Jenkins凭证ID',
-  `language_type` varchar(20) NOT NULL DEFAULT 'custom' COMMENT '语言类型:go/java/frontend/python/custom',
-  -- 部署配置
-  `auto_deploy` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动部署',
+  `name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` longtext COLLATE utf8mb4_unicode_ci,
+  `git_repo` longtext COLLATE utf8mb4_unicode_ci,
+  `git_branch` longtext COLLATE utf8mb4_unicode_ci,
+  `jenkins_url` longtext COLLATE utf8mb4_unicode_ci,
+  `jenkins_job` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Jenkins Job名称',
+  `jenkins_credential_id` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Jenkins凭证ID',
+  `language_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'custom' COMMENT '语言类型:go/java/frontend/python/custom',
+  `auto_deploy` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否自动部署',
   `target_cluster_id` bigint DEFAULT NULL COMMENT '目标集群ID',
-  `target_namespace` varchar(100) DEFAULT '' COMMENT '目标命名空间',
-  `target_workload_kind` varchar(50) DEFAULT '' COMMENT '工作负载类型',
-  `target_workload_name` varchar(200) DEFAULT '' COMMENT '工作负载名称',
-  `target_container` varchar(100) DEFAULT '' COMMENT '目标容器名称',
-  `deploy_env` varchar(20) DEFAULT 'dev' COMMENT '部署环境',
-  `require_approval` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否需要审批',
-  `enable_sonar` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否启用SonarQube代码扫描',
-  `enable_artifact_upload` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否启用制品上传',
-  -- 最新部署信息
-  `last_deploy_image` varchar(500) DEFAULT '' COMMENT '最新部署镜像',
-  `last_deploy_digest` varchar(100) DEFAULT '' COMMENT '镜像摘要',
+  `target_namespace` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '目标命名空间',
+  `target_workload_kind` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '工作负载类型',
+  `target_workload_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '工作负载名称',
+  `target_container` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '目标容器名称',
+  `deploy_env` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'dev' COMMENT '部署环境',
+  `require_approval` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否需要审批',
+  `enable_canary` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否启用金丝雀部署',
+  `canary_replicas` int NOT NULL DEFAULT '1' COMMENT '金丝雀副本数',
+  `canary_traffic_ratio` int NOT NULL DEFAULT '10' COMMENT '金丝雀流量比例(%)',
+  `canary_duration_sec` int NOT NULL DEFAULT '300' COMMENT '金丝雀观察时长(秒)',
+  `canary_auto_promote` tinyint(1) NOT NULL DEFAULT '0' COMMENT '观察通过自动晋升',
+  `canary_analysis_rules` text COLLATE utf8mb4_unicode_ci COMMENT '金丝雀分析规则JSON',
+  `enable_sonar` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否启用SonarQube代码扫描',
+  `enable_artifact_upload` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否启用制品上传',
+  `enable_deploy_silence` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'silence flag',
+  `silence_buffer_minutes` int NOT NULL DEFAULT '10' COMMENT 'silence buffer',
+  `silence_severities` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'warning,info' COMMENT 'silence severities',
+  `last_deploy_image` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '最新部署镜像',
+  `last_deploy_digest` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '镜像摘要',
   `last_deploy_time` bigint DEFAULT NULL COMMENT '最新部署时间',
-  `last_deploy_status` varchar(32) DEFAULT '' COMMENT '最新部署状态',
-  `last_deploy_version` varchar(100) DEFAULT '' COMMENT '最新部署版本',
-  -- 运行状态
-  `status` varchar(50) NOT NULL DEFAULT 'idle' COMMENT '状态:idle,running,disabled',
-  `last_run_status` varchar(50) NOT NULL DEFAULT '' COMMENT '最后运行状态',
-  `last_run_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '最后运行时间',
-  `last_build_number` int NOT NULL DEFAULT 0 COMMENT '最后构建号',
-  `last_build_url` varchar(500) NOT NULL DEFAULT '' COMMENT '最后构建URL',
-  -- JSON配置
+  `last_deploy_status` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '最新部署状态',
+  `last_deploy_version` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '最新部署版本',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'idle' COMMENT '状态:idle,running,disabled',
+  `last_run_status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '最后运行状态',
+  `last_run_time` bigint unsigned NOT NULL DEFAULT '0' COMMENT '最后运行时间',
+  `last_build_number` int NOT NULL DEFAULT '0' COMMENT '最后构建号',
+  `last_build_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '最后构建URL',
   `env_vars` json DEFAULT NULL COMMENT '环境变量',
   `deploy_config` json DEFAULT NULL COMMENT '部署配置',
   `stages` json DEFAULT NULL COMMENT '阶段配置',
-  -- 元数据
-  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+  `created_user_id` bigint NOT NULL DEFAULT '0' COMMENT '创建人',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
+  `deploy_mode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'jenkins',
+  `gitops_config` json DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`),
   KEY `idx_project_id` (`project_id`),
   KEY `idx_jenkins_job` (`jenkins_job`),
   KEY `idx_status` (`status`),
   KEY `idx_auto_deploy` (`auto_deploy`),
   KEY `idx_target_cluster` (`target_cluster_id`),
   KEY `idx_created_at` (`created_at`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD流水线表';
+  KEY `idx_is_del` (`is_del`),
+  KEY `idx_pipeline_deploy_mode` (`deploy_mode`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD流水线表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 9. CI/CD - 流水线运行记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_pipeline_run` (
+--
+-- Table structure for table `cicd_pipeline_run`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_pipeline_run` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `pipeline_id` bigint NOT NULL COMMENT '流水线ID',
-  `build_number` int NOT NULL DEFAULT 0 COMMENT '构建号',
-  `status` varchar(50) NOT NULL DEFAULT 'pending' COMMENT '状态:pending,running,success,failed,aborted',
-  `trigger_type` varchar(50) NOT NULL DEFAULT 'manual' COMMENT '触发类型:manual,webhook,scheduled',
-  `trigger_user_id` bigint NOT NULL DEFAULT 0 COMMENT '触发人ID',
-  `git_commit` varchar(100) NOT NULL DEFAULT '' COMMENT 'Git Commit',
-  `git_branch` varchar(100) NOT NULL DEFAULT '' COMMENT 'Git分支',
-  `git_commit_message` varchar(500) NOT NULL DEFAULT '' COMMENT '提交消息',
-  `jenkins_build_url` varchar(500) NOT NULL DEFAULT '' COMMENT 'Jenkins构建URL',
-  `duration_sec` int NOT NULL DEFAULT 0 COMMENT '执行时长(秒)',
-  `console_log` longtext DEFAULT NULL COMMENT '控制台日志',
+  `pipeline_id` bigint DEFAULT NULL,
+  `build_number` bigint DEFAULT NULL,
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT '状态:pending,running,success,failed,aborted',
+  `trigger_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'manual' COMMENT '触发类型:manual,webhook,scheduled',
+  `trigger_user_id` bigint NOT NULL DEFAULT '0' COMMENT '触发人ID',
+  `git_commit` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git Commit',
+  `git_branch` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Git分支',
+  `git_commit_message` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '提交消息',
+  `jenkins_build_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'Jenkins构建URL',
+  `duration_sec` int NOT NULL DEFAULT '0' COMMENT '执行时长(秒)',
+  `console_log` longtext COLLATE utf8mb4_unicode_ci COMMENT '控制台日志',
   `stages_result` json DEFAULT NULL COMMENT '阶段结果',
-  `started_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '开始时间',
-  `finished_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '结束时间',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `error_message` text DEFAULT NULL COMMENT '错误信息',
-  `image_url` varchar(500) DEFAULT '' COMMENT '构建镜像地址',
-  `image_digest` varchar(100) DEFAULT '' COMMENT '镜像摘要',
-  `callback_received` tinyint(1) DEFAULT 0 COMMENT '是否收到回调',
+  `started_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '开始时间',
+  `finished_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '结束时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `error_message` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+  `image_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '构建镜像地址',
+  `image_digest` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '镜像摘要',
+  `workflow_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'workflow name',
+  `argo_app_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'argo app name',
+  `sync_revision` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'sync revision',
+  `sync_status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'sync status',
+  `callback_received` tinyint(1) DEFAULT '0' COMMENT '是否收到回调',
   PRIMARY KEY (`id`),
   KEY `idx_pipeline_id` (`pipeline_id`),
   KEY `idx_build_number` (`build_number`),
   KEY `idx_status` (`status`),
-  KEY `idx_started_at` (`started_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线运行记录表';
+  KEY `idx_started_at` (`started_at`),
+  KEY `idx_run_sync_status` (`sync_status`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线运行记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 10. CI/CD - 流水线阶段执行记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_pipeline_stage` (
+--
+-- Table structure for table `cicd_pipeline_stage`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_pipeline_stage` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `run_id` bigint NOT NULL COMMENT '运行记录ID',
   `pipeline_id` bigint NOT NULL COMMENT '流水线ID',
-  `stage_order` int NOT NULL DEFAULT 0 COMMENT '阶段顺序',
-  `stage_type` varchar(32) NOT NULL COMMENT '阶段类型:checkout,dependencies,compile,test,lint,sonar,quality_gate,build_binary,upload_artifact,build,push,approval,deploy',
-  `stage_name` varchar(100) NOT NULL COMMENT '阶段名称',
-  `status` varchar(32) NOT NULL DEFAULT 'pending' COMMENT '状态',
+  `stage_order` int NOT NULL DEFAULT '0' COMMENT '阶段顺序',
+  `stage_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '阶段类型:checkout,dependencies,compile,test,lint,sonar,quality_gate,build_binary,upload_artifact,build,push,approval,deploy',
+  `stage_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '阶段名称',
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT '状态',
   `started_at` bigint DEFAULT NULL COMMENT '开始时间',
   `finished_at` bigint DEFAULT NULL COMMENT '结束时间',
-  `duration_sec` int DEFAULT 0 COMMENT '执行时长',
-  `logs` longtext DEFAULT NULL COMMENT '阶段日志',
-  `jenkins_stage_id` varchar(100) DEFAULT NULL COMMENT 'Jenkins阶段ID',
-  -- 审批信息
+  `duration_sec` int DEFAULT '0' COMMENT '执行时长',
+  `logs` longtext COLLATE utf8mb4_unicode_ci COMMENT '阶段日志',
+  `jenkins_stage_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Jenkins阶段ID',
   `approval_user_id` bigint DEFAULT NULL COMMENT '审批人ID',
-  `approval_comment` text DEFAULT NULL COMMENT '审批评论',
-  `approval_decision` varchar(32) DEFAULT NULL COMMENT '审批决定:approved,rejected',
-  -- 部署信息
+  `approval_comment` text COLLATE utf8mb4_unicode_ci COMMENT '审批评论',
+  `approval_decision` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '审批决定:approved,rejected',
   `deploy_cluster_id` bigint DEFAULT NULL COMMENT '部署集群ID',
-  `deploy_namespace` varchar(100) DEFAULT NULL COMMENT '部署命名空间',
-  `deploy_workload_kind` varchar(50) DEFAULT NULL COMMENT '工作负载类型',
-  `deploy_workload_name` varchar(100) DEFAULT NULL COMMENT '工作负载名称',
-  `deploy_container` varchar(100) DEFAULT NULL COMMENT '容器名称',
-  `deploy_image` varchar(500) DEFAULT NULL COMMENT '部署镜像',
-  `deploy_old_image` varchar(500) DEFAULT NULL COMMENT '旧镜像',
+  `deploy_namespace` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部署命名空间',
+  `deploy_workload_kind` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '工作负载类型',
+  `deploy_workload_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '工作负载名称',
+  `deploy_container` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '容器名称',
+  `deploy_image` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部署镜像',
+  `deploy_old_image` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '旧镜像',
   `deploy_replicas` int DEFAULT NULL COMMENT '副本数',
-  `error_message` text DEFAULT NULL COMMENT '错误信息',
+  `error_message` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
   `created_at` bigint NOT NULL,
   `modified_at` bigint NOT NULL,
   PRIMARY KEY (`id`),
@@ -291,490 +756,242 @@ CREATE TABLE IF NOT EXISTS `cicd_pipeline_stage` (
   KEY `idx_pipeline_id` (`pipeline_id`),
   KEY `idx_stage_type` (`stage_type`),
   KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线阶段执行记录表';
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线阶段执行记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 11. CI/CD - 环境配置表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_environment` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) NOT NULL COMMENT '环境标识:dev,staging,prod',
-  `display_name` varchar(100) NOT NULL COMMENT '显示名称',
-  `description` varchar(500) NOT NULL DEFAULT '' COMMENT '描述',
-  `cluster_id` bigint NOT NULL COMMENT '关联集群ID',
-  `namespace` varchar(100) NOT NULL DEFAULT '' COMMENT '默认命名空间',
-  `color` varchar(20) NOT NULL DEFAULT '#1890ff' COMMENT '环境颜色',
-  `sort_order` int NOT NULL DEFAULT 0 COMMENT '排序',
-  `require_approval` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否需要审批',
-  `approval_users` json DEFAULT NULL COMMENT '审批人列表',
-  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+--
+-- Table structure for table `cicd_pipeline_template`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_pipeline_template` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称',
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '模板描述',
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'custom' COMMENT '模板类型: frontend/backend/microservice/database/custom',
+  `stages` json DEFAULT NULL COMMENT '阶段配置',
+  `default_env_vars` json DEFAULT NULL COMMENT '默认环境变量',
+  `deploy_config` json DEFAULT NULL COMMENT '默认部署配置',
+  `jenkins_template` text COLLATE utf8mb4_unicode_ci COMMENT 'Jenkinsfile模板',
+  `usage_count` bigint NOT NULL DEFAULT '0' COMMENT '使用次数',
+  `created_user_id` bigint NOT NULL DEFAULT '0' COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `idx_name` (`name`),
-  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_type` (`type`),
   KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD环境配置表';
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线模板表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 12. CI/CD - 审批记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_approval` (
+--
+-- Table structure for table `cicd_pipeline_target`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_pipeline_target` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `pipeline_id` bigint NOT NULL COMMENT '流水线ID',
-  `pipeline_run_id` bigint NOT NULL COMMENT '运行记录ID',
-  `release_id` bigint NOT NULL DEFAULT 0 COMMENT '发布单ID',
-  `env_name` varchar(50) NOT NULL COMMENT '目标环境',
-  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '状态:pending,approved,rejected,expired',
-  `image` varchar(500) NOT NULL DEFAULT '' COMMENT '待部署镜像',
-  `image_digest` varchar(100) NOT NULL DEFAULT '' COMMENT '镜像摘要',
-  `request_user_id` bigint NOT NULL COMMENT '申请人ID',
-  `request_reason` varchar(500) NOT NULL DEFAULT '' COMMENT '申请原因',
-  `approve_user_id` bigint NOT NULL DEFAULT 0 COMMENT '审批人ID',
-  `approve_reason` varchar(500) NOT NULL DEFAULT '' COMMENT '审批意见',
-  `approve_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '审批时间',
-  `expire_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '过期时间',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
+  `pipeline_id` bigint NOT NULL DEFAULT '0' COMMENT '关联流水线ID',
+  `env` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '环境标识(dev/test/staging/prod)',
+  `cluster_id` bigint NOT NULL DEFAULT '0' COMMENT '目标集群ID',
+  `namespace` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '目标命名空间',
+  `workload_kind` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Deployment' COMMENT '工作负载类型',
+  `workload_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '工作负载名称',
+  `container` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '容器名称',
+  `auto_deploy` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'CI构建成功后是否自动部署到本环境',
+  `require_approval` tinyint(1) NOT NULL DEFAULT '0' COMMENT '晋级到本环境是否需要审批',
+  `promote_from` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '本环境镜像上游来源环境',
+  `sort_order` int NOT NULL DEFAULT '0' COMMENT '晋级/展示顺序',
+  `created_user_id` bigint NOT NULL DEFAULT '0',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `idx_pipeline_id` (`pipeline_id`),
-  KEY `idx_pipeline_run_id` (`pipeline_run_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_request_user_id` (`request_user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD审批记录表';
+  KEY `idx_pt_pipeline_env` (`pipeline_id`,`env`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线多环境部署目标映射';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 13. CI/CD - 发布单表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_release` (
+--
+-- Table structure for table `cicd_release`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_release` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `app_name` varchar(191) NOT NULL DEFAULT '' COMMENT '应用名称',
-  `namespace` varchar(191) NOT NULL DEFAULT 'default' COMMENT '命名空间',
-  `workload_kind` varchar(32) NOT NULL DEFAULT 'Deployment' COMMENT '工作负载类型',
-  `workload_name` varchar(191) NOT NULL DEFAULT '' COMMENT '工作负载名称',
-  `container_name` varchar(191) NOT NULL DEFAULT '' COMMENT '容器名称',
-  `strategy` varchar(32) NOT NULL DEFAULT 'rolling' COMMENT '发布策略',
-  `timeout_sec` int unsigned NOT NULL DEFAULT 300 COMMENT '超时时间(秒)',
-  `concurrency` int unsigned NOT NULL DEFAULT 3 COMMENT '并发数',
-  `status` varchar(32) NOT NULL DEFAULT 'Pending' COMMENT '状态',
-  `message` varchar(1024) NOT NULL DEFAULT '' COMMENT '消息',
-  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人',
-  `request_id` varchar(64) NOT NULL DEFAULT '' COMMENT '请求ID',
-  `build_id` bigint NOT NULL DEFAULT 0 COMMENT '关联构建ID',
-  `image_repo` varchar(512) NOT NULL DEFAULT '' COMMENT '镜像仓库',
-  `image_tag` varchar(191) NOT NULL DEFAULT '' COMMENT '镜像标签',
-  `image_digest` varchar(255) DEFAULT NULL COMMENT '镜像摘要',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+  `app_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '应用名称',
+  `namespace` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'default' COMMENT '命名空间',
+  `workload_kind` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Deployment' COMMENT '工作负载类型',
+  `workload_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '工作负载名称',
+  `container_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '容器名称',
+  `strategy` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'rolling' COMMENT '发布策略',
+  `timeout_sec` int unsigned NOT NULL DEFAULT '300' COMMENT '超时时间(秒)',
+  `concurrency` int unsigned NOT NULL DEFAULT '3' COMMENT '并发数',
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending' COMMENT '状态',
+  `message` varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '消息',
+  `created_user_id` bigint NOT NULL DEFAULT '0' COMMENT '创建人',
+  `request_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '请求ID',
+  `build_id` bigint NOT NULL DEFAULT '0' COMMENT '关联构建ID',
+  `image_repo` varchar(512) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像仓库',
+  `image_tag` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '镜像标签',
+  `image_digest` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '镜像摘要',
+  `pipeline_id` bigint NOT NULL DEFAULT '0' COMMENT '关联流水线ID(镜像晋级)',
+  `env` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '目标环境(dev/test/staging/prod)',
+  `source_env` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '晋级来源环境(首次部署为空)',
+  `source_run_id` bigint NOT NULL DEFAULT '0' COMMENT '构建该镜像的流水线运行记录ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
+  `canary_config` json DEFAULT NULL COMMENT '閲戜笣闆?彂甯冮厤缃',
+  `canary_status` json DEFAULT NULL COMMENT '閲戜笣闆?彂甯冪姸鎬',
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_request_id` (`request_id`),
   KEY `idx_app_name` (`app_name`),
   KEY `idx_status` (`status`),
   KEY `idx_build_id` (`build_id`),
   KEY `idx_modified_at` (`modified_at`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD发布单表';
+  KEY `idx_is_del` (`is_del`),
+  KEY `idx_release_pipeline_env` (`pipeline_id`,`env`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD发布单表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 14. CI/CD - 发布阶段表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_release_stage` (
+--
+-- Table structure for table `cicd_release_stage`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_release_stage` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `release_id` bigint NOT NULL DEFAULT 0 COMMENT '发布单ID',
-  `stage_name` varchar(64) NOT NULL DEFAULT '' COMMENT '阶段名称',
-  `stage_order` int NOT NULL DEFAULT 0 COMMENT '阶段顺序',
-  `status` varchar(32) NOT NULL DEFAULT 'pending' COMMENT '状态',
-  `message` varchar(1024) NOT NULL DEFAULT '' COMMENT '消息',
-  `logs` text DEFAULT NULL COMMENT '日志',
-  `start_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '开始时间',
-  `end_time` bigint unsigned NOT NULL DEFAULT 0 COMMENT '结束时间',
-  `duration` bigint NOT NULL DEFAULT 0 COMMENT '持续时间',
-  `build_number` varchar(64) NOT NULL DEFAULT '' COMMENT '构建号',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
+  `release_id` bigint NOT NULL DEFAULT '0' COMMENT '发布单ID',
+  `stage_name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '阶段名称',
+  `stage_order` int NOT NULL DEFAULT '0' COMMENT '阶段顺序',
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT '状态',
+  `message` varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '消息',
+  `logs` text COLLATE utf8mb4_unicode_ci COMMENT '日志',
+  `start_time` bigint unsigned NOT NULL DEFAULT '0' COMMENT '开始时间',
+  `end_time` bigint unsigned NOT NULL DEFAULT '0' COMMENT '结束时间',
+  `duration` bigint NOT NULL DEFAULT '0' COMMENT '持续时间',
+  `build_number` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '构建号',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `idx_release_id` (`release_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD发布阶段表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 15. CI/CD - 发布任务表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_release_task` (
+--
+-- Table structure for table `cicd_release_task`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_release_task` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `release_id` bigint NOT NULL COMMENT '发布单ID',
   `cluster_id` bigint NOT NULL COMMENT '集群ID',
-  `status` varchar(32) NOT NULL DEFAULT 'Pending' COMMENT '状态',
-  `message` varchar(2048) NOT NULL DEFAULT '' COMMENT '消息',
-  `prev_image` varchar(512) NOT NULL DEFAULT '' COMMENT '原镜像',
-  `target_image` varchar(512) NOT NULL DEFAULT '' COMMENT '目标镜像',
-  `started_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '开始时间',
-  `finished_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '结束时间',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending' COMMENT '状态',
+  `message` varchar(2048) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '消息',
+  `prev_image` varchar(512) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '原镜像',
+  `target_image` varchar(512) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '目标镜像',
+  `started_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '开始时间',
+  `finished_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '结束时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `idx_release_id` (`release_id`),
   KEY `idx_cluster_id` (`cluster_id`),
   KEY `idx_status` (`status`),
   KEY `idx_is_del` (`is_del`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD发布任务表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 16. CI/CD - 构建记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_build` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `app_name` varchar(191) NOT NULL DEFAULT '' COMMENT '应用名称',
-  `git_url` varchar(500) NOT NULL DEFAULT '' COMMENT 'Git URL',
-  `git_branch` varchar(100) NOT NULL DEFAULT '' COMMENT 'Git分支',
-  `git_commit` varchar(100) NOT NULL DEFAULT '' COMMENT 'Git Commit',
-  `jenkins_job` varchar(191) NOT NULL DEFAULT '' COMMENT 'Jenkins Job',
-  `jenkins_queue_id` bigint NOT NULL DEFAULT 0 COMMENT 'Jenkins队列ID',
-  `jenkins_build_number` int NOT NULL DEFAULT 0 COMMENT 'Jenkins构建号',
-  `jenkins_build_url` varchar(500) NOT NULL DEFAULT '' COMMENT 'Jenkins构建URL',
-  `status` varchar(50) NOT NULL DEFAULT 'pending' COMMENT '状态',
-  `message` varchar(1024) NOT NULL DEFAULT '' COMMENT '消息',
-  `image_repo` varchar(500) NOT NULL DEFAULT '' COMMENT '镜像仓库',
-  `image_tag` varchar(191) NOT NULL DEFAULT '' COMMENT '镜像标签',
-  `image_digest` varchar(191) DEFAULT NULL COMMENT '镜像摘要',
-  `sbom_ref` varchar(500) NOT NULL DEFAULT '' COMMENT 'SBOM引用',
-  `sign_ref` varchar(500) NOT NULL DEFAULT '' COMMENT '签名引用',
-  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+--
+-- Table structure for table `cicd_resource_change_log`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_resource_change_log` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `pipeline_id` bigint unsigned NOT NULL,
+  `env` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `change_type` enum('create','update','scale','rollback') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `before_config` text COLLATE utf8mb4_unicode_ci COMMENT '变更前配置JSON',
+  `after_config` text COLLATE utf8mb4_unicode_ci COMMENT '变更后配置JSON',
+  `operator_id` bigint unsigned NOT NULL,
+  `operator_name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '变更原因',
+  `created_at` bigint unsigned DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `idx_app_name` (`app_name`),
-  KEY `idx_jenkins_job` (`jenkins_job`),
-  KEY `idx_status` (`status`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD构建记录表';
+  KEY `idx_pipeline_env` (`pipeline_id`,`env`),
+  KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD资源配置变更日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 17. CI/CD - 流水线模板表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_pipeline_template` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name` varchar(100) NOT NULL COMMENT '模板名称',
-  `description` varchar(500) DEFAULT '' COMMENT '模板描述',
-  `type` varchar(50) NOT NULL DEFAULT 'custom' COMMENT '模板类型: frontend/backend/microservice/database/custom',
-  `stages` json DEFAULT NULL COMMENT '阶段配置',
-  `default_env_vars` json DEFAULT NULL COMMENT '默认环境变量',
-  `deploy_config` json DEFAULT NULL COMMENT '默认部署配置',
-  `jenkins_template` text COMMENT 'Jenkinsfile模板',
-  `usage_count` bigint NOT NULL DEFAULT 0 COMMENT '使用次数',
-  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+--
+-- Table structure for table `cicd_resource_template`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cicd_resource_template` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称：small/medium/large/custom',
+  `service_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '服务类型：java/go/node/python',
+  `env` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '环境：dev/test/staging/prod',
+  `replicas_default` int NOT NULL DEFAULT '1' COMMENT '默认副本数',
+  `replicas_min` int NOT NULL DEFAULT '1' COMMENT '最小副本数',
+  `replicas_max` int NOT NULL DEFAULT '10' COMMENT '最大副本数',
+  `cpu_request` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '200m',
+  `cpu_limit` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '500m',
+  `memory_request` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '256Mi',
+  `memory_limit` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '512Mi',
+  `hpa_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用HPA',
+  `hpa_min_replicas` int DEFAULT '2',
+  `hpa_max_replicas` int DEFAULT '10',
+  `hpa_cpu_target` int DEFAULT '70' COMMENT 'CPU目标利用率%',
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '模板说明',
+  `is_default` tinyint(1) DEFAULT '0' COMMENT '是否默认模板',
+  `sort_order` int DEFAULT '0',
+  `created_at` bigint unsigned DEFAULT '0',
+  `modified_at` bigint unsigned DEFAULT '0',
+  `deleted_at` bigint unsigned DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `idx_name` (`name`),
-  KEY `idx_type` (`type`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水线模板表';
+  UNIQUE KEY `uk_type_env_name` (`service_type`,`env`,`name`,`deleted_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD资源档位模板表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 18. 镜像仓库配置表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `image_registry` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '仓库名称',
-  `type` varchar(50) NOT NULL DEFAULT 'docker' COMMENT '类型:docker,harbor,acr,ecr,gcr,quay',
-  `url` varchar(500) NOT NULL COMMENT '仓库地址',
-  `username` varchar(100) DEFAULT '' COMMENT '用户名',
-  `password` varchar(500) DEFAULT '' COMMENT '密码(加密)',
-  `access_key_id` varchar(100) DEFAULT '' COMMENT 'AccessKey ID(云厂商)',
-  `access_key_secret` varchar(200) DEFAULT '' COMMENT 'AccessKey Secret(加密)',
-  `region` varchar(50) DEFAULT '' COMMENT '区域',
-  `insecure` tinyint(1) DEFAULT 0 COMMENT '跳过TLS验证',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `is_default` tinyint(1) DEFAULT 0 COMMENT '是否默认仓库',
-  `status` varchar(50) DEFAULT 'unknown' COMMENT '连接状态',
-  `last_check_at` bigint DEFAULT 0 COMMENT '最后检测时间',
-  `last_error` varchar(500) DEFAULT '' COMMENT '最后错误',
-  `created_by` bigint DEFAULT 0 COMMENT '创建人',
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_registry_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像仓库配置表';
+--
+-- Table structure for table `iam_env_audit_log`
+--
 
--- =====================================================
--- 19. 镜像清理策略表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `image_cleanup_policy` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `registry_id` bigint NOT NULL COMMENT '仓库ID',
-  `name` varchar(100) NOT NULL COMMENT '策略名称',
-  `enabled` tinyint(1) DEFAULT 1 COMMENT '是否启用',
-  `repository_pattern` varchar(200) DEFAULT '*' COMMENT '仓库匹配模式',
-  `tag_pattern` varchar(200) DEFAULT '*' COMMENT '标签匹配模式',
-  `keep_last_count` int DEFAULT 5 COMMENT '保留最近N个',
-  `keep_days` int DEFAULT 30 COMMENT '保留N天内',
-  `cron_expression` varchar(50) DEFAULT '0 2 * * *' COMMENT 'Cron表达式',
-  `last_run_at` bigint DEFAULT 0 COMMENT '最后执行时间',
-  `last_run_result` varchar(500) DEFAULT '' COMMENT '最后执行结果',
-  `deleted_count` bigint DEFAULT 0 COMMENT '累计删除数',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `created_by` bigint DEFAULT 0 COMMENT '创建人',
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_registry_id` (`registry_id`),
-  KEY `idx_enabled` (`enabled`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像清理策略表';
-
--- =====================================================
--- 20. 镜像清理日志表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `image_cleanup_log` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `policy_id` bigint NOT NULL COMMENT '策略ID',
-  `registry_id` bigint NOT NULL COMMENT '仓库ID',
-  `start_time` bigint NOT NULL COMMENT '开始时间',
-  `end_time` bigint DEFAULT 0 COMMENT '结束时间',
-  `status` varchar(20) DEFAULT 'running' COMMENT '状态',
-  `scanned_count` int DEFAULT 0 COMMENT '扫描数',
-  `deleted_count` int DEFAULT 0 COMMENT '删除数',
-  `freed_size` bigint DEFAULT 0 COMMENT '释放空间(字节)',
-  `error_message` text DEFAULT NULL COMMENT '错误信息',
-  `details` json DEFAULT NULL COMMENT '详情',
-  PRIMARY KEY (`id`),
-  KEY `idx_policy_id` (`policy_id`),
-  KEY `idx_start_time` (`start_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像清理日志表';
-
--- =====================================================
--- 21. 平台设置表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `platform_settings` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `category` varchar(50) NOT NULL COMMENT '分类:basic,security,alert,notification',
-  `key` varchar(100) NOT NULL COMMENT '设置键',
-  `value` text DEFAULT NULL COMMENT '设置值',
-  `value_type` varchar(20) DEFAULT 'string' COMMENT '值类型:string,int,bool,json',
-  `label` varchar(100) DEFAULT NULL COMMENT '显示名称',
-  `desc` varchar(500) DEFAULT NULL COMMENT '描述',
-  `created_at` int unsigned DEFAULT NULL,
-  `modified_at` int unsigned DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_category_key` (`category`, `key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台设置表';
-
--- =====================================================
--- 22. IAM - 项目表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_project` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '项目ID',
-  `name` varchar(100) NOT NULL COMMENT '项目名称（唯一标识）',
-  `display_name` varchar(191) NOT NULL COMMENT '显示名称',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `status` varchar(50) NOT NULL DEFAULT 'active' COMMENT '状态: active/archived/disabled',
-  `owner_id` bigint NOT NULL DEFAULT 0 COMMENT '项目负责人ID',
-  `default_cluster_id` bigint DEFAULT NULL COMMENT '默认集群ID',
-  `default_namespace` varchar(100) DEFAULT '' COMMENT '默认命名空间',
-  `allowed_clusters` json DEFAULT NULL COMMENT '允许的集群ID列表',
-  `allowed_namespaces` json DEFAULT NULL COMMENT '允许的命名空间列表（支持通配符）',
-  `labels` json DEFAULT NULL COMMENT '标签（键值对）',
-  `created_by` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否删除',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_name` (`name`),
-  KEY `idx_owner_id` (`owner_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目表';
-
--- =====================================================
--- 23. IAM - 项目成员关系表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_project_member` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `project_id` bigint NOT NULL COMMENT '项目ID',
-  `subject_type` varchar(50) NOT NULL COMMENT '主体类型: user/group',
-  `subject_id` bigint NOT NULL COMMENT '主体ID（用户ID或组ID）',
-  `role` varchar(50) NOT NULL DEFAULT 'viewer' COMMENT '项目角色: owner/admin/developer/viewer',
-  `joined_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '加入时间',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_project_subject` (`project_id`, `subject_type`, `subject_id`),
-  KEY `idx_subject` (`subject_type`, `subject_id`),
-  KEY `idx_project_id` (`project_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目成员关系表';
-
--- =====================================================
--- 24. IAM - 用户组表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_group` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户组ID',
-  `name` varchar(100) NOT NULL COMMENT '组名称（唯一标识）',
-  `display_name` varchar(191) NOT NULL COMMENT '显示名称',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `type` varchar(50) NOT NULL DEFAULT 'custom' COMMENT '类型: system/custom',
-  `parent_id` bigint DEFAULT NULL COMMENT '父组ID（支持层级结构）',
-  `sort_order` int NOT NULL DEFAULT 0 COMMENT '排序顺序',
-  `created_by` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否删除',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_name` (`name`),
-  KEY `idx_parent_id` (`parent_id`),
-  KEY `idx_type` (`type`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户组表';
-
--- =====================================================
--- 25. IAM - 用户组成员关系表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_group_user` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `group_id` bigint NOT NULL COMMENT '用户组ID',
-  `user_id` bigint NOT NULL COMMENT '用户ID',
-  `role` varchar(50) NOT NULL DEFAULT 'member' COMMENT '组内角色: owner/admin/member',
-  `joined_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '加入时间',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_group_user` (`group_id`, `user_id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_group_id` (`group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户组成员关系表';
-
--- =====================================================
--- 26. IAM - 权限模板表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_role_template` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
-  `name` varchar(100) NOT NULL COMMENT '模板名称（唯一标识）',
-  `display_name` varchar(191) NOT NULL COMMENT '显示名称',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `type` varchar(50) NOT NULL COMMENT '模板类型: k8s/cicd/platform',
-  `builtin` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否内置模板',
-  `k8s_rules` json DEFAULT NULL COMMENT 'K8s RBAC规则 [{apiGroups, resources, verbs}]',
-  `k8s_cluster_scope` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否集群级别权限',
-  `cicd_actions` json DEFAULT NULL COMMENT 'CICD操作权限 ["view","run","approve","deploy","rollback","delete"]',
-  `platform_permissions` json DEFAULT NULL COMMENT '平台功能权限 ["cluster:manage","user:manage","audit:view"]',
-  `sort_order` int NOT NULL DEFAULT 0 COMMENT '排序顺序',
-  `created_by` bigint NOT NULL DEFAULT 0 COMMENT '创建人ID',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否删除',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_name` (`name`),
-  KEY `idx_type` (`type`),
-  KEY `idx_builtin` (`builtin`),
-  KEY `idx_is_del` (`is_del`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限模板表';
-
--- =====================================================
--- 27. IAM - 授权记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_grant` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '授权ID',
-  `subject_type` varchar(50) NOT NULL COMMENT '主体类型: user/group/project',
-  `subject_id` bigint NOT NULL COMMENT '主体ID',
-  `subject_name` varchar(191) DEFAULT '' COMMENT '主体名称（冗余）',
-  `scope_type` varchar(50) NOT NULL COMMENT '范围类型: cluster/namespace/cicd_project/cicd_pipeline',
-  `scope_id` bigint DEFAULT NULL COMMENT '范围ID（集群ID/项目ID/流水线ID）',
-  `scope_name` varchar(191) DEFAULT '' COMMENT '范围名称（冗余）',
-  `namespaces` json DEFAULT NULL COMMENT '命名空间列表（支持通配符如 ["default","app-*"]）',
-  `role_template_id` bigint NOT NULL COMMENT '权限模板ID',
-  `role_template_name` varchar(100) DEFAULT '' COMMENT '模板名称（冗余）',
-  `expire_at` bigint unsigned DEFAULT NULL COMMENT '过期时间（NULL 表示永不过期）',
-  `k8s_synced` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'K8s RBAC 是否已同步',
-  `k8s_role_name` varchar(191) DEFAULT '' COMMENT 'K8s Role/ClusterRole 名称',
-  `k8s_binding_name` varchar(191) DEFAULT '' COMMENT 'K8s RoleBinding/ClusterRoleBinding 名称',
-  `k8s_sync_error` varchar(500) DEFAULT '' COMMENT 'K8s 同步错误信息',
-  `k8s_synced_at` bigint unsigned DEFAULT NULL COMMENT 'K8s 同步时间',
-  `status` varchar(50) NOT NULL DEFAULT 'active' COMMENT '状态: active/expired/revoked',
-  `remark` varchar(500) DEFAULT '' COMMENT '备注',
-  `granted_by` bigint NOT NULL DEFAULT 0 COMMENT '授权人ID',
-  `revoked_by` bigint DEFAULT NULL COMMENT '撤销人ID',
-  `revoked_at` bigint unsigned DEFAULT NULL COMMENT '撤销时间',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '修改时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_subject` (`subject_type`, `subject_id`),
-  KEY `idx_scope` (`scope_type`, `scope_id`),
-  KEY `idx_role_template` (`role_template_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_expire_at` (`expire_at`),
-  KEY `idx_granted_by` (`granted_by`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='授权记录表';
-
--- =====================================================
--- 28. IAM - 环境权限绑定表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_env_binding` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `subject_type` varchar(50) NOT NULL COMMENT '主体类型: user/group',
-  `subject_id` bigint NOT NULL COMMENT '主体ID',
-  `subject_name` varchar(191) DEFAULT '' COMMENT '主体名称',
-  `cluster_id` bigint NOT NULL COMMENT '集群ID',
-  `cluster_name` varchar(191) DEFAULT '' COMMENT '集群名称',
-  `env_type` varchar(50) DEFAULT '' COMMENT '环境类型',
-  `namespaces` json DEFAULT NULL COMMENT '命名空间列表',
-  `env_role` varchar(50) NOT NULL COMMENT '环境角色',
-  `custom_actions` json DEFAULT NULL COMMENT '自定义操作权限',
-  `max_env_level` int DEFAULT 1 COMMENT '最高环境级别',
-  `bypass_approval` tinyint(1) DEFAULT 0 COMMENT '是否跳过审批',
-  `k8s_synced` tinyint(1) DEFAULT 0 COMMENT 'K8s RBAC是否已同步',
-  `k8s_role_name` varchar(191) DEFAULT '' COMMENT 'K8s Role名称',
-  `k8s_binding_name` varchar(191) DEFAULT '' COMMENT 'K8s RoleBinding名称',
-  `k8s_sync_error` varchar(500) DEFAULT '' COMMENT 'K8s同步错误',
-  `k8s_synced_at` bigint unsigned DEFAULT NULL COMMENT 'K8s同步时间',
-  `expire_at` bigint unsigned DEFAULT NULL COMMENT '过期时间',
-  `status` varchar(50) DEFAULT 'active' COMMENT '状态: active/expired/revoked',
-  `remark` varchar(500) DEFAULT '' COMMENT '备注',
-  `granted_by` bigint DEFAULT 0 COMMENT '授权人ID',
-  `revoked_by` bigint DEFAULT NULL COMMENT '撤销人ID',
-  `revoked_at` bigint unsigned DEFAULT NULL COMMENT '撤销时间',
-  `created_at` bigint unsigned NOT NULL COMMENT '创建时间',
-  `modified_at` bigint unsigned NOT NULL COMMENT '修改时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_subject` (`subject_type`, `subject_id`),
-  KEY `idx_cluster` (`cluster_id`),
-  KEY `idx_env_type` (`env_type`),
-  KEY `idx_env_role` (`env_role`),
-  KEY `idx_status` (`status`),
-  KEY `idx_k8s_synced` (`k8s_synced`),
-  KEY `idx_expire_at` (`expire_at`),
-  KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='环境权限绑定表';
-
--- =====================================================
--- 29. IAM - 环境操作审计日志表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `iam_env_audit_log` (
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_env_audit_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `user_id` bigint NOT NULL COMMENT '操作用户ID',
-  `username` varchar(191) DEFAULT '' COMMENT '用户名',
-  `action` varchar(50) NOT NULL COMMENT '操作类型',
-  `resource_type` varchar(50) NOT NULL COMMENT '资源类型',
-  `resource_name` varchar(191) DEFAULT '' COMMENT '资源名称',
+  `username` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '用户名',
+  `action` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '操作类型',
+  `resource_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '资源类型',
+  `resource_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '资源名称',
   `cluster_id` bigint DEFAULT NULL COMMENT '集群ID',
-  `cluster_name` varchar(191) DEFAULT '' COMMENT '集群名称',
-  `env_type` varchar(50) DEFAULT '' COMMENT '环境类型',
-  `namespace` varchar(191) DEFAULT '' COMMENT '命名空间',
-  `success` tinyint(1) DEFAULT 1 COMMENT '是否成功',
-  `error_message` varchar(500) DEFAULT '' COMMENT '错误信息',
-  `client_ip` varchar(50) DEFAULT '' COMMENT '客户端IP',
-  `user_agent` varchar(500) DEFAULT '' COMMENT 'User-Agent',
-  `request_id` varchar(64) DEFAULT '' COMMENT '请求ID',
+  `cluster_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '集群名称',
+  `env_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '环境类型',
+  `namespace` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '命名空间',
+  `success` tinyint(1) DEFAULT '1' COMMENT '是否成功',
+  `error_message` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '错误信息',
+  `client_ip` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '客户端IP',
+  `user_agent` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'User-Agent',
+  `request_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '请求ID',
   `detail` json DEFAULT NULL COMMENT '详情',
   `created_at` bigint unsigned NOT NULL COMMENT '创建时间',
   PRIMARY KEY (`id`),
@@ -784,1086 +1001,894 @@ CREATE TABLE IF NOT EXISTS `iam_env_audit_log` (
   KEY `idx_env_type` (`env_type`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='环境操作审计日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 30. 审计日志表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `audit_log` (
-  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
-  `user_id` bigint NOT NULL COMMENT '操作用户ID',
-  `username` varchar(191) NOT NULL COMMENT '操作用户名',
-  `user_ip` varchar(50) DEFAULT '' COMMENT '用户IP',
-  `user_agent` varchar(500) DEFAULT '' COMMENT 'User-Agent',
-  `action` varchar(100) NOT NULL COMMENT '操作类型',
-  `action_display` varchar(191) DEFAULT '' COMMENT '操作显示名称',
-  `module` varchar(100) NOT NULL COMMENT '模块',
-  `target_type` varchar(100) DEFAULT '' COMMENT '目标类型',
-  `target_id` varchar(100) DEFAULT '' COMMENT '目标ID',
-  `target_name` varchar(191) DEFAULT '' COMMENT '目标名称',
-  `request_uri` varchar(500) DEFAULT '' COMMENT '请求URI',
-  `request_method` varchar(10) DEFAULT '' COMMENT '请求方法',
-  `request_body` text COMMENT '请求体',
-  `response_code` int DEFAULT NULL COMMENT '响应状态码',
-  `response_message` varchar(500) DEFAULT '' COMMENT '响应消息',
-  `detail` json DEFAULT NULL COMMENT '操作详情',
-  `extra` json DEFAULT NULL COMMENT '额外信息',
-  `cluster_id` bigint DEFAULT NULL COMMENT '关联集群ID',
-  `cluster_name` varchar(191) DEFAULT '' COMMENT '关联集群名称',
-  `namespace` varchar(100) DEFAULT '' COMMENT '关联命名空间',
-  `pipeline_id` bigint DEFAULT NULL COMMENT '关联流水线ID',
-  `pipeline_name` varchar(191) DEFAULT '' COMMENT '关联流水线名称',
-  `run_id` bigint DEFAULT NULL COMMENT '关联运行记录ID',
-  `project_id` bigint DEFAULT NULL COMMENT '关联项目ID',
-  `project_name` varchar(191) DEFAULT '' COMMENT '关联项目名称',
-  `status` varchar(50) NOT NULL DEFAULT 'success' COMMENT '操作状态: success/failed',
-  `error_message` varchar(1000) DEFAULT '' COMMENT '错误信息',
-  `duration_ms` int DEFAULT 0 COMMENT '操作耗时(ms)',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_action` (`action`),
-  KEY `idx_module` (`module`),
-  KEY `idx_target` (`target_type`, `target_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_created_at` (`created_at`),
-  KEY `idx_cluster_id` (`cluster_id`),
-  KEY `idx_pipeline_id` (`pipeline_id`),
-  KEY `idx_project_id` (`project_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审计日志表';
+--
+-- Table structure for table `iam_env_binding`
+--
 
--- =====================================================
--- 31. 视图 - 用户权限视图
--- =====================================================
-CREATE OR REPLACE VIEW `v_user_permissions` AS
-SELECT 
-  g.user_id, g.subject_type, g.subject_id,
-  g.scope_type, g.scope_id, g.scope_name, g.namespaces,
-  g.role_template_id, rt.name AS role_template_name, rt.type AS role_type,
-  rt.k8s_rules, rt.cicd_actions, rt.platform_permissions,
-  g.expire_at, g.status
-FROM (
-  SELECT subject_id AS user_id, subject_type, subject_id, scope_type, scope_id, scope_name,
-         namespaces, role_template_id, expire_at, status
-  FROM iam_grant ig
-  WHERE ig.subject_type = 'user' AND ig.status = 'active' 
-    AND (ig.expire_at IS NULL OR ig.expire_at > UNIX_TIMESTAMP())
-  UNION ALL
-  SELECT igu.user_id, ig.subject_type, ig.subject_id, ig.scope_type, ig.scope_id, ig.scope_name,
-         ig.namespaces, ig.role_template_id, ig.expire_at, ig.status
-  FROM iam_grant ig
-  JOIN iam_group_user igu ON ig.subject_id = igu.group_id
-  WHERE ig.subject_type = 'group' AND ig.status = 'active'
-    AND (ig.expire_at IS NULL OR ig.expire_at > UNIX_TIMESTAMP())
-) g
-LEFT JOIN iam_role_template rt ON g.role_template_id = rt.id AND rt.is_del = 0;
-
--- =====================================================
--- 32. 视图 - 用户环境权限视图
--- =====================================================
-CREATE OR REPLACE VIEW `v_user_env_permissions` AS
-SELECT 
-  eb.subject_id AS user_id, eb.subject_name AS username,
-  eb.cluster_id, eb.cluster_name, kc.env_type AS cluster_env_type, kc.env_level AS cluster_env_level,
-  kc.access_mode, eb.env_role, eb.max_env_level, eb.bypass_approval,
-  eb.namespaces, eb.status, eb.expire_at, eb.k8s_synced
-FROM iam_env_binding eb
-LEFT JOIN kube_cluster kc ON eb.cluster_id = kc.id
-WHERE eb.subject_type = 'user' AND eb.status = 'active'
-  AND (eb.expire_at IS NULL OR eb.expire_at > UNIX_TIMESTAMP())
-  AND kc.is_del = 0;
-
--- =====================================================
--- 添加缺少的字段 (兼容已有数据库)
--- 注意: 如果字段已存在会报错，可忽略
--- =====================================================
-
--- image_registry 添加云厂商字段 (新安装无需执行，升级时按需执行)
--- 使用存储过程安全添加字段
-DROP PROCEDURE IF EXISTS add_column_if_not_exists;
-DELIMITER //
-CREATE PROCEDURE add_column_if_not_exists()
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='k8s-platform' AND TABLE_NAME='image_registry' AND COLUMN_NAME='access_key_id') THEN
-        ALTER TABLE `image_registry` ADD COLUMN `access_key_id` varchar(100) DEFAULT '' COMMENT 'AccessKey ID' AFTER `password`;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='k8s-platform' AND TABLE_NAME='image_registry' AND COLUMN_NAME='access_key_secret') THEN
-        ALTER TABLE `image_registry` ADD COLUMN `access_key_secret` varchar(200) DEFAULT '' COMMENT 'AccessKey Secret' AFTER `access_key_id`;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='k8s-platform' AND TABLE_NAME='image_registry' AND COLUMN_NAME='region') THEN
-        ALTER TABLE `image_registry` ADD COLUMN `region` varchar(50) DEFAULT '' COMMENT '区域' AFTER `access_key_secret`;
-    END IF;
-END //
-DELIMITER ;
-CALL add_column_if_not_exists();
-DROP PROCEDURE IF EXISTS add_column_if_not_exists;
-
--- =====================================================
--- 初始化 RBAC 角色数据
--- =====================================================
-INSERT IGNORE INTO `sys_role` (`id`, `name`, `display_name`, `description`, `role_type`, `is_system`, `color`, `icon`, `sort_order`, `created_at`, `modified_at`) VALUES
-(1, 'super_admin', '超级管理员', '拥有系统所有权限，可管理所有集群和用户', 'super_admin', 1, '#f5222d', 'crown', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(2, 'cluster_admin', '集群管理员', '可管理指定集群的所有资源', 'cluster_admin', 1, '#fa8c16', 'cluster', 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(3, 'developer', '开发者', '可查看和操作指定命名空间的资源', 'developer', 1, '#1890ff', 'code', 3, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(4, 'viewer', '只读用户', '只能查看指定资源，无法进行修改操作', 'viewer', 1, '#52c41a', 'eye', 4, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- =====================================================
--- 初始化系统权限数据
--- =====================================================
-INSERT IGNORE INTO `sys_permission` (`id`, `name`, `display_name`, `description`, `resource_type`, `action`, `parent_id`, `path`, `sort_order`, `created_at`, `modified_at`) VALUES
--- 集群权限
-(1, 'cluster:view', '查看集群', '查看集群列表和详情', 'cluster', 'view', 0, '/cluster', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(2, 'cluster:create', '创建集群', '添加新的K8s集群', 'cluster', 'create', 0, '/cluster', 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(3, 'cluster:update', '更新集群', '修改集群配置', 'cluster', 'update', 0, '/cluster', 3, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(4, 'cluster:delete', '删除集群', '删除K8s集群', 'cluster', 'delete', 0, '/cluster', 4, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- 命名空间权限
-(5, 'namespace:view', '查看命名空间', '查看命名空间列表', 'namespace', 'view', 0, '/namespace', 5, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(6, 'namespace:create', '创建命名空间', '创建新命名空间', 'namespace', 'create', 0, '/namespace', 6, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(7, 'namespace:delete', '删除命名空间', '删除命名空间', 'namespace', 'delete', 0, '/namespace', 7, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- 工作负载权限
-(8, 'deployment:view', '查看Deployment', '查看Deployment列表和详情', 'deployment', 'view', 0, '/deployment', 10, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(9, 'deployment:create', '创建Deployment', '创建新的Deployment', 'deployment', 'create', 0, '/deployment', 11, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(10, 'deployment:update', '更新Deployment', '修改Deployment配置、扩缩容', 'deployment', 'update', 0, '/deployment', 12, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(11, 'deployment:delete', '删除Deployment', '删除Deployment', 'deployment', 'delete', 0, '/deployment', 13, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- Pod权限
-(12, 'pod:view', '查看Pod', '查看Pod列表、日志', 'pod', 'view', 0, '/pod', 20, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(13, 'pod:delete', '删除Pod', '删除Pod', 'pod', 'delete', 0, '/pod', 21, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(14, 'pod:exec', '进入容器', '执行exec进入容器终端', 'pod', 'exec', 0, '/pod', 22, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- Service权限
-(15, 'service:view', '查看Service', '查看Service列表', 'service', 'view', 0, '/service', 30, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(16, 'service:create', '创建Service', '创建新Service', 'service', 'create', 0, '/service', 31, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(17, 'service:update', '更新Service', '修改Service配置', 'service', 'update', 0, '/service', 32, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(18, 'service:delete', '删除Service', '删除Service', 'service', 'delete', 0, '/service', 33, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- ConfigMap/Secret权限
-(19, 'configmap:view', '查看ConfigMap', '查看ConfigMap', 'configmap', 'view', 0, '/configmap', 40, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(20, 'configmap:manage', '管理ConfigMap', '创建、修改、删除ConfigMap', 'configmap', 'manage', 0, '/configmap', 41, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(21, 'secret:view', '查看Secret', '查看Secret', 'secret', 'view', 0, '/secret', 42, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(22, 'secret:manage', '管理Secret', '创建、修改、删除Secret', 'secret', 'manage', 0, '/secret', 43, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- CI/CD权限
-(23, 'pipeline:view', '查看流水线', '查看CI/CD流水线', 'pipeline', 'view', 0, '/pipeline', 50, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(24, 'pipeline:manage', '管理流水线', '创建、修改、删除、执行流水线', 'pipeline', 'manage', 0, '/pipeline', 51, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- 用户权限
-(25, 'user:view', '查看用户', '查看用户列表', 'user', 'view', 0, '/user', 60, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-(26, 'user:manage', '管理用户', '创建、修改、删除用户，分配角色', 'user', 'manage', 0, '/user', 61, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- =====================================================
--- 初始化角色权限关联 (超级管理员拥有所有权限)
--- =====================================================
-INSERT IGNORE INTO `sys_role_permission` (`role_id`, `permission_id`, `created_at`)
-SELECT 1, id, UNIX_TIMESTAMP() FROM `sys_permission`;
-
--- 集群管理员权限
-INSERT IGNORE INTO `sys_role_permission` (`role_id`, `permission_id`, `created_at`)
-SELECT 2, id, UNIX_TIMESTAMP() FROM `sys_permission` WHERE id BETWEEN 1 AND 24;
-
--- 开发者权限
-INSERT IGNORE INTO `sys_role_permission` (`role_id`, `permission_id`, `created_at`)
-SELECT 3, id, UNIX_TIMESTAMP() FROM `sys_permission` WHERE `action` IN ('view', 'create', 'update', 'exec') AND id NOT IN (25, 26);
-
--- 只读用户权限
-INSERT IGNORE INTO `sys_role_permission` (`role_id`, `permission_id`, `created_at`)
-SELECT 4, id, UNIX_TIMESTAMP() FROM `sys_permission` WHERE `action` = 'view';
-
--- =====================================================
--- 初始化管理员账户 (admin/admin123)
--- =====================================================
-INSERT IGNORE INTO `user` (`id`, `username`, `password`, `role`, `status`, `created_at`, `modified_at`) VALUES
-(1, 'admin', '$2a$10$jWcwxJ.3qLlHaXVZ1nL7MeCsSEXGosmaj1dIFoS74WXq5.gJrfChO', 'admin', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- 关联admin用户为超级管理员
-INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`, `created_at`, `created_by`) VALUES
-(1, 1, UNIX_TIMESTAMP(), 0);
-
--- =====================================================
--- 初始化平台设置
--- =====================================================
-INSERT IGNORE INTO `platform_settings` (`category`, `key`, `value`, `value_type`, `label`, `desc`, `created_at`, `modified_at`) VALUES
--- 基本设置
-('basic', 'default_page', '/clusters', 'string', '默认首页', '登录后默认跳转页面', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('basic', 'default_cluster', 'auto', 'string', '默认集群', '自动选择或指定集群ID', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('basic', 'language', 'zh-CN', 'string', '系统语言', '界面显示语言', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('basic', 'timezone', 'Asia/Shanghai', 'string', '时区', '系统时区设置', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- 安全设置
-('security', 'session_timeout', '120', 'int', '会话超时', '会话超时时间(分钟)', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('security', 'enable_2fa', 'false', 'bool', '双因素认证', '是否启用双因素认证', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('security', 'password_policy', 'medium', 'string', '密码策略', '密码复杂度要求', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('security', 'audit_retention', '30', 'int', '审计保留', '审计日志保留天数', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- 告警设置
-('alert', 'cpu_threshold', '80', 'int', 'CPU告警阈值', 'CPU使用率告警阈值(%)', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('alert', 'mem_threshold', '80', 'int', '内存告警阈值', '内存使用率告警阈值(%)', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('alert', 'disk_threshold', '85', 'int', '磁盘告警阈值', '磁盘使用率告警阈值(%)', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('alert', 'alert_silence', '15', 'int', '告警静默', '告警静默时间(分钟)', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- 通知设置
-('notification', 'enable_email', 'false', 'bool', '邮件通知', '是否启用邮件通知', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('notification', 'smtp_server', '', 'string', 'SMTP服务器', 'SMTP服务器地址', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('notification', 'enable_dingtalk', 'false', 'bool', '钉钉通知', '是否启用钉钉通知', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('notification', 'dingtalk_webhook', '', 'string', '钉钉Webhook', '钉钉机器人Webhook地址', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('notification', 'enable_webhook', 'false', 'bool', 'Webhook通知', '是否启用自定义Webhook', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('notification', 'webhook_url', '', 'string', 'Webhook地址', '自定义Webhook地址', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- =====================================================
--- 示例镜像仓库配置
--- =====================================================
-INSERT IGNORE INTO `image_registry` (`name`, `type`, `url`, `description`, `is_default`, `status`, `created_at`, `modified_at`) VALUES
-('Docker Hub', 'docker', 'https://registry-1.docker.io', 'Docker Hub 官方仓库', 1, 'unknown', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- =====================================================
--- 初始化流水线模板数据
--- =====================================================
-INSERT IGNORE INTO `cicd_pipeline_template` (`id`, `name`, `description`, `type`, `stages`, `default_env_vars`, `deploy_config`, `created_at`, `modified_at`) VALUES
-(
-  1,
-  'Vue3 前端应用模板',
-  '适用于 Vue3 + Vite 前端项目的标准流水线模板',
-  'frontend',
-  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "install", "description": "安装依赖 (npm install)", "order": 2}, {"name": "build", "description": "构建应用 (npm run build)", "order": 3}, {"name": "test", "description": "运行测试 (npm run test)", "order": 4}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 5}, {"name": "deploy", "description": "部署到 K8s", "order": 6}]',
-  '[{"name": "NODE_ENV", "value": "production"}, {"name": "VITE_API_BASE", "value": "https://api.example.com"}]',
-  '{"replicas": 3, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "200m", "memory": "256Mi"}}}',
-  UNIX_TIMESTAMP(),
-  UNIX_TIMESTAMP()
-),
-(
-  2,
-  'Go 微服务模板',
-  '适用于 Go 语言微服务的标准流水线模板',
-  'backend',
-  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "test", "description": "运行单元测试 (go test)", "order": 2}, {"name": "build", "description": "编译 Go 二进制", "order": 3}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 4}, {"name": "push", "description": "推送镜像到 Harbor", "order": 5}, {"name": "deploy", "description": "部署到 K8s", "order": 6}]',
-  '[{"name": "GO111MODULE", "value": "on"}, {"name": "CGO_ENABLED", "value": "0"}]',
-  '{"replicas": 2, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "1000m", "memory": "1024Mi"}, "requests": {"cpu": "500m", "memory": "512Mi"}}}',
-  UNIX_TIMESTAMP(),
-  UNIX_TIMESTAMP()
-),
-(
-  3,
-  'Java Spring Boot 模板',
-  '适用于 Java Spring Boot 项目的标准流水线模板',
-  'backend',
-  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "compile", "description": "Maven 编译 (mvn compile)", "order": 2}, {"name": "test", "description": "运行测试 (mvn test)", "order": 3}, {"name": "package", "description": "打包 (mvn package)", "order": 4}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 5}, {"name": "deploy", "description": "部署到 K8s", "order": 6}]',
-  '[{"name": "JAVA_HOME", "value": "/usr/lib/jvm/java-17"}, {"name": "MAVEN_OPTS", "value": "-Xmx1024m"}]',
-  '{"replicas": 2, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "2000m", "memory": "2048Mi"}, "requests": {"cpu": "1000m", "memory": "1024Mi"}}}',
-  UNIX_TIMESTAMP(),
-  UNIX_TIMESTAMP()
-),
-(
-  4,
-  'Python Flask 模板',
-  '适用于 Python Flask 项目的标准流水线模板',
-  'backend',
-  '[{"name": "checkout", "description": "拉取代码", "order": 1}, {"name": "install", "description": "安装依赖 (pip install)", "order": 2}, {"name": "test", "description": "运行测试 (pytest)", "order": 3}, {"name": "build-image", "description": "构建 Docker 镜像", "order": 4}, {"name": "deploy", "description": "部署到 K8s", "order": 5}]',
-  '[{"name": "PYTHON_VERSION", "value": "3.11"}, {"name": "PIP_INDEX_URL", "value": "https://pypi.tuna.tsinghua.edu.cn/simple"}]',
-  '{"replicas": 2, "strategy": "rollingUpdate", "resources": {"limits": {"cpu": "500m", "memory": "512Mi"}, "requests": {"cpu": "200m", "memory": "256Mi"}}}',
-  UNIX_TIMESTAMP(),
-  UNIX_TIMESTAMP()
-);
-
--- =====================================================
--- 30. CICD - 资源档位模板表
--- =====================================================
-CREATE TABLE IF NOT EXISTS cicd_resource_template (
-    id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    name            VARCHAR(64) NOT NULL COMMENT '模板名称：small/medium/large/custom',
-    service_type    VARCHAR(32) NOT NULL COMMENT '服务类型：java/go/node/python',
-    env             VARCHAR(16) NOT NULL COMMENT '环境：dev/test/staging/prod',
-    
-    -- 资源配置
-    replicas_default INT NOT NULL DEFAULT 1 COMMENT '默认副本数',
-    replicas_min     INT NOT NULL DEFAULT 1 COMMENT '最小副本数',
-    replicas_max     INT NOT NULL DEFAULT 10 COMMENT '最大副本数',
-    
-    cpu_request      VARCHAR(16) NOT NULL DEFAULT '200m',
-    cpu_limit        VARCHAR(16) NOT NULL DEFAULT '500m',
-    memory_request   VARCHAR(16) NOT NULL DEFAULT '256Mi',
-    memory_limit     VARCHAR(16) NOT NULL DEFAULT '512Mi',
-    
-    -- HPA 配置
-    hpa_enabled      TINYINT(1) DEFAULT 0 COMMENT '是否启用HPA',
-    hpa_min_replicas INT DEFAULT 2,
-    hpa_max_replicas INT DEFAULT 10,
-    hpa_cpu_target   INT DEFAULT 70 COMMENT 'CPU目标利用率%',
-    
-    description      VARCHAR(255) DEFAULT '' COMMENT '模板说明',
-    is_default       TINYINT(1) DEFAULT 0 COMMENT '是否默认模板',
-    sort_order       INT DEFAULT 0,
-    created_at       BIGINT UNSIGNED DEFAULT 0,
-    modified_at      BIGINT UNSIGNED DEFAULT 0,
-    deleted_at       BIGINT UNSIGNED DEFAULT 0,
-    
-    UNIQUE KEY uk_type_env_name (service_type, env, name, deleted_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD资源档位模板表';
-
--- =====================================================
--- 31. CICD - 环境资源规则表
--- =====================================================
-CREATE TABLE IF NOT EXISTS cicd_env_resource_rule (
-    id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    env             VARCHAR(16) NOT NULL COMMENT 'dev/test/staging/prod',
-    service_type    VARCHAR(32) DEFAULT '' COMMENT '服务类型，空=通用',
-    
-    -- 资源上限
-    cpu_limit_max       VARCHAR(16) NOT NULL DEFAULT '4' COMMENT 'CPU limit 最大值',
-    memory_limit_max    VARCHAR(16) NOT NULL DEFAULT '8Gi' COMMENT '内存 limit 最大值',
-    replicas_max        INT NOT NULL DEFAULT 10 COMMENT '副本数上限',
-    
-    -- 资源下限（生产环境）
-    cpu_request_min     VARCHAR(16) DEFAULT '' COMMENT 'CPU request 最小值',
-    memory_request_min  VARCHAR(16) DEFAULT '' COMMENT '内存 request 最小值',
-    replicas_min        INT DEFAULT 1 COMMENT '副本数下限',
-    
-    -- 审批规则
-    require_approval    TINYINT(1) DEFAULT 0 COMMENT '是否需要审批',
-    approval_role       VARCHAR(64) DEFAULT '' COMMENT '审批角色：sre/admin',
-    
-    description         VARCHAR(255) DEFAULT '' COMMENT '规则说明',
-    created_at          BIGINT UNSIGNED DEFAULT 0,
-    modified_at         BIGINT UNSIGNED DEFAULT 0,
-    
-    UNIQUE KEY uk_env_type (env, service_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD环境资源规则表';
-
--- =====================================================
--- 32. CICD - 发布审批记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS cicd_deploy_approval (
-    id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    pipeline_id     BIGINT UNSIGNED NOT NULL COMMENT '流水线ID',
-    release_id      BIGINT UNSIGNED DEFAULT 0 COMMENT '发布单ID',
-    env             VARCHAR(16) NOT NULL COMMENT '目标环境',
-    
-    -- 申请配置（JSON）
-    requested_config TEXT COMMENT '申请的资源配置JSON',
-    current_config   TEXT COMMENT '当前线上配置JSON',
-    
-    -- 风险提示
-    risk_level       ENUM('low','medium','high') DEFAULT 'low',
-    risk_warnings    TEXT COMMENT '风险提示列表JSON',
-    
-    -- 审批流程
-    status           ENUM('pending','approved','rejected','expired','cancelled') DEFAULT 'pending',
-    applicant_id     BIGINT UNSIGNED NOT NULL COMMENT '申请人ID',
-    applicant_name   VARCHAR(64) NOT NULL,
-    approver_id      BIGINT UNSIGNED DEFAULT 0 COMMENT '审批人ID',
-    approver_name    VARCHAR(64) DEFAULT '',
-    approve_comment  VARCHAR(500) DEFAULT '' COMMENT '审批意见',
-    
-    applied_at       BIGINT UNSIGNED DEFAULT 0 COMMENT '申请时间',
-    approved_at      BIGINT UNSIGNED DEFAULT 0 COMMENT '审批时间',
-    expired_at       BIGINT UNSIGNED DEFAULT 0 COMMENT '过期时间',
-    
-    INDEX idx_pipeline (pipeline_id),
-    INDEX idx_status (status, applied_at),
-    INDEX idx_applicant (applicant_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD发布审批记录表';
-
--- =====================================================
--- 33. CICD - 资源配置变更日志表
--- =====================================================
-CREATE TABLE IF NOT EXISTS cicd_resource_change_log (
-    id              BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    pipeline_id     BIGINT UNSIGNED NOT NULL,
-    env             VARCHAR(16) NOT NULL,
-    
-    change_type     ENUM('create','update','scale','rollback') NOT NULL,
-    before_config   TEXT COMMENT '变更前配置JSON',
-    after_config    TEXT COMMENT '变更后配置JSON',
-    
-    operator_id     BIGINT UNSIGNED NOT NULL,
-    operator_name   VARCHAR(64) NOT NULL,
-    reason          VARCHAR(500) DEFAULT '' COMMENT '变更原因',
-    
-    created_at      BIGINT UNSIGNED DEFAULT 0,
-    
-    INDEX idx_pipeline_env (pipeline_id, env),
-    INDEX idx_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CICD资源配置变更日志表';
-
--- =====================================================
--- 34. CI/CD - 制品库表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_artifact` (
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_env_binding` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `pipeline_id` bigint DEFAULT NULL COMMENT '关联流水线ID',
-  `run_id` bigint DEFAULT NULL COMMENT '关联运行记录ID',
-  `build_number` int DEFAULT 0 COMMENT 'Jenkins构建号',
-
-  -- 制品基本信息
-  `name` varchar(200) NOT NULL DEFAULT '' COMMENT '制品名称（如 order-service-1.0.0.jar）',
-  `artifact_type` varchar(20) NOT NULL DEFAULT '' COMMENT '制品类型：jar/war/binary/dist/wheel/image/archive',
-  `version` varchar(100) NOT NULL DEFAULT '' COMMENT '版本号',
-  `language_type` varchar(20) NOT NULL DEFAULT '' COMMENT '语言类型：go/java/frontend/python',
-
-  -- 存储信息
-  `file_path` varchar(500) NOT NULL DEFAULT '' COMMENT '文件存储路径',
-  `file_size` bigint NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
-  `sha256` varchar(64) NOT NULL DEFAULT '' COMMENT 'SHA256校验和',
-  `storage_type` varchar(20) NOT NULL DEFAULT 'local' COMMENT '存储类型：local/s3/oss',
-
-  -- Git 信息（构建来源追溯）
-  `git_repo` varchar(500) NOT NULL DEFAULT '' COMMENT 'Git仓库地址',
-  `git_branch` varchar(100) NOT NULL DEFAULT '' COMMENT 'Git分支',
-  `git_commit` varchar(40) NOT NULL DEFAULT '' COMMENT 'Git Commit SHA',
-
-  -- 镜像信息（如果制品已打包为镜像）
-  `image_repo` varchar(500) NOT NULL DEFAULT '' COMMENT '镜像仓库地址',
-  `image_tag` varchar(200) NOT NULL DEFAULT '' COMMENT '镜像标签',
-  `image_digest` varchar(100) NOT NULL DEFAULT '' COMMENT '镜像摘要',
-
-  -- 构建元数据
-  `build_duration` int NOT NULL DEFAULT 0 COMMENT '构建耗时（秒）',
-  `build_log` text COMMENT '构建摘要日志',
-  `metadata` json DEFAULT NULL COMMENT '扩展元数据',
-
-  -- 状态
-  `status` varchar(20) NOT NULL DEFAULT 'ready' COMMENT '状态：uploading/ready/expired/deleted',
-  `download_count` int NOT NULL DEFAULT 0 COMMENT '下载次数',
-
-  -- 元数据
-  `created_user_id` bigint NOT NULL DEFAULT 0 COMMENT '创建人',
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
-
+  `subject_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主体类型: user/group',
+  `subject_id` bigint NOT NULL COMMENT '主体ID',
+  `subject_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '主体名称',
+  `cluster_id` bigint NOT NULL COMMENT '集群ID',
+  `cluster_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '集群名称',
+  `env_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '环境类型',
+  `namespaces` json DEFAULT NULL COMMENT '命名空间列表',
+  `env_role` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '环境角色',
+  `custom_actions` json DEFAULT NULL COMMENT '自定义操作权限',
+  `max_env_level` int DEFAULT '1' COMMENT '最高环境级别',
+  `bypass_approval` tinyint(1) DEFAULT '0' COMMENT '是否跳过审批',
+  `k8s_synced` tinyint(1) DEFAULT '0' COMMENT 'K8s RBAC是否已同步',
+  `k8s_role_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'K8s Role名称',
+  `k8s_binding_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'K8s RoleBinding名称',
+  `k8s_sync_error` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'K8s同步错误',
+  `k8s_synced_at` bigint unsigned DEFAULT NULL COMMENT 'K8s同步时间',
+  `expire_at` bigint unsigned DEFAULT NULL COMMENT '过期时间',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'active' COMMENT '状态: active/expired/revoked',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '备注',
+  `granted_by` bigint DEFAULT '0' COMMENT '授权人ID',
+  `revoked_by` bigint DEFAULT NULL COMMENT '撤销人ID',
+  `revoked_at` bigint unsigned DEFAULT NULL COMMENT '撤销时间',
+  `created_at` bigint unsigned NOT NULL COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL COMMENT '修改时间',
   PRIMARY KEY (`id`),
-  KEY `idx_pipeline_id` (`pipeline_id`),
-  KEY `idx_run_id` (`run_id`),
-  KEY `idx_artifact_type` (`artifact_type`),
+  KEY `idx_subject` (`subject_type`,`subject_id`),
+  KEY `idx_cluster` (`cluster_id`),
+  KEY `idx_env_type` (`env_type`),
+  KEY `idx_env_role` (`env_role`),
   KEY `idx_status` (`status`),
+  KEY `idx_k8s_synced` (`k8s_synced`),
+  KEY `idx_expire_at` (`expire_at`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD 制品库表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='环境权限绑定表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- CICD 资源模板初始数据
--- =====================================================
+--
+-- Table structure for table `iam_grant`
+--
 
--- Java 服务模板
-INSERT IGNORE INTO cicd_resource_template 
-(name, service_type, env, replicas_default, replicas_min, replicas_max, cpu_request, cpu_limit, memory_request, memory_limit, hpa_enabled, description, is_default, sort_order, created_at, modified_at)
-VALUES
-('small',  'java', 'dev',  1, 1, 2,  '200m', '500m', '512Mi', '1Gi',   0, 'Java开发环境-小型，适合本地调试', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'java', 'test', 1, 1, 3,  '500m', '1',    '1Gi',   '2Gi',   0, 'Java测试环境-小型，适合功能测试', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'java', 'prod', 2, 2, 5,  '500m', '1',    '1Gi',   '2Gi',   0, 'Java生产环境-小型，适合低流量服务', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'java', 'prod', 2, 2, 10, '1',    '2',    '2Gi',   '4Gi',   1, 'Java生产环境-中型，适合中等流量服务', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('large',  'java', 'prod', 3, 2, 20, '2',    '4',    '4Gi',   '8Gi',   1, 'Java生产环境-大型，适合高流量核心服务', 0, 3, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- Go 服务模板
-INSERT IGNORE INTO cicd_resource_template 
-(name, service_type, env, replicas_default, replicas_min, replicas_max, cpu_request, cpu_limit, memory_request, memory_limit, hpa_enabled, description, is_default, sort_order, created_at, modified_at)
-VALUES
-('small',  'go', 'dev',  1, 1, 2,  '100m', '200m', '128Mi', '256Mi', 0, 'Go开发环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'go', 'test', 1, 1, 3,  '200m', '500m', '256Mi', '512Mi', 0, 'Go测试环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'go', 'prod', 2, 2, 5,  '200m', '500m', '256Mi', '512Mi', 0, 'Go生产环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'go', 'prod', 2, 2, 10, '500m', '1',    '512Mi', '1Gi',   1, 'Go生产环境-中型', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('large',  'go', 'prod', 3, 2, 20, '1',    '2',    '1Gi',   '2Gi',   1, 'Go生产环境-大型', 0, 3, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- Node 服务模板
-INSERT IGNORE INTO cicd_resource_template 
-(name, service_type, env, replicas_default, replicas_min, replicas_max, cpu_request, cpu_limit, memory_request, memory_limit, hpa_enabled, description, is_default, sort_order, created_at, modified_at)
-VALUES
-('small',  'node', 'dev',  1, 1, 2,  '100m', '300m', '256Mi', '512Mi', 0, 'Node开发环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'node', 'test', 1, 1, 3,  '200m', '500m', '512Mi', '1Gi',   0, 'Node测试环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'node', 'prod', 2, 2, 5,  '200m', '500m', '512Mi', '1Gi',   0, 'Node生产环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'node', 'prod', 2, 2, 10, '500m', '1',    '1Gi',   '2Gi',   1, 'Node生产环境-中型', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- Python 服务模板
-INSERT IGNORE INTO cicd_resource_template 
-(name, service_type, env, replicas_default, replicas_min, replicas_max, cpu_request, cpu_limit, memory_request, memory_limit, hpa_enabled, description, is_default, sort_order, created_at, modified_at)
-VALUES
-('small',  'python', 'dev',  1, 1, 2,  '100m', '300m', '256Mi', '512Mi', 0, 'Python开发环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'python', 'test', 1, 1, 3,  '200m', '500m', '512Mi', '1Gi',   0, 'Python测试环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'python', 'prod', 2, 2, 5,  '200m', '500m', '512Mi', '1Gi',   0, 'Python生产环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'python', 'prod', 2, 2, 10, '500m', '1',    '1Gi',   '2Gi',   1, 'Python生产环境-中型', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- 环境资源规则
-INSERT IGNORE INTO cicd_env_resource_rule 
-(env, service_type, cpu_limit_max, memory_limit_max, replicas_max, cpu_request_min, memory_request_min, replicas_min, require_approval, approval_role, description, created_at, modified_at)
-VALUES
-('dev', '', '1', '2Gi', 3, '', '', 1, 0, '', '开发环境通用规则，资源受限，无需审批', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('test', '', '2', '4Gi', 5, '', '', 1, 0, '', '测试环境通用规则，资源适中，无需审批', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('staging', '', '4', '8Gi', 10, '200m', '256Mi', 2, 0, '', '预发环境通用规则，接近生产配置', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('prod', '', '4', '8Gi', 20, '200m', '256Mi', 2, 1, 'sre', '生产环境通用规则，需要SRE审批', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('prod', 'java', '4', '8Gi', 20, '500m', '1Gi', 2, 1, 'sre', '生产环境Java服务规则，内存最低1Gi', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
-
--- =====================================================
--- 35. CI/CD - 构建探针表（Build Agent）
--- 管理 OTEL Java Agent、SkyWalking、Arthas 等构建探针
--- =====================================================
-CREATE TABLE IF NOT EXISTS `cicd_build_agent` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '探针名称',
-  `display_name` varchar(200) DEFAULT '' COMMENT '显示名称',
-  `description` varchar(1000) DEFAULT '' COMMENT '描述说明',
-  `category` varchar(30) DEFAULT '' COMMENT '分类: observability/diagnostics/security/custom',
-  `scope` varchar(20) DEFAULT '' COMMENT '适用语言: java/go/python/all',
-  `version` varchar(50) DEFAULT '' COMMENT '版本号',
-  `file_name` varchar(300) DEFAULT '' COMMENT '文件名',
-  `file_path` varchar(500) DEFAULT '' COMMENT '存储路径',
-  `file_size` bigint DEFAULT 0 COMMENT '文件大小(字节)',
-  `sha256` varchar(64) DEFAULT '' COMMENT 'SHA256校验和',
-  `download_url` varchar(500) DEFAULT '' COMMENT '官方下载地址',
-  `doc_url` varchar(500) DEFAULT '' COMMENT '文档地址',
-  `icon` varchar(50) DEFAULT '' COMMENT '图标',
-  `docker_copy_dest` varchar(200) DEFAULT '' COMMENT '镜像内目标路径',
-  `env_key` varchar(100) DEFAULT '' COMMENT '注入的环境变量名',
-  `env_value` varchar(2000) DEFAULT '' COMMENT '环境变量默认值模板',
-  `status` varchar(20) NOT NULL DEFAULT 'active' COMMENT '状态: active/inactive',
-  `download_count` int NOT NULL DEFAULT 0 COMMENT '下载次数',
-  `used_count` int NOT NULL DEFAULT 0 COMMENT '被引用次数',
-  `created_user_id` bigint DEFAULT 0,
-  `created_at` bigint unsigned NOT NULL DEFAULT 0,
-  `modified_at` bigint unsigned NOT NULL DEFAULT 0,
-  `deleted_at` bigint unsigned NOT NULL DEFAULT 0,
-  `is_del` tinyint unsigned NOT NULL DEFAULT 0,
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_grant` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '授权ID',
+  `subject_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主体类型: user/group/project',
+  `subject_id` bigint NOT NULL COMMENT '主体ID',
+  `subject_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '主体名称（冗余）',
+  `scope_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '范围类型: cluster/namespace/cicd_project/cicd_pipeline',
+  `scope_id` bigint DEFAULT NULL COMMENT '范围ID（集群ID/项目ID/流水线ID）',
+  `scope_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '范围名称（冗余）',
+  `namespaces` json DEFAULT NULL COMMENT '命名空间列表（支持通配符如 ["default","app-*"]）',
+  `role_template_id` bigint NOT NULL COMMENT '权限模板ID',
+  `role_template_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '模板名称（冗余）',
+  `expire_at` bigint unsigned DEFAULT NULL COMMENT '过期时间（NULL 表示永不过期）',
+  `k8s_synced` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'K8s RBAC 是否已同步',
+  `k8s_role_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'K8s Role/ClusterRole 名称',
+  `k8s_binding_name` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'K8s RoleBinding/ClusterRoleBinding 名称',
+  `k8s_sync_error` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'K8s 同步错误信息',
+  `k8s_synced_at` bigint unsigned DEFAULT NULL COMMENT 'K8s 同步时间',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active' COMMENT '状态: active/expired/revoked',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '备注',
+  `granted_by` bigint NOT NULL DEFAULT '0' COMMENT '授权人ID',
+  `revoked_by` bigint DEFAULT NULL COMMENT '撤销人ID',
+  `revoked_at` bigint unsigned DEFAULT NULL COMMENT '撤销时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '修改时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`),
-  KEY `idx_category` (`category`),
-  KEY `idx_scope` (`scope`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CI/CD 构建探针表';
-
--- =====================================================
--- 36. 应用商城 - 应用表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `app_store_apps` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(128) NOT NULL COMMENT '应用名称',
-  `display_name` varchar(256) DEFAULT '' COMMENT '显示名称',
-  `category` varchar(64) NOT NULL COMMENT '分类',
-  `version` varchar(64) NOT NULL COMMENT '版本号',
-  `icon` varchar(512) DEFAULT '' COMMENT '图标URL或icon名',
-  `description` varchar(1024) DEFAULT '' COMMENT '应用描述',
-  `provider` varchar(128) DEFAULT '' COMMENT '提供方',
-  `chart_url` varchar(512) DEFAULT '' COMMENT 'Helm Chart地址',
-  `doc_url` varchar(512) DEFAULT '' COMMENT '文档地址',
-  `status` tinyint unsigned DEFAULT 1 COMMENT '1可用 2维护 3下架',
-  `featured` tinyint unsigned DEFAULT 0 COMMENT '是否推荐',
-  `sort_order` int DEFAULT 0 COMMENT '排序权重',
-  `tags` varchar(512) DEFAULT '' COMMENT '标签,逗号分隔',
-  `min_k8s` varchar(32) DEFAULT '' COMMENT '最低K8s版本',
-  `namespace` varchar(128) DEFAULT '' COMMENT '默认安装命名空间',
-  `values_yaml` text COMMENT '默认values.yaml',
-  `created_at` int unsigned DEFAULT 0,
-  `modified_at` int unsigned DEFAULT 0,
-  `deleted_at` int unsigned DEFAULT 0,
-  `is_del` tinyint unsigned DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`),
-  KEY `idx_category` (`category`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用商城应用表';
-
--- =====================================================
--- 37. 应用商城 - 组件表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `app_store_components` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `app_id` int unsigned NOT NULL COMMENT '关联应用ID',
-  `name` varchar(128) NOT NULL COMMENT '组件名称',
-  `image` varchar(512) NOT NULL COMMENT '容器镜像',
-  `replicas` int DEFAULT 1 COMMENT '副本数',
-  `ports` varchar(512) DEFAULT '' COMMENT '端口定义JSON',
-  `args` varchar(1024) DEFAULT '' COMMENT '启动参数JSON',
-  `cpu_req` varchar(32) DEFAULT '50m' COMMENT 'CPU Request',
-  `cpu_lim` varchar(32) DEFAULT '200m' COMMENT 'CPU Limit',
-  `mem_req` varchar(32) DEFAULT '64Mi' COMMENT 'Memory Request',
-  `mem_lim` varchar(32) DEFAULT '256Mi' COMMENT 'Memory Limit',
-  `sort_order` int DEFAULT 0 COMMENT '排序(越大越靠前)',
-  `created_at` int unsigned DEFAULT 0,
-  `modified_at` int unsigned DEFAULT 0,
-  `deleted_at` int unsigned DEFAULT 0,
-  `is_del` tinyint unsigned DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_app_id` (`app_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用商城组件表';
-
--- =====================================================
--- 38. 应用商城 - 安装记录表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `app_store_installs` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `app_id` int unsigned NOT NULL COMMENT '应用ID',
-  `app_name` varchar(128) NOT NULL COMMENT '应用名称(冗余)',
-  `cluster_id` int unsigned NOT NULL COMMENT '集群ID',
-  `cluster_name` varchar(128) DEFAULT '' COMMENT '集群名称(冗余)',
-  `namespace` varchar(128) NOT NULL COMMENT '安装命名空间',
-  `release_name` varchar(128) NOT NULL COMMENT 'Release名称',
-  `version` varchar(64) DEFAULT '' COMMENT '安装版本',
-  `values` text COMMENT '自定义values',
-  `status` tinyint unsigned DEFAULT 1 COMMENT '1安装中 2已安装 3失败 4卸载中 5已卸载 6部分就绪',
-  `message` varchar(1024) DEFAULT '' COMMENT '状态消息',
-  `operator` varchar(64) DEFAULT '' COMMENT '操作人',
-  `created_at` int unsigned DEFAULT 0,
-  `modified_at` int unsigned DEFAULT 0,
-  `deleted_at` int unsigned DEFAULT 0,
-  `is_del` tinyint unsigned DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_app_id` (`app_id`),
-  KEY `idx_cluster_id` (`cluster_id`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用商城安装记录表';
-
--- =====================================================
--- 39. AI 助手 - 会话表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `ai_conversations` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int unsigned NOT NULL COMMENT '关联用户ID',
-  `title` varchar(200) NOT NULL DEFAULT '新对话' COMMENT '会话标题',
-  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '1=活跃 2=归档',
-  `created_at` int unsigned NOT NULL DEFAULT 0,
-  `modified_at` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 助手会话表';
-
--- =====================================================
--- 40. AI 助手 - 聊天消息表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `ai_messages` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `conversation_id` int unsigned NOT NULL COMMENT '关联会话ID',
-  `role` varchar(20) NOT NULL COMMENT 'system/user/assistant/tool',
-  `content` text COMMENT '消息内容',
-  `intent_json` text COMMENT '意图识别结果JSON',
-  `token_used` int NOT NULL DEFAULT 0 COMMENT 'Token消耗',
-  `created_at` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_conversation_id` (`conversation_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 助手消息表';
-
--- =====================================================
--- 41. AI 助手 - 高危操作审批请求表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `ai_approval_requests` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `conversation_id` int unsigned NOT NULL DEFAULT 0 COMMENT '关联AI会话ID',
-  `request_user_id` int unsigned NOT NULL COMMENT '发起人ID',
-  `approver_user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '审批人ID',
-  `intent` varchar(50) NOT NULL COMMENT '操作意图: delete/drain/scale',
-  `resource` varchar(100) NOT NULL DEFAULT '' COMMENT '资源类型',
-  `resource_name` varchar(200) NOT NULL DEFAULT '' COMMENT '资源名称',
-  `namespace` varchar(100) NOT NULL DEFAULT '' COMMENT '命名空间',
-  `cluster_id` int unsigned NOT NULL DEFAULT 0 COMMENT '目标集群ID',
-  `risk_level` varchar(20) NOT NULL DEFAULT 'medium' COMMENT '风险等级',
-  `operation_json` text COMMENT '完整操作参数JSON',
-  `tool_name` varchar(100) NOT NULL DEFAULT '' COMMENT 'Function Calling工具名',
-  `tool_args_json` text COMMENT '工具调用参数JSON',
-  `tool_call_id` varchar(100) NOT NULL DEFAULT '' COMMENT 'OpenAI tool_call_id',
-  `execute_result` text COMMENT '执行结果',
-  `executed` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已执行',
-  `summary` varchar(500) NOT NULL DEFAULT '' COMMENT '操作摘要(AI生成)',
-  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '1=待审批 2=已通过 3=已拒绝 4=已过期 5=已取消',
-  `approve_comment` varchar(500) NOT NULL DEFAULT '' COMMENT '审批备注',
-  `expire_at` int unsigned NOT NULL DEFAULT 0 COMMENT '过期时间戳',
-  `created_at` int unsigned NOT NULL DEFAULT 0,
-  `modified_at` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_request_user_id` (`request_user_id`),
+  KEY `idx_subject` (`subject_type`,`subject_id`),
+  KEY `idx_scope` (`scope_type`,`scope_id`),
+  KEY `idx_role_template` (`role_template_id`),
   KEY `idx_status` (`status`),
-  KEY `idx_conversation_id` (`conversation_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 高危操作审批请求表';
+  KEY `idx_expire_at` (`expire_at`),
+  KEY `idx_granted_by` (`granted_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='授权记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 42. AI 助手 - 审批操作日志表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `ai_approval_logs` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `approval_id` int unsigned NOT NULL COMMENT '关联审批请求ID',
-  `user_id` int unsigned NOT NULL COMMENT '操作人ID',
-  `action` varchar(50) NOT NULL COMMENT 'create/approve/reject/cancel/expire',
-  `comment` varchar(500) NOT NULL DEFAULT '' COMMENT '操作说明',
-  `created_at` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_approval_id` (`approval_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 审批操作日志表';
+--
+-- Table structure for table `iam_group`
+--
 
--- =====================================================
--- 43. 监控 - 数据源表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_datasource` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '数据源名称',
-  `type` varchar(30) NOT NULL COMMENT 'prometheus/loki/alertmanager/grafana/victoriametrics',
-  `url` varchar(500) NOT NULL COMMENT '连接地址',
-  `description` varchar(500) DEFAULT '' COMMENT '描述',
-  `cluster_id` bigint NOT NULL DEFAULT 0 COMMENT '关联 K8s 集群 ID（0=全局/未关联）',
-  `access_mode` varchar(20) DEFAULT 'proxy' COMMENT 'proxy/direct',
-  `auth_type` varchar(20) DEFAULT 'none' COMMENT 'none/basic/bearer/tls',
-  `auth_user` varchar(100) DEFAULT '',
-  `auth_pass` varchar(500) DEFAULT '',
-  `tls_cert` text,
-  `tls_key` text,
-  `ca_cert` text,
-  `is_default` tinyint(1) DEFAULT 0,
-  `enabled` tinyint(1) DEFAULT 1,
-  `timeout` int DEFAULT 30,
-  `scrape_interval` int DEFAULT 15,
-  `status` varchar(20) DEFAULT 'unknown' COMMENT 'connected/disconnected/unknown',
-  `last_check_at` bigint DEFAULT 0,
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_group` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户组ID',
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '组名称（唯一标识）',
+  `display_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '显示名称',
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '描述',
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'custom' COMMENT '类型: system/custom',
+  `parent_id` bigint DEFAULT NULL COMMENT '父组ID（支持层级结构）',
+  `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序顺序',
+  `created_by` bigint NOT NULL DEFAULT '0' COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '修改时间',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '删除时间',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '是否删除',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_parent_id` (`parent_id`),
   KEY `idx_type` (`type`),
-  KEY `idx_cluster_id` (`cluster_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控数据源表';
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户组表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- 【兼容存量集群】monitor_datasource 幂等补丁：若老库已存在该表但缺 `cluster_id`字段/索引，自动补上
-SET @col_exists := (
-    SELECT COUNT(*) FROM information_schema.columns
-    WHERE table_schema = DATABASE()
-      AND table_name = 'monitor_datasource'
-      AND column_name = 'cluster_id'
-);
-SET @sql := IF(@col_exists = 0,
-    'ALTER TABLE `monitor_datasource` ADD COLUMN `cluster_id` BIGINT NOT NULL DEFAULT 0 COMMENT ''关联 K8s 集群 ID（0=全局/未关联）'' AFTER `description`',
-    'SELECT ''column cluster_id already exists, skip'' AS msg'
-);
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+--
+-- Table structure for table `iam_group_user`
+--
 
-SET @idx_exists := (
-    SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = DATABASE()
-      AND table_name = 'monitor_datasource'
-      AND index_name = 'idx_cluster_id'
-);
-SET @sql := IF(@idx_exists = 0,
-    'ALTER TABLE `monitor_datasource` ADD INDEX `idx_cluster_id` (`cluster_id`)',
-    'SELECT ''index idx_cluster_id already exists, skip'' AS msg'
-);
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
--- =====================================================
--- 44. 监控 - 告警规则表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_alert_rule` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `datasource_id` bigint NOT NULL COMMENT '关联数据源',
-  `name` varchar(200) NOT NULL COMMENT '规则名称',
-  `group` varchar(100) DEFAULT 'default' COMMENT '规则分组',
-  `severity` varchar(20) NOT NULL COMMENT 'critical/warning/info',
-  `expr` text NOT NULL COMMENT 'PromQL 表达式',
-  `duration` varchar(20) DEFAULT '5m' COMMENT '持续时间(for)',
-  `summary` varchar(500) DEFAULT '' COMMENT '告警摘要模板',
-  `description` text COMMENT '告警描述模板',
-  `labels` text COMMENT '额外标签JSON',
-  `annotations` text COMMENT '额外注解JSON',
-  `enabled` tinyint(1) DEFAULT 1,
-  `notify_channels` varchar(500) DEFAULT '' COMMENT '通知渠道',
-  `notify_url` varchar(500) DEFAULT '' COMMENT 'webhook URL',
-  `eval_interval` int DEFAULT 60 COMMENT '评估间隔(秒)',
-  `last_eval_at` bigint DEFAULT 0,
-  `last_eval_result` varchar(20) DEFAULT '' COMMENT 'normal/firing/pending/error',
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_group_user` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `group_id` bigint NOT NULL COMMENT '用户组ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `role` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'member' COMMENT '组内角色: owner/admin/member',
+  `joined_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '加入时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
   PRIMARY KEY (`id`),
-  KEY `idx_datasource_id` (`datasource_id`),
-  KEY `idx_severity` (`severity`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警规则表';
+  UNIQUE KEY `uk_group_user` (`group_id`,`user_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_group_id` (`group_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户组成员关系表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 45. 监控 - 告警事件表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_alert_event` (
+--
+-- Table structure for table `iam_project`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_project` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '项目ID',
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '项目名称（唯一标识）',
+  `display_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '显示名称',
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '描述',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active' COMMENT '状态: active/archived/disabled',
+  `owner_id` bigint NOT NULL DEFAULT '0' COMMENT '项目负责人ID',
+  `default_cluster_id` bigint DEFAULT NULL COMMENT '默认集群ID',
+  `default_namespace` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '默认命名空间',
+  `allowed_clusters` json DEFAULT NULL COMMENT '允许的集群ID列表',
+  `allowed_namespaces` json DEFAULT NULL COMMENT '允许的命名空间列表（支持通配符）',
+  `labels` json DEFAULT NULL COMMENT '标签（键值对）',
+  `created_by` bigint NOT NULL DEFAULT '0' COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '修改时间',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '删除时间',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_owner_id` (`owner_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `iam_project_member`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_project_member` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `project_id` bigint NOT NULL COMMENT '项目ID',
+  `subject_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主体类型: user/group',
+  `subject_id` bigint NOT NULL COMMENT '主体ID（用户ID或组ID）',
+  `role` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'viewer' COMMENT '项目角色: owner/admin/developer/viewer',
+  `joined_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '加入时间',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_project_subject` (`project_id`,`subject_type`,`subject_id`),
+  KEY `idx_subject` (`subject_type`,`subject_id`),
+  KEY `idx_project_id` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目成员关系表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `iam_role_template`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `iam_role_template` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板名称（唯一标识）',
+  `display_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '显示名称',
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '描述',
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板类型: k8s/cicd/platform',
+  `builtin` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否内置模板',
+  `k8s_rules` json DEFAULT NULL COMMENT 'K8s RBAC规则 [{apiGroups, resources, verbs}]',
+  `k8s_cluster_scope` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否集群级别权限',
+  `cicd_actions` json DEFAULT NULL COMMENT 'CICD操作权限 ["view","run","approve","deploy","rollback","delete"]',
+  `platform_permissions` json DEFAULT NULL COMMENT '平台功能权限 ["cluster:manage","user:manage","audit:view"]',
+  `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序顺序',
+  `created_by` bigint NOT NULL DEFAULT '0' COMMENT '创建人ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '修改时间',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '删除时间',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_builtin` (`builtin`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限模板表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `image_cleanup_log`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `image_cleanup_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `rule_id` bigint NOT NULL COMMENT '关联告警规则',
-  `datasource_id` bigint NOT NULL COMMENT '关联数据源',
-  `rule_name` varchar(200) DEFAULT '' COMMENT '冗余规则名',
-  `severity` varchar(20) NOT NULL COMMENT '严重级别',
-  `status` varchar(20) NOT NULL COMMENT 'firing/resolved/silenced',
-  `value` varchar(100) DEFAULT '' COMMENT '触发时的值',
-  `labels` text COMMENT '标签JSON',
-  `annotations` text COMMENT '注解JSON',
-  `summary` varchar(500) DEFAULT '',
-  `description` text,
-  `fired_at` bigint NOT NULL COMMENT '触发时间',
-  `resolved_at` bigint DEFAULT 0 COMMENT '恢复时间',
-  `acked_by` bigint DEFAULT 0 COMMENT '确认人',
-  `acked_at` bigint DEFAULT 0 COMMENT '确认时间',
-  `silenced_until` bigint DEFAULT 0 COMMENT '静默截止',
-  `notify_result` varchar(200) DEFAULT '' COMMENT '通知结果',
-  `created_at` bigint DEFAULT 0,
+  `policy_id` bigint NOT NULL COMMENT '策略ID',
+  `registry_id` bigint NOT NULL COMMENT '仓库ID',
+  `start_time` bigint NOT NULL COMMENT '开始时间',
+  `end_time` bigint DEFAULT '0' COMMENT '结束时间',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'running' COMMENT '状态',
+  `scanned_count` int DEFAULT '0' COMMENT '扫描数',
+  `deleted_count` int DEFAULT '0' COMMENT '删除数',
+  `freed_size` bigint DEFAULT '0' COMMENT '释放空间(字节)',
+  `error_message` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+  `details` json DEFAULT NULL COMMENT '详情',
+  PRIMARY KEY (`id`),
+  KEY `idx_policy_id` (`policy_id`),
+  KEY `idx_start_time` (`start_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像清理日志表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `image_cleanup_policy`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `image_cleanup_policy` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `registry_id` bigint NOT NULL COMMENT '仓库ID',
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '策略名称',
+  `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+  `repository_pattern` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '*' COMMENT '仓库匹配模式',
+  `tag_pattern` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '*' COMMENT '标签匹配模式',
+  `keep_last_count` int DEFAULT '5' COMMENT '保留最近N个',
+  `keep_days` int DEFAULT '30' COMMENT '保留N天内',
+  `cron_expression` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '0 2 * * *' COMMENT 'Cron表达式',
+  `last_run_at` bigint DEFAULT '0' COMMENT '最后执行时间',
+  `last_run_result` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '最后执行结果',
+  `deleted_count` bigint DEFAULT '0' COMMENT '累计删除数',
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '描述',
+  `created_by` bigint DEFAULT '0' COMMENT '创建人',
+  `created_at` bigint DEFAULT '0',
+  `modified_at` bigint DEFAULT '0',
+  `is_del` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_registry_id` (`registry_id`),
+  KEY `idx_enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像清理策略表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `image_registry`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `image_registry` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '仓库名称',
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'docker' COMMENT '类型:docker,harbor,acr,ecr,gcr,quay',
+  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '仓库地址',
+  `username` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '用户名',
+  `password` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '密码(加密)',
+  `access_key_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'AccessKey ID(云厂商)',
+  `access_key_secret` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'AccessKey Secret(加密)',
+  `region` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '区域',
+  `insecure` tinyint(1) DEFAULT '0' COMMENT '跳过TLS验证',
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '描述',
+  `is_default` tinyint(1) DEFAULT '0' COMMENT '是否默认仓库',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'unknown' COMMENT '连接状态',
+  `last_check_at` bigint DEFAULT '0' COMMENT '最后检测时间',
+  `last_error` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '最后错误',
+  `created_by` bigint DEFAULT '0' COMMENT '创建人',
+  `created_at` bigint DEFAULT '0',
+  `modified_at` bigint DEFAULT '0',
+  `is_del` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_registry_name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='镜像仓库配置表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `kube_cluster`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `kube_cluster` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `cluster_name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '集群名称',
+  `kube_config` longtext COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'KubeConfig(加密存储)',
+  `cluster_version` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '集群版本',
+  `status` tinyint unsigned NOT NULL DEFAULT '2' COMMENT '状态:0=正常,1=异常,2=未检测',
+  `env_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'development' COMMENT '环境类型:development,testing,staging,production',
+  `env_display_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '环境显示名称',
+  `env_level` int DEFAULT '1' COMMENT '环境级别:1-4(开发到生产)',
+  `access_mode` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'restricted' COMMENT '访问模式:public,restricted,private',
+  `require_approval` tinyint(1) DEFAULT '0' COMMENT '操作是否需要审批',
+  `approval_users` json DEFAULT NULL COMMENT '审批人列表',
+  `env_color` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '环境颜色标识',
+  `env_description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '环境描述',
+  `env_labels` json DEFAULT NULL COMMENT '环境标签',
+  `project_ids` json DEFAULT NULL COMMENT '关联项目ID列表',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `modified_at` bigint unsigned NOT NULL DEFAULT '0',
+  `deleted_at` bigint unsigned NOT NULL DEFAULT '0',
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
+  `last_check_at` bigint unsigned NOT NULL DEFAULT '0' COMMENT '最后检查时间',
+  `last_error` varchar(1024) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '最后错误信息',
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_modified` (`modified_at`),
+  KEY `idx_is_del` (`is_del`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='K8s集群配置表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `monitor_aggregate_rule`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_aggregate_rule` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `group_by` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `group_wait` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '30s',
+  `group_interval` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '5m',
+  `repeat_interval` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '4h',
+  `matchers` text COLLATE utf8mb4_unicode_ci,
+  `channel_ids` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `enabled` tinyint(1) DEFAULT '1',
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警聚合规则表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `monitor_alert_event`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_alert_event` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `rule_id` bigint NOT NULL,
+  `datasource_id` bigint NOT NULL,
+  `rule_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `severity` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `value` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `labels` text COLLATE utf8mb4_unicode_ci,
+  `annotations` text COLLATE utf8mb4_unicode_ci,
+  `summary` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `fired_at` bigint NOT NULL,
+  `resolved_at` bigint DEFAULT NULL,
+  `acked_by` bigint DEFAULT NULL,
+  `acked_at` bigint DEFAULT NULL,
+  `silenced_until` bigint DEFAULT NULL,
+  `notify_result` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_rule_id` (`rule_id`),
   KEY `idx_datasource_id` (`datasource_id`),
   KEY `idx_severity` (`severity`),
   KEY `idx_status` (`status`),
-  KEY `idx_fired_at` (`fired_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警事件表';
+  KEY `idx_fired_at` (`fired_at`),
+  KEY `idx_monitor_alert_event_rule_id` (`rule_id`),
+  KEY `idx_monitor_alert_event_datasource_id` (`datasource_id`),
+  KEY `idx_monitor_alert_event_severity` (`severity`),
+  KEY `idx_monitor_alert_event_status` (`status`),
+  KEY `idx_monitor_alert_event_fired_at` (`fired_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警事件表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 46. 监控 - 通知渠道表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_notify_channel` (
+--
+-- Table structure for table `monitor_alert_rule`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_alert_rule` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '渠道名称',
-  `type` varchar(30) NOT NULL COMMENT 'dingtalk/feishu/webhook/email/wechat',
-  `description` varchar(500) DEFAULT '',
-  `webhook_url` varchar(500) DEFAULT '',
-  `secret` varchar(500) DEFAULT '' COMMENT '签名密钥',
-  `at_mobiles` varchar(500) DEFAULT '' COMMENT '@手机号列表',
-  `at_all` tinyint(1) DEFAULT 0,
-  `smtp_host` varchar(200) DEFAULT '',
-  `smtp_port` int DEFAULT 465,
-  `smtp_user` varchar(200) DEFAULT '',
-  `smtp_pass` varchar(200) DEFAULT '',
-  `smtp_to` text COMMENT '收件人列表',
-  `msg_template` text COMMENT '消息模板',
-  `enabled` tinyint(1) DEFAULT 1,
-  `send_resolved` tinyint(1) DEFAULT 1,
-  `rate_limit` int DEFAULT 10 COMMENT '限流',
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
+  `datasource_id` bigint NOT NULL,
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `group` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'default',
+  `severity` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expr` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `duration` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '5m',
+  `summary` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `labels` text COLLATE utf8mb4_unicode_ci,
+  `annotations` text COLLATE utf8mb4_unicode_ci,
+  `enabled` tinyint(1) DEFAULT '1',
+  `notify_channels` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notify_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `eval_interval` bigint DEFAULT '60',
+  `last_eval_at` bigint DEFAULT NULL,
+  `last_eval_result` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
+  `pending_since` bigint DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`),
-  KEY `idx_type` (`type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控通知渠道表';
+  KEY `idx_datasource_id` (`datasource_id`),
+  KEY `idx_severity` (`severity`),
+  KEY `idx_monitor_alert_rule_datasource_id` (`datasource_id`),
+  KEY `idx_monitor_alert_rule_severity` (`severity`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警规则表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 47. 监控 - 告警静默规则表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_silence_rule` (
+--
+-- Table structure for table `monitor_datasource`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_datasource` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(200) NOT NULL,
-  `type` varchar(30) NOT NULL COMMENT 'silence/inhibit/aggregate',
-  `matchers` text NOT NULL COMMENT '匹配条件JSON',
-  `starts_at` bigint DEFAULT 0,
-  `ends_at` bigint DEFAULT 0,
-  `duration` varchar(30) DEFAULT '',
-  `repeat_type` varchar(20) DEFAULT 'once' COMMENT 'once/daily/weekly/cron',
-  `repeat_cron` varchar(100) DEFAULT '',
-  `comment` varchar(500) DEFAULT '',
-  `enabled` tinyint(1) DEFAULT 1,
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cluster_id` bigint DEFAULT '0',
+  `access_mode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'proxy',
+  `auth_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'none',
+  `auth_user` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `auth_pass` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tls_cert` text COLLATE utf8mb4_unicode_ci,
+  `tls_key` text COLLATE utf8mb4_unicode_ci,
+  `ca_cert` text COLLATE utf8mb4_unicode_ci,
+  `is_default` tinyint(1) DEFAULT '0',
+  `enabled` tinyint(1) DEFAULT '1',
+  `timeout` int DEFAULT '30',
+  `scrape_interval` int DEFAULT '15',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'unknown',
+  `last_check_at` bigint DEFAULT NULL,
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `idx_type` (`type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警静默规则表';
+  UNIQUE KEY `idx_monitor_datasource_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_monitor_datasource_type` (`type`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_monitor_datasource_cluster_id` (`cluster_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控数据源表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 48. 监控 - 告警抑制规则表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_inhibit_rule` (
+--
+-- Table structure for table `monitor_inhibit_rule`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_inhibit_rule` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(200) NOT NULL,
-  `source_matchers` text NOT NULL COMMENT '源告警匹配JSON',
-  `target_matchers` text NOT NULL COMMENT '目标告警匹配JSON',
-  `equal_labels` varchar(500) DEFAULT '' COMMENT '关联标签',
-  `description` varchar(500) DEFAULT '',
-  `enabled` tinyint(1) DEFAULT 1,
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_matchers` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_matchers` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `equal_labels` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `enabled` tinyint(1) DEFAULT '1',
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警抑制规则表';
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警抑制规则表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 49. 监控 - 告警聚合规则表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_aggregate_rule` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(200) NOT NULL,
-  `group_by` varchar(500) NOT NULL COMMENT '聚合维度',
-  `group_wait` varchar(20) DEFAULT '30s',
-  `group_interval` varchar(20) DEFAULT '5m',
-  `repeat_interval` varchar(20) DEFAULT '4h',
-  `matchers` text COMMENT '匹配条件JSON',
-  `channel_ids` varchar(200) DEFAULT '' COMMENT '通知渠道ID列表',
-  `enabled` tinyint(1) DEFAULT 1,
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警聚合规则表';
+--
+-- Table structure for table `monitor_notify_channel`
+--
 
--- =====================================================
--- 50. 监控 - 通知模板表
--- =====================================================
-CREATE TABLE IF NOT EXISTS `monitor_notify_template` (
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_notify_channel` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `type` varchar(30) NOT NULL COMMENT 'dingtalk/feishu/wechat/email/webhook',
-  `scene` varchar(30) NOT NULL DEFAULT 'alert' COMMENT 'alert/resolved/test',
-  `title` varchar(200) DEFAULT '',
-  `content` text NOT NULL COMMENT '模板内容',
-  `description` varchar(500) DEFAULT '',
-  `is_default` tinyint(1) DEFAULT 0,
-  `enabled` tinyint(1) DEFAULT 1,
-  `created_by` bigint DEFAULT 0,
-  `created_at` bigint DEFAULT 0,
-  `modified_at` bigint DEFAULT 0,
-  `is_del` tinyint(1) DEFAULT 0,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `webhook_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `secret` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `at_mobiles` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `at_all` tinyint(1) DEFAULT '0',
+  `smtp_host` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `smtp_port` int DEFAULT '465',
+  `smtp_user` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `smtp_pass` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `smtp_to` text COLLATE utf8mb4_unicode_ci,
+  `msg_template` text COLLATE utf8mb4_unicode_ci,
+  `enabled` tinyint(1) DEFAULT '1',
+  `send_resolved` tinyint(1) DEFAULT '1',
+  `rate_limit` bigint DEFAULT '10',
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
+  `security_keyword` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_name` (`name`),
-  KEY `idx_type` (`type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控通知模板表';
+  UNIQUE KEY `idx_monitor_notify_channel_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_monitor_notify_channel_type` (`type`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控通知渠道表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- =====================================================
--- 构建探针种子数据（OpenTelemetry Java Agent）
--- =====================================================
-INSERT IGNORE INTO `cicd_build_agent`
-(name, display_name, description, category, scope, version, file_name, file_path, file_size, download_url, doc_url, icon, docker_copy_dest, env_key, env_value, status, created_at, modified_at)
-VALUES
-('opentelemetry-javaagent', 'OpenTelemetry Java Agent',
- 'OpenTelemetry 官方 Java 自动埋点 Agent，通过 -javaagent 注入，自动采集 Trace/Metrics 并通过 OTLP 协议上报到 Collector。',
- 'observability', 'java', '1.33.0',
- 'opentelemetry-javaagent.jar', './storage/agents/observability/opentelemetry-javaagent/opentelemetry-javaagent.jar',
- 0,
- 'https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases',
- 'https://opentelemetry.io/docs/instrumentation/java/automatic/',
- 'OTEL',
- '/app/opentelemetry-javaagent.jar',
- 'OTEL_OPTS',
- '-javaagent:/app/opentelemetry-javaagent.jar -Dotel.service.name=${SERVICE_NAME} -Dotel.traces.exporter=otlp -Dotel.metrics.exporter=none -Dotel.logs.exporter=none -Dotel.exporter.otlp.endpoint=http://otel-collector-monitoring.svc.cluster.local:4318',
- 'active', UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
+--
+-- Table structure for table `monitor_notify_route_policy`
+--
 
--- =====================================================
--- CICD 资源档位模板（必需字典数据）
--- 唯一键 (service_type, env, name, deleted_at) 保证幂等
--- =====================================================
-INSERT IGNORE INTO cicd_resource_template
-(name, service_type, env, replicas_default, replicas_min, replicas_max, cpu_request, cpu_limit, memory_request, memory_limit, hpa_enabled, description, is_default, sort_order, created_at, modified_at)
-VALUES
--- Java 服务模板
-('small',  'java', 'dev',  1, 1, 2,  '200m', '500m', '512Mi', '1Gi',   0, 'Java开发环境-小型，适合本地调试',     1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'java', 'test', 1, 1, 3,  '500m', '1',    '1Gi',   '2Gi',   0, 'Java测试环境-小型，适合功能测试',     1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'java', 'prod', 2, 2, 5,  '500m', '1',    '1Gi',   '2Gi',   0, 'Java生产环境-小型，适合低流量服务',   1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'java', 'prod', 2, 2, 10, '1',    '2',    '2Gi',   '4Gi',   1, 'Java生产环境-中型，适合中等流量服务', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('large',  'java', 'prod', 3, 2, 20, '2',    '4',    '4Gi',   '8Gi',   1, 'Java生产环境-大型，适合高流量核心',   0, 3, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- Go 服务模板
-('small',  'go', 'dev',  1, 1, 2,  '100m', '200m', '128Mi', '256Mi', 0, 'Go开发环境-小型',  1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'go', 'test', 1, 1, 3,  '200m', '500m', '256Mi', '512Mi', 0, 'Go测试环境-小型',  1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'go', 'prod', 2, 2, 5,  '200m', '500m', '256Mi', '512Mi', 0, 'Go生产环境-小型',  1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'go', 'prod', 2, 2, 10, '500m', '1',    '512Mi', '1Gi',   1, 'Go生产环境-中型',  0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('large',  'go', 'prod', 3, 2, 20, '1',    '2',    '1Gi',   '2Gi',   1, 'Go生产环境-大型',  0, 3, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- Node 服务模板
-('small',  'node', 'dev',  1, 1, 2,  '100m', '300m', '256Mi', '512Mi', 0, 'Node开发环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'node', 'test', 1, 1, 3,  '200m', '500m', '512Mi', '1Gi',   0, 'Node测试环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'node', 'prod', 2, 2, 5,  '200m', '500m', '512Mi', '1Gi',   0, 'Node生产环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'node', 'prod', 2, 2, 10, '500m', '1',    '1Gi',   '2Gi',   1, 'Node生产环境-中型', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
--- Python 服务模板
-('small',  'python', 'dev',  1, 1, 2,  '100m', '300m', '256Mi', '512Mi', 0, 'Python开发环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'python', 'test', 1, 1, 3,  '200m', '500m', '512Mi', '1Gi',   0, 'Python测试环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('small',  'python', 'prod', 2, 2, 5,  '200m', '500m', '512Mi', '1Gi',   0, 'Python生产环境-小型', 1, 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('medium', 'python', 'prod', 2, 2, 10, '500m', '1',    '1Gi',   '2Gi',   1, 'Python生产环境-中型', 0, 2, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_notify_route_policy` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `priority` bigint DEFAULT '100',
+  `channel_ids` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `match_mode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'any',
+  `severities` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `groups` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `label_match` text COLLATE utf8mb4_unicode_ci,
+  `is_default` tinyint(1) DEFAULT '0',
+  `enabled` tinyint(1) DEFAULT '1',
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_monitor_notify_route_policy_name` (`name`),
+  KEY `idx_monitor_notify_route_policy_priority` (`priority`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- 环境资源规则
-INSERT IGNORE INTO cicd_env_resource_rule
-(env, service_type, cpu_limit_max, memory_limit_max, replicas_max, cpu_request_min, memory_request_min, replicas_min, require_approval, approval_role, description, created_at, modified_at)
-VALUES
-('dev',     '',     '1', '2Gi',  3,  '',     '',     1, 0, '',    '开发环境通用规则，资源受限，无需审批',   UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('test',    '',     '2', '4Gi',  5,  '',     '',     1, 0, '',    '测试环境通用规则，资源适中，无需审批',   UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('staging', '',     '4', '8Gi',  10, '200m', '256Mi', 2, 0, '',    '预发环境通用规则，接近生产配置',         UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('prod',    '',     '4', '8Gi',  20, '200m', '256Mi', 2, 1, 'sre', '生产环境通用规则，需要SRE审批',          UNIX_TIMESTAMP(), UNIX_TIMESTAMP()),
-('prod',    'java', '4', '8Gi',  20, '500m', '1Gi',   2, 1, 'sre', '生产环境Java服务规则，内存最低1Gi',      UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
+--
+-- Table structure for table `monitor_notify_template`
+--
 
--- =====================================================
--- 演示种子数据（可选）
--- 包含：4 流水线 + 6 运行 + 11 阶段 + 4 制品 + 2 监控数据源
--- 全部使用 INSERT IGNORE + 显式主键，重复执行幂等
--- 依赖：kube_cluster.id=1, image_registry.id=1, user.id=1
--- =====================================================
-SET @now := UNIX_TIMESTAMP();
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_notify_template` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `scene` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'alert',
+  `title` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_default` tinyint(1) DEFAULT '0',
+  `enabled` tinyint(1) DEFAULT '1',
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_monitor_notify_template_name` (`name`),
+  KEY `idx_type` (`type`),
+  KEY `idx_monitor_notify_template_type` (`type`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控通知模板表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- 流水线
-INSERT IGNORE INTO cicd_pipeline
-(id, name, description, git_repo, git_branch, jenkins_url, jenkins_job, jenkins_credential_id,
- language_type, auto_deploy, target_cluster_id, target_namespace, target_workload_kind, target_workload_name,
- target_container, deploy_env, require_approval, enable_sonar, enable_artifact_upload,
- last_deploy_image, last_deploy_time, last_deploy_status, last_deploy_version,
- status, last_run_status, last_run_time, last_build_number, last_build_url,
- created_user_id, created_at, modified_at)
-VALUES
-(1, 'order-service-go', '订单服务 Go 后端流水线', 'https://github.com/demo/order-service.git', 'main',
- 'http://jenkins.local:8080', 'order-service-go', 'jenkins-cred-1',
- 'go', 1, 1, 'demo', 'Deployment', 'order-service', 'order-service', 'dev', 0, 1, 1,
- 'registry.local/demo/order-service:v1.2.3', @now-3600, 'success', 'v1.2.3',
- 'idle', 'success', @now-3600, 12, 'http://jenkins.local:8080/job/order-service-go/12/',
- 1, @now-86400*7, @now-3600),
-(2, 'user-center-java', '用户中心 Java Spring Boot 流水线', 'https://github.com/demo/user-center.git', 'release/v2',
- 'http://jenkins.local:8080', 'user-center-java', 'jenkins-cred-1',
- 'java', 1, 1, 'demo', 'Deployment', 'user-center', 'user-center', 'staging', 1, 1, 1,
- 'registry.local/demo/user-center:2.0.5', @now-7200, 'success', '2.0.5',
- 'idle', 'success', @now-7200, 8, 'http://jenkins.local:8080/job/user-center-java/8/',
- 1, @now-86400*5, @now-7200),
-(3, 'admin-portal-frontend', '管理后台前端 Vue3 流水线', 'https://github.com/demo/admin-portal.git', 'develop',
- 'http://jenkins.local:8080', 'admin-portal-frontend', 'jenkins-cred-1',
- 'frontend', 0, 1, 'demo', 'Deployment', 'admin-portal', 'web', 'dev', 0, 0, 1,
- 'registry.local/demo/admin-portal:dev-202605181030', @now-1800, 'failed', 'dev-202605181030',
- 'idle', 'failed', @now-1800, 5, 'http://jenkins.local:8080/job/admin-portal-frontend/5/',
- 1, @now-86400*3, @now-1800),
-(4, 'data-pipeline-python', '数据处理 Python 流水线', 'https://github.com/demo/data-pipeline.git', 'main',
- 'http://jenkins.local:8080', 'data-pipeline-python', 'jenkins-cred-1',
- 'python', 0, 1, 'demo', 'CronJob', 'data-pipeline', 'worker', 'prod', 1, 1, 1,
- 'registry.local/demo/data-pipeline:1.0.0', @now-86400, 'success', '1.0.0',
- 'idle', 'success', @now-86400, 3, 'http://jenkins.local:8080/job/data-pipeline-python/3/',
- 1, @now-86400*10, @now-86400);
+--
+-- Table structure for table `monitor_silence_rule`
+--
 
--- 流水线运行记录
-INSERT IGNORE INTO cicd_pipeline_run
-(id, pipeline_id, build_number, status, trigger_type, trigger_user_id,
- git_commit, git_branch, git_commit_message, jenkins_build_url,
- duration_sec, started_at, finished_at, created_at, modified_at,
- image_url, image_digest, callback_received)
-VALUES
-(1, 1, 12, 'success',  'manual',    1, 'a1b2c3d4e5f6', 'main',       'feat: support batch order create', 'http://jenkins.local:8080/job/order-service-go/12/',     185, @now-3785,        @now-3600,        @now-3785,        @now-3600,        'registry.local/demo/order-service:v1.2.3', 'sha256:abc123def456', 1),
-(2, 1, 11, 'success',  'webhook',   1, 'b2c3d4e5f6a1', 'main',       'fix: order amount precision',      'http://jenkins.local:8080/job/order-service-go/11/',     172, @now-86400-200,   @now-86400-28,    @now-86400-200,   @now-86400-28,    'registry.local/demo/order-service:v1.2.2', 'sha256:bbb222ccc333', 1),
-(3, 2,  8, 'success',  'manual',    1, 'c3d4e5f6a1b2', 'release/v2', 'release: 2.0.5',                    'http://jenkins.local:8080/job/user-center-java/8/',     412, @now-7612,        @now-7200,        @now-7612,        @now-7200,        'registry.local/demo/user-center:2.0.5',    'sha256:ccc333ddd444', 1),
-(4, 3,  5, 'failed',   'manual',    1, 'd4e5f6a1b2c3', 'develop',    'wip: refactor menu component',     'http://jenkins.local:8080/job/admin-portal-frontend/5/',  65, @now-1865,        @now-1800,        @now-1865,        @now-1800,        '',                                          '',                     1),
-(5, 3,  4, 'success',  'webhook',   1, 'e5f6a1b2c3d4', 'develop',    'feat: add dark mode',              'http://jenkins.local:8080/job/admin-portal-frontend/4/', 128, @now-86400*2-200, @now-86400*2-72,  @now-86400*2-200, @now-86400*2-72,  'registry.local/demo/admin-portal:dev-202605161830', 'sha256:eee555fff666', 1),
-(6, 4,  3, 'success',  'scheduled', 1, 'f6a1b2c3d4e5', 'main',       'release: 1.0.0',                    'http://jenkins.local:8080/job/data-pipeline-python/3/', 256, @now-86400-256,   @now-86400,       @now-86400-256,   @now-86400,       'registry.local/demo/data-pipeline:1.0.0',  'sha256:fff666aaa777', 1);
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monitor_silence_rule` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `matchers` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `starts_at` bigint DEFAULT NULL,
+  `ends_at` bigint DEFAULT NULL,
+  `duration` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `repeat_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'once',
+  `repeat_cron` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `comment` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `enabled` tinyint(1) DEFAULT '1',
+  `created_by` bigint DEFAULT NULL,
+  `created_at` bigint DEFAULT NULL,
+  `modified_at` bigint DEFAULT NULL,
+  `is_del` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_type` (`type`),
+  KEY `idx_monitor_silence_rule_type` (`type`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='监控告警静默规则表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- 流水线阶段（显式 id 保证幂等）
-INSERT IGNORE INTO cicd_pipeline_stage
-(id, run_id, pipeline_id, stage_order, stage_type, stage_name, status,
- started_at, finished_at, duration_sec, jenkins_stage_id, created_at, modified_at)
-VALUES
-(1,  1, 1, 1, 'checkout',     '代码拉取',      'success', @now-3785, @now-3780,  5, 'stage-1', @now-3785, @now-3780),
-(2,  1, 1, 2, 'dependencies', '依赖安装',      'success', @now-3780, @now-3760, 20, 'stage-2', @now-3780, @now-3760),
-(3,  1, 1, 3, 'compile',      '编译构建',      'success', @now-3760, @now-3720, 40, 'stage-3', @now-3760, @now-3720),
-(4,  1, 1, 4, 'test',         '单元测试',      'success', @now-3720, @now-3690, 30, 'stage-4', @now-3720, @now-3690),
-(5,  1, 1, 5, 'sonar',        'SonarQube扫描', 'success', @now-3690, @now-3660, 30, 'stage-5', @now-3690, @now-3660),
-(6,  1, 1, 6, 'build',        '镜像构建',      'success', @now-3660, @now-3625, 35, 'stage-6', @now-3660, @now-3625),
-(7,  1, 1, 7, 'push',         '镜像推送',      'success', @now-3625, @now-3610, 15, 'stage-7', @now-3625, @now-3610),
-(8,  1, 1, 8, 'deploy',       'K8s部署',       'success', @now-3610, @now-3600, 10, 'stage-8', @now-3610, @now-3600),
-(9,  4, 3, 1, 'checkout',     '代码拉取',      'success', @now-1865, @now-1860,  5, 'stage-1', @now-1865, @now-1860),
-(10, 4, 3, 2, 'dependencies', 'npm install',   'success', @now-1860, @now-1820, 40, 'stage-2', @now-1860, @now-1820),
-(11, 4, 3, 3, 'compile',      'vite build',    'failed',  @now-1820, @now-1800, 20, 'stage-3', @now-1820, @now-1800);
+--
+-- Table structure for table `platform_settings`
+--
 
--- 制品库（显式 id 保证幂等）
-INSERT IGNORE INTO cicd_artifact
-(id, pipeline_id, run_id, build_number, name, artifact_type, version, language_type,
- file_path, file_size, sha256, storage_type,
- git_repo, git_branch, git_commit,
- image_repo, image_tag, image_digest,
- build_duration, status, download_count, created_user_id, created_at, modified_at)
-VALUES
-(1, 1, 1, 12, 'order-service-v1.2.3',           'binary', 'v1.2.3',           'go',       'storage/artifacts/1/12/order-service',                          18874368, 'a1b2c3d4e5f60011223344556677889900aabbccddeeff0011223344', 'local', 'https://github.com/demo/order-service.git',  'main',       'a1b2c3d4e5f6', 'registry.local/demo/order-service',  'v1.2.3',           'sha256:abc123def456', 185, 'ready', 3, 1, @now-3600,         @now-3600),
-(2, 2, 3,  8, 'user-center-2.0.5.jar',          'jar',    '2.0.5',            'java',     'storage/artifacts/2/8/user-center-2.0.5.jar',                  41943040, 'c3d4e5f6a1b20011223344556677889900aabbccddeeff0011223344', 'local', 'https://github.com/demo/user-center.git',    'release/v2', 'c3d4e5f6a1b2', 'registry.local/demo/user-center',    '2.0.5',            'sha256:ccc333ddd444', 412, 'ready', 1, 1, @now-7200,         @now-7200),
-(3, 3, 5,  4, 'admin-portal-dist-202605161830', 'dist',   'dev-202605161830', 'frontend', 'storage/artifacts/3/4/dist.tar.gz',                              8388608, 'e5f6a1b2c3d40011223344556677889900aabbccddeeff0011223344', 'local', 'https://github.com/demo/admin-portal.git',   'develop',    'e5f6a1b2c3d4', 'registry.local/demo/admin-portal',   'dev-202605161830', 'sha256:eee555fff666', 128, 'ready', 0, 1, @now-86400*2-72,   @now-86400*2-72),
-(4, 4, 6,  3, 'data-pipeline-1.0.0.whl',        'wheel',  '1.0.0',            'python',   'storage/artifacts/4/3/data_pipeline-1.0.0-py3-none-any.whl',     2097152, 'f6a1b2c3d4e50011223344556677889900aabbccddeeff0011223344', 'local', 'https://github.com/demo/data-pipeline.git',  'main',       'f6a1b2c3d4e5', 'registry.local/demo/data-pipeline',  '1.0.0',            'sha256:fff666aaa777', 256, 'ready', 2, 1, @now-86400,        @now-86400);
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `platform_settings` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `category` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `key` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `value` text COLLATE utf8mb4_unicode_ci,
+  `value_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'string',
+  `label` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `desc` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` int unsigned DEFAULT NULL,
+  `modified_at` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_category_key` (`category`,`key`)
+) ENGINE=InnoDB AUTO_INCREMENT=72 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台设置表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- 监控数据源（name 唯一键保证幂等）
-INSERT IGNORE INTO monitor_datasource
-(name, type, url, description, access_mode, auth_type,
- is_default, enabled, timeout, scrape_interval, status,
- created_by, created_at, modified_at)
-VALUES
-('Prometheus-默认', 'prometheus', 'http://prometheus.monitoring.svc:9090', '集群默认 Prometheus 数据源',  'proxy', 'none', 1, 1, 30, 15, 'unknown', 1, @now-86400*30, @now-86400*30),
-('Loki-默认',       'loki',       'http://loki.monitoring.svc:3100',      '集群默认 Loki 日志数据源',    'proxy', 'none', 0, 1, 30, 15, 'unknown', 1, @now-86400*30, @now-86400*30);
+--
+-- Table structure for table `sys_permission`
+--
 
--- =====================================================
--- 完成（仅输出关键信息）
--- =====================================================
-SELECT CONCAT('✅ 初始化完成 | 表数: ', COUNT(*), ' | 账号: admin / admin123 | 演示流水线: ',
-              (SELECT COUNT(*) FROM cicd_pipeline)) AS result
-FROM information_schema.tables WHERE table_schema = 'k8s-platform';
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_permission` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `display_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resource_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `parent_id` bigint DEFAULT '0',
+  `path` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `sort_order` bigint DEFAULT '0',
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
+  `scope` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'cluster',
+  `tag` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_sys_permission_name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=71 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统权限定义表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Table structure for table `sys_role`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_role` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `display_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `role_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_system` tinyint(1) DEFAULT '0',
+  `color` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '#1890ff',
+  `icon` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'user',
+  `sort_order` bigint DEFAULT '0',
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
+  `deleted_at` bigint unsigned DEFAULT NULL,
+  `is_del` tinyint unsigned NOT NULL DEFAULT '0',
+  `scope_platform` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'none',
+  `scope_cluster` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'none',
+  `scope_cicd` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'none',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_sys_role_name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统角色表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_role_permission`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_role_permission` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `role_id` bigint NOT NULL COMMENT '角色ID',
+  `permission_id` bigint NOT NULL COMMENT '权限ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_role_id` (`role_id`),
+  KEY `idx_permission_id` (`permission_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=468 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色权限关联表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_user_cluster`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_user_cluster` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `cluster_id` bigint DEFAULT NULL,
+  `role_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `namespaces` text COLLATE utf8mb4_unicode_ci,
+  `can_view` tinyint(1) DEFAULT '1',
+  `can_create` tinyint(1) DEFAULT '0',
+  `can_update` tinyint(1) DEFAULT '0',
+  `can_delete` tinyint(1) DEFAULT '0',
+  `can_exec` tinyint(1) DEFAULT '0',
+  `expire_at` bigint unsigned DEFAULT '0',
+  `created_at` bigint unsigned DEFAULT NULL,
+  `modified_at` bigint unsigned DEFAULT NULL,
+  `created_by` bigint DEFAULT NULL,
+  `access_level` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'read',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_cluster_id` (`cluster_id`),
+  KEY `idx_sys_user_cluster_user_id` (`user_id`),
+  KEY `idx_sys_user_cluster_cluster_id` (`cluster_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户集群权限表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `sys_user_role`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_user_role` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `role_id` bigint NOT NULL COMMENT '角色ID',
+  `created_at` bigint unsigned NOT NULL DEFAULT '0',
+  `created_by` bigint DEFAULT '0' COMMENT '创建人ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_role_id` (`role_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关联表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `user`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '用户名',
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '密码(加密)',
+  `role` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT '基础角色(兼容旧版)',
+  `email` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '手机号',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:1=启用,0=禁用',
+  `created_at` int unsigned DEFAULT '0',
+  `modified_at` int unsigned DEFAULT '0',
+  `deleted_at` int unsigned DEFAULT '0',
+  `is_del` tinyint unsigned DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_username` (`username`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Temporary view structure for view `v_user_env_permissions`
+--
+
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `v_user_env_permissions` AS SELECT 
+ 1 AS `user_id`,
+ 1 AS `username`,
+ 1 AS `cluster_id`,
+ 1 AS `cluster_name`,
+ 1 AS `cluster_env_type`,
+ 1 AS `cluster_env_level`,
+ 1 AS `access_mode`,
+ 1 AS `env_role`,
+ 1 AS `max_env_level`,
+ 1 AS `bypass_approval`,
+ 1 AS `namespaces`,
+ 1 AS `status`,
+ 1 AS `expire_at`,
+ 1 AS `k8s_synced`*/;
+SET character_set_client = @saved_cs_client;
+
+--
+-- Temporary view structure for view `v_user_permissions`
+--
+
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `v_user_permissions` AS SELECT 
+ 1 AS `user_id`,
+ 1 AS `subject_type`,
+ 1 AS `subject_id`,
+ 1 AS `scope_type`,
+ 1 AS `scope_id`,
+ 1 AS `scope_name`,
+ 1 AS `namespaces`,
+ 1 AS `role_template_id`,
+ 1 AS `role_template_name`,
+ 1 AS `role_type`,
+ 1 AS `k8s_rules`,
+ 1 AS `cicd_actions`,
+ 1 AS `platform_permissions`,
+ 1 AS `expire_at`,
+ 1 AS `status`*/;
+SET character_set_client = @saved_cs_client;
+
+--
+-- Final view structure for view `v_user_env_permissions`
+--
+
+/*!50001 DROP VIEW IF EXISTS `v_user_env_permissions`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = gbk */;
+/*!50001 SET character_set_results     = gbk */;
+/*!50001 SET collation_connection      = gbk_chinese_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `v_user_env_permissions` AS select `eb`.`subject_id` AS `user_id`,`eb`.`subject_name` AS `username`,`eb`.`cluster_id` AS `cluster_id`,`eb`.`cluster_name` AS `cluster_name`,`kc`.`env_type` AS `cluster_env_type`,`kc`.`env_level` AS `cluster_env_level`,`kc`.`access_mode` AS `access_mode`,`eb`.`env_role` AS `env_role`,`eb`.`max_env_level` AS `max_env_level`,`eb`.`bypass_approval` AS `bypass_approval`,`eb`.`namespaces` AS `namespaces`,`eb`.`status` AS `status`,`eb`.`expire_at` AS `expire_at`,`eb`.`k8s_synced` AS `k8s_synced` from (`iam_env_binding` `eb` left join `kube_cluster` `kc` on((`eb`.`cluster_id` = `kc`.`id`))) where ((`eb`.`subject_type` = 'user') and (`eb`.`status` = 'active') and ((`eb`.`expire_at` is null) or (`eb`.`expire_at` > unix_timestamp())) and (`kc`.`is_del` = 0)) */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
+
+--
+-- Final view structure for view `v_user_permissions`
+--
+
+/*!50001 DROP VIEW IF EXISTS `v_user_permissions`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = gbk */;
+/*!50001 SET character_set_results     = gbk */;
+/*!50001 SET collation_connection      = gbk_chinese_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `v_user_permissions` AS select `g`.`user_id` AS `user_id`,`g`.`subject_type` AS `subject_type`,`g`.`subject_id` AS `subject_id`,`g`.`scope_type` AS `scope_type`,`g`.`scope_id` AS `scope_id`,`g`.`scope_name` AS `scope_name`,`g`.`namespaces` AS `namespaces`,`g`.`role_template_id` AS `role_template_id`,`rt`.`name` AS `role_template_name`,`rt`.`type` AS `role_type`,`rt`.`k8s_rules` AS `k8s_rules`,`rt`.`cicd_actions` AS `cicd_actions`,`rt`.`platform_permissions` AS `platform_permissions`,`g`.`expire_at` AS `expire_at`,`g`.`status` AS `status` from ((select `ig`.`subject_id` AS `user_id`,`ig`.`subject_type` AS `subject_type`,`ig`.`subject_id` AS `subject_id`,`ig`.`scope_type` AS `scope_type`,`ig`.`scope_id` AS `scope_id`,`ig`.`scope_name` AS `scope_name`,`ig`.`namespaces` AS `namespaces`,`ig`.`role_template_id` AS `role_template_id`,`ig`.`expire_at` AS `expire_at`,`ig`.`status` AS `status` from `iam_grant` `ig` where ((`ig`.`subject_type` = 'user') and (`ig`.`status` = 'active') and ((`ig`.`expire_at` is null) or (`ig`.`expire_at` > unix_timestamp()))) union all select `igu`.`user_id` AS `user_id`,`ig`.`subject_type` AS `subject_type`,`ig`.`subject_id` AS `subject_id`,`ig`.`scope_type` AS `scope_type`,`ig`.`scope_id` AS `scope_id`,`ig`.`scope_name` AS `scope_name`,`ig`.`namespaces` AS `namespaces`,`ig`.`role_template_id` AS `role_template_id`,`ig`.`expire_at` AS `expire_at`,`ig`.`status` AS `status` from (`iam_grant` `ig` join `iam_group_user` `igu` on((`ig`.`subject_id` = `igu`.`group_id`))) where ((`ig`.`subject_type` = 'group') and (`ig`.`status` = 'active') and ((`ig`.`expire_at` is null) or (`ig`.`expire_at` > unix_timestamp())))) `g` left join `iam_role_template` `rt` on(((`g`.`role_template_id` = `rt`.`id`) and (`rt`.`is_del` = 0)))) */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- ============================================================
+-- 默认种子数据（首次启动必需）
+-- ============================================================
+
+-- 默认角色
+INSERT IGNORE INTO `sys_role` (`name`, `role_type`, `description`, `created_at`, `modified_at`, `is_del`) VALUES
+('超级管理员', 'super_admin', '平台最高权限，所有功能可见', UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0),
+('平台管理员', 'platform_admin', '用户/权限/审计等平台功能', UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0),
+('DevOps', 'devops', '集群操作 + CICD 发布', UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0);
+
+-- 默认管理员 admin/123456（bcrypt）
+INSERT IGNORE INTO `user` (`username`, `password`, `created_at`, `modified_at`, `is_del`) VALUES
+('admin', '$2a$10$1ouK5KV43TVOcP6GZeGUJ.AuxKpY9hPmeM5zlz0cgBN7R8OTA685G', UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0);
+
+-- 将 admin 分配为超级管理员
+INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`, `created_at`)
+SELECT u.id, r.id, UNIX_TIMESTAMP()
+FROM `user` u, `sys_role` r
+WHERE u.username = 'admin' AND r.role_type = 'super_admin';
+
+-- Dump completed on 2026-07-14 16:38:24

@@ -14,6 +14,13 @@ definitions:
       vue_version:
         type: string
     type: object
+  models.ActionSummary:
+    properties:
+      action:
+        type: string
+      count:
+        type: integer
+    type: object
   models.AlertSettings:
     properties:
       alert_silence:
@@ -123,6 +130,154 @@ definitions:
     required:
     - id
     type: object
+  models.ApprovalLevel:
+    properties:
+      label:
+        description: 审批级别显示名称（如"测试负责人"）
+        type: string
+      level:
+        description: 审批级别（1=一级审批，2=二级审批...）
+        type: integer
+      role:
+        description: 角色标识（如 test_lead / dev_lead / ops_lead / sre）
+        type: string
+      user_ids:
+        description: 该级别审批人 ID 列表
+        items:
+          type: integer
+        type: array
+    type: object
+  models.AuditLog:
+    properties:
+      action:
+        description: create/update/delete/login/logout/exec/approve
+        type: string
+      action_display:
+        description: 操作显示名称
+        type: string
+      cluster_id:
+        type: integer
+      cluster_name:
+        type: string
+      created_at:
+        type: integer
+      detail:
+        description: 操作详情JSON
+        type: string
+      duration_ms:
+        type: integer
+      error_message:
+        type: string
+      extra:
+        description: 额外信息JSON
+        type: string
+      id:
+        type: integer
+      module:
+        description: cluster/workload/cicd/rbac/platform/auth/ai
+        type: string
+      namespace:
+        type: string
+      pipeline_id:
+        type: integer
+      pipeline_name:
+        type: string
+      project_id:
+        type: integer
+      project_name:
+        type: string
+      request_body:
+        type: string
+      request_method:
+        type: string
+      request_uri:
+        type: string
+      response_code:
+        type: integer
+      response_message:
+        type: string
+      status:
+        description: success/failed
+        type: string
+      target_id:
+        description: 目标ID
+        type: string
+      target_name:
+        description: 目标名称
+        type: string
+      target_type:
+        description: deployment/pod/pipeline/user/role...
+        type: string
+      user_agent:
+        type: string
+      user_id:
+        type: integer
+      user_ip:
+        type: string
+      username:
+        type: string
+    type: object
+  models.AuditLogListResponse:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/models.AuditLog'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      statistics:
+        $ref: '#/definitions/models.AuditStatistics'
+      total:
+        type: integer
+    type: object
+  models.AuditRetentionPolicy:
+    properties:
+      is_permanent:
+        description: 是否永久保留
+        type: boolean
+      retention_days:
+        description: 保留天数，0 = 永久保留
+        type: integer
+    type: object
+  models.AuditRetentionUpdateReq:
+    properties:
+      is_permanent:
+        type: boolean
+      retention_days:
+        description: 0 = 永久
+        maximum: 3650
+        minimum: 0
+        type: integer
+    type: object
+  models.AuditStatistics:
+    properties:
+      action_summary:
+        items:
+          $ref: '#/definitions/models.ActionSummary'
+        type: array
+      hourly_counts:
+        items:
+          $ref: '#/definitions/models.HourlyCount'
+        type: array
+      success_rate:
+        type: number
+      top_modules:
+        items:
+          $ref: '#/definitions/models.TopModuleStat'
+        type: array
+      top_users:
+        items:
+          $ref: '#/definitions/models.TopUserStat'
+        type: array
+      total_all:
+        type: integer
+      total_today:
+        type: integer
+      total_week:
+        type: integer
+    type: object
   models.BasicSettings:
     properties:
       default_cluster:
@@ -227,6 +382,48 @@ definitions:
       value:
         type: string
     type: object
+  models.GitOpsConfig:
+    properties:
+      argo_app_name:
+        description: ArgoCD 配置
+        type: string
+      argo_project:
+        description: ArgoCD Project (默认 "default")
+        type: string
+      auto_sync:
+        description: 同步策略
+        type: boolean
+      build_context:
+        description: 构建上下文 (默认 ".")
+        type: string
+      dockerfile_path:
+        description: Dockerfile 路径 (默认 "Dockerfile")
+        type: string
+      git_manifest_repo:
+        description: Git 仓库（存放 K8s manifests）
+        type: string
+      image_registry:
+        description: 镜像构建配置
+        type: string
+      image_repo:
+        description: 镜像仓库名 (e.g., myapp)
+        type: string
+      manifest_path:
+        description: manifests 路径 (如 "manifests/overlays/prod")
+        type: string
+      prune_resource:
+        description: 启用资源清理 (不在 Git 中的资源自动删除)
+        type: boolean
+      target_revision:
+        description: 目标分支/标签
+        type: string
+      workflow_namespace:
+        description: WorkflowTemplate 命名空间
+        type: string
+      workflow_template:
+        description: Argo Workflows 配置
+        type: string
+    type: object
   models.HPAConfig:
     properties:
       cpu_target:
@@ -237,6 +434,13 @@ definitions:
       max_replicas:
         type: integer
       min_replicas:
+        type: integer
+    type: object
+  models.HourlyCount:
+    properties:
+      count:
+        type: integer
+      hour:
         type: integer
     type: object
   models.NotificationSettings:
@@ -342,6 +546,20 @@ definitions:
       session_timeout:
         type: integer
     type: object
+  models.TopModuleStat:
+    properties:
+      count:
+        type: integer
+      module:
+        type: string
+    type: object
+  models.TopUserStat:
+    properties:
+      count:
+        type: integer
+      username:
+        type: string
+    type: object
   requests.ApprovalActionRequest:
     properties:
       action:
@@ -349,6 +567,19 @@ definitions:
         type: string
       id:
         type: integer
+      reason:
+        description: 审批意见
+        type: string
+    type: object
+  requests.ApprovalBatchActionRequest:
+    properties:
+      action:
+        description: approve/reject
+        type: string
+      ids:
+        items:
+          type: integer
+        type: array
       reason:
         description: 审批意见
         type: string
@@ -424,15 +655,23 @@ definitions:
     type: object
   requests.BatchClusterPermissionRequest:
     properties:
+      access_level:
+        description: none/read/write/admin
+        type: string
       can_create:
+        description: deprecated
         type: boolean
       can_delete:
+        description: deprecated
         type: boolean
       can_exec:
+        description: deprecated
         type: boolean
       can_update:
+        description: deprecated
         type: boolean
       can_view:
+        description: deprecated
         type: boolean
       cluster_ids:
         items:
@@ -464,6 +703,13 @@ definitions:
         description: SUCCESS / FAILURE / ABORTED
         type: string
     type: object
+  requests.CicdReleaseBatchCancelRequest:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
   requests.CicdReleaseBatchRetryRequest:
     properties:
       ids:
@@ -490,17 +736,32 @@ definitions:
         type: integer
       container_name:
         type: string
+      env:
+        description: 镜像晋级链追踪（由 promote 服务填充，手动创建可不传）
+        type: string
       image_digest:
         type: string
       image_repo:
         type: string
       image_tag:
         type: string
+      message:
+        description: 可选：发布说明/备注
+        type: string
       namespace:
         type: string
+      pipeline_id:
+        description: 模板化发布：传入 pipeline_id 后自动继承流水线的部署配置，以下字段均可省略
+        type: integer
       request_id:
         description: 可选，幂等校验用
         type: string
+      source_env:
+        description: 晋级来源环境
+        type: string
+      source_run_id:
+        description: 构建镜像的流水线运行ID
+        type: integer
       strategy:
         type: string
       timeout_sec:
@@ -544,15 +805,23 @@ definitions:
     type: object
   requests.ClusterPermissionCreateRequest:
     properties:
+      access_level:
+        description: none/read/write/admin
+        type: string
       can_create:
+        description: deprecated
         type: boolean
       can_delete:
+        description: deprecated
         type: boolean
       can_exec:
+        description: deprecated
         type: boolean
       can_update:
+        description: deprecated
         type: boolean
       can_view:
+        description: deprecated
         type: boolean
       cluster_id:
         type: integer
@@ -571,15 +840,23 @@ definitions:
     type: object
   requests.ClusterPermissionUpdateRequest:
     properties:
+      access_level:
+        description: none/read/write/admin
+        type: string
       can_create:
+        description: deprecated
         type: boolean
       can_delete:
+        description: deprecated
         type: boolean
       can_exec:
+        description: deprecated
         type: boolean
       can_update:
+        description: deprecated
         type: boolean
       can_view:
+        description: deprecated
         type: boolean
       expire_at:
         type: integer
@@ -623,6 +900,13 @@ definitions:
       username:
         type: string
     type: object
+  requests.EnvVarDef:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    type: object
   requests.EnvVarKV:
     properties:
       name:
@@ -632,11 +916,19 @@ definitions:
     type: object
   requests.EnvironmentCreateRequest:
     properties:
+      approval_levels:
+        description: 多级审批配置
+        items:
+          $ref: '#/definitions/models.ApprovalLevel'
+        type: array
       approval_user_ids:
-        description: 审批人员ID列表
+        description: 审批人员ID列表（兼容旧接口）
         items:
           type: integer
         type: array
+      auto_rollback_on_fail:
+        description: 部署失败时自动回滚
+        type: boolean
       cluster_id:
         description: 关联集群ID
         type: integer
@@ -669,10 +961,17 @@ definitions:
     type: object
   requests.EnvironmentUpdateRequest:
     properties:
+      approval_levels:
+        description: 多级审批配置
+        items:
+          $ref: '#/definitions/models.ApprovalLevel'
+        type: array
       approval_user_ids:
         items:
           type: integer
         type: array
+      auto_rollback_on_fail:
+        type: boolean
       cluster_id:
         type: integer
       color:
@@ -838,6 +1137,13 @@ definitions:
         type: integer
       kube_config:
         description: ✅ 可选（不填就不更新）
+        type: string
+    type: object
+  requests.KVDef:
+    properties:
+      key:
+        type: string
+      value:
         type: string
     type: object
   requests.KubeAppConfigCreateRequest:
@@ -1085,6 +1391,28 @@ definitions:
     type: object
   requests.KubeDeploymentUpdateRequest:
     type: object
+  requests.KubeDeploymentUpdateResourcesRequest:
+    properties:
+      container:
+        description: 容器名称
+        type: string
+      cpu_limit:
+        description: CPU Limit (如 500m)
+        type: string
+      cpu_request:
+        description: CPU Request (如 100m)
+        type: string
+      memory_limit:
+        description: Memory Limit (如 512Mi)
+        type: string
+      memory_request:
+        description: Memory Request (如 128Mi)
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+    type: object
   requests.KubeEventListRequest:
     properties:
       continue:
@@ -1106,6 +1434,66 @@ definitions:
         type: integer
       type:
         description: Normal | Warning
+        type: string
+    type: object
+  requests.KubeHPABatchItem:
+    properties:
+      max_replicas:
+        type: integer
+      min_replicas:
+        type: integer
+      name:
+        type: string
+      namespace:
+        type: string
+    type: object
+  requests.KubeHPABatchScaleRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/requests.KubeHPABatchItem'
+        type: array
+    type: object
+  requests.KubeHPACreateRequest:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      cpu_target_util:
+        description: 目标 CPU 利用率 % (1-100)
+        type: integer
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      max_replicas:
+        description: 最大副本数 > min
+        type: integer
+      mem_target_util:
+        description: 目标内存利用率 %
+        type: integer
+      min_replicas:
+        description: 最小副本数 >=0
+        type: integer
+      name:
+        type: string
+      namespace:
+        type: string
+      scale_down_stab_seconds:
+        description: 缩容稳定窗口（秒）
+        type: integer
+      scale_up_stab_seconds:
+        description: 扩容稳定窗口（秒）
+        type: integer
+      target_api_version:
+        description: 默认 apps/v1
+        type: string
+      target_kind:
+        description: Deployment/StatefulSet
+        type: string
+      target_name:
+        description: 目标负载名称
         type: string
     type: object
   requests.KubeIngressCreateRequest:
@@ -1681,6 +2069,9 @@ definitions:
         type: string
       enable_artifact_upload:
         type: boolean
+      enable_deploy_silence:
+        description: 发布联动告警静默
+        type: boolean
       enable_sonar:
         type: boolean
       env_vars:
@@ -1689,7 +2080,7 @@ definitions:
           $ref: '#/definitions/models.EnvVar'
         type: array
       git_branch:
-        description: 可选：分支，默认 main
+        description: 可选：分支，留空用配置默认值
         type: string
       git_repo:
         description: 必填：Git 仓库地址
@@ -1702,6 +2093,10 @@ definitions:
         type: string
       require_approval:
         type: boolean
+      silence_buffer_minutes:
+        type: integer
+      silence_severities:
+        type: string
       target_cluster_id:
         type: integer
       target_container:
@@ -1758,6 +2153,9 @@ definitions:
       request_id:
         description: 请求ID（用于日志追踪）
         type: string
+      run_id:
+        description: 运行记录ID（精确匹配，避免 build_number 重复问题）
+        type: integer
       status:
         description: SUCCESS / FAILURE / ABORTED
         type: string
@@ -1773,10 +2171,16 @@ definitions:
       deploy_env:
         description: 部署环境
         type: string
+      deploy_mode:
+        description: GitOps 部署模式配置
+        type: string
       description:
         type: string
       enable_artifact_upload:
         description: 是否启用制品上传
+        type: boolean
+      enable_deploy_silence:
+        description: 发布联动告警静默
         type: boolean
       enable_sonar:
         description: 是否启用 SonarQube
@@ -1789,6 +2193,10 @@ definitions:
         type: string
       git_repo:
         type: string
+      gitops_config:
+        allOf:
+        - $ref: '#/definitions/models.GitOpsConfig'
+        description: GitOps 配置（DeployMode=gitops 时必填）
       jenkins_job:
         type: string
       jenkins_url:
@@ -1801,6 +2209,12 @@ definitions:
       require_approval:
         description: 是否需要审批
         type: boolean
+      silence_buffer_minutes:
+        description: 静默缓冲时间(分钟)
+        type: integer
+      silence_severities:
+        description: 静默的告警级别
+        type: string
       target_cluster_id:
         description: 目标集群ID
         type: integer
@@ -1821,6 +2235,33 @@ definitions:
     properties:
       id:
         type: integer
+    type: object
+  requests.PipelinePromoteRequest:
+    properties:
+      image_digest:
+        description: 显式镜像digest
+        type: string
+      image_repo:
+        description: 显式镜像仓库
+        type: string
+      image_tag:
+        description: 显式镜像tag
+        type: string
+      pipeline_id:
+        description: 流水线ID
+        type: integer
+      reason:
+        description: 晋级说明
+        type: string
+      source_release_id:
+        description: 已有发布单ID（从其它环境晋级）
+        type: integer
+      source_run_id:
+        description: 镜像来源（三选一，优先级：显式镜像 > source_release_id > source_run_id）
+        type: integer
+      target_env:
+        description: 目标环境(dev/test/staging/prod)
+        type: string
     type: object
   requests.PipelineRunRequest:
     properties:
@@ -1864,6 +2305,53 @@ definitions:
       id:
         type: integer
     type: object
+  requests.PipelineTargetDeleteRequest:
+    properties:
+      id:
+        type: integer
+    type: object
+  requests.PipelineTargetItem:
+    properties:
+      auto_deploy:
+        description: 是否自动部署
+        type: boolean
+      cluster_id:
+        description: 目标集群ID
+        type: integer
+      container:
+        description: 容器名称
+        type: string
+      env:
+        description: 环境标识(dev/test/staging/prod)
+        type: string
+      namespace:
+        description: 目标命名空间
+        type: string
+      promote_from:
+        description: 上游来源环境
+        type: string
+      require_approval:
+        description: 是否需要审批
+        type: boolean
+      sort_order:
+        description: 顺序
+        type: integer
+      workload_kind:
+        description: 工作负载类型
+        type: string
+      workload_name:
+        description: 工作负载名称
+        type: string
+    type: object
+  requests.PipelineTargetSaveRequest:
+    properties:
+      pipeline_id:
+        type: integer
+      targets:
+        items:
+          $ref: '#/definitions/requests.PipelineTargetItem'
+        type: array
+    type: object
   requests.PipelineUpdateRequest:
     properties:
       auto_deploy:
@@ -1879,6 +2367,9 @@ definitions:
         type: string
       enable_artifact_upload:
         description: 是否启用制品上传
+        type: boolean
+      enable_deploy_silence:
+        description: 发布联动告警静默
         type: boolean
       enable_sonar:
         description: 是否启用 SonarQube
@@ -1905,6 +2396,12 @@ definitions:
       require_approval:
         description: 是否需要审批
         type: boolean
+      silence_buffer_minutes:
+        description: 静默缓冲时间(分钟)
+        type: integer
+      silence_severities:
+        description: 静默的告警级别
+        type: string
       status:
         type: string
       target_cluster_id:
@@ -1923,6 +2420,16 @@ definitions:
         description: 工作负载名称
         type: string
     type: object
+  requests.PortDef:
+    properties:
+      name:
+        type: string
+      port:
+        type: integer
+      protocol:
+        description: TCP/UDP，默认 TCP
+        type: string
+    type: object
   requests.PortMapping:
     properties:
       port:
@@ -1932,6 +2439,118 @@ definitions:
         type: string
       target_port:
         type: integer
+    type: object
+  requests.QuickOnboardRequest:
+    properties:
+      app_name:
+        description: '--- 基础信息 ---'
+        type: string
+      auto_deploy:
+        description: '--- 可选：是否立即部署 ---'
+        type: boolean
+      cluster_id:
+        description: '--- 集群 ---'
+        type: integer
+      configmap_data:
+        description: '--- ConfigMap ---'
+        items:
+          $ref: '#/definitions/requests.KVDef'
+        type: array
+      configmap_mount_path:
+        description: 如 /etc/config
+        type: string
+      container_name:
+        type: string
+      cpu_lim:
+        description: 如 "500m"
+        type: string
+      cpu_req:
+        description: '--- 资源配置 ---'
+        type: string
+      cron_concurrency_policy:
+        description: Allow/Forbid/Replace
+        type: string
+      cron_schedule:
+        description: '--- CronJob 专属 ---'
+        type: string
+      env_vars:
+        description: '--- 环境变量 ---'
+        items:
+          $ref: '#/definitions/requests.EnvVarDef'
+        type: array
+      git_branch:
+        type: string
+      git_repo:
+        description: '--- 可选：Git 仓库（用于创建流水线）---'
+        type: string
+      image:
+        description: '--- 镜像 ---'
+        type: string
+      job_backoff_limit:
+        description: 重试次数
+        type: integer
+      job_completions:
+        description: '--- Job 专属 ---'
+        type: integer
+      job_parallelism:
+        description: 并行度
+        type: integer
+      job_ttl_seconds_after_finished:
+        description: 完成后保留时间
+        type: integer
+      mem_lim:
+        description: 如 "256Mi"
+        type: string
+      mem_req:
+        description: 如 "128Mi"
+        type: string
+      namespace:
+        type: string
+      ports:
+        description: '--- 端口 ---'
+        items:
+          $ref: '#/definitions/requests.PortDef'
+        type: array
+      pvc_access_mode:
+        description: ReadWriteOnce/ReadWriteMany/ReadOnlyMany
+        type: string
+      pvc_mount_path:
+        description: 如 /data
+        type: string
+      pvc_name:
+        description: '--- PVC 存储 ---'
+        type: string
+      pvc_size:
+        description: 如 "10Gi"
+        type: string
+      pvc_storage_class:
+        description: storage class 名称
+        type: string
+      replicas:
+        description: '--- 副本数（Deployment/StatefulSet 有效）---'
+        type: integer
+      secret_data:
+        description: '--- Secret ---'
+        items:
+          $ref: '#/definitions/requests.KVDef'
+        type: array
+      secret_mount_path:
+        description: 如 /etc/secrets
+        type: string
+      service_ports:
+        description: 可选，默认用 ports
+        items:
+          $ref: '#/definitions/requests.PortDef'
+        type: array
+      service_type:
+        description: '--- Service 配置 ---'
+        type: string
+      workload_kind:
+        description: Deployment|StatefulSet|DaemonSet|CronJob|Job
+        type: string
+      workload_name:
+        description: 可选，默认=app_name
+        type: string
     type: object
   requests.ResourceRef:
     properties:
@@ -1976,6 +2595,15 @@ definitions:
         type: string
       role_type:
         type: string
+      scope_cicd:
+        description: none/read/write/admin
+        type: string
+      scope_cluster:
+        description: none/read/write/admin
+        type: string
+      scope_platform:
+        description: none/read/write/admin
+        type: string
     type: object
   requests.RolePermissionsUpdateRequest:
     properties:
@@ -1998,6 +2626,13 @@ definitions:
         type: string
       id:
         type: integer
+      scope_cicd:
+        type: string
+      scope_cluster:
+        type: string
+      scope_platform:
+        description: none/read/write/admin
+        type: string
       sort_order:
         type: integer
     type: object
@@ -2062,6 +2697,9 @@ definitions:
         type: string
       pipeline_id:
         description: 流水线ID
+        type: integer
+      run_id:
+        description: 运行记录ID（优先精确匹配，避免 build_number 重用/多流水线共用 Job 定位到旧记录）
         type: integer
       stage_type:
         description: '阶段类型: checkout/dependencies/compile/test/lint/build/push/approval/deploy'
@@ -2457,6 +3095,58 @@ definitions:
         - $ref: '#/definitions/services.WorkloadSummary'
         description: 汇总
     type: object
+  services.LDAPConfigResponse:
+    properties:
+      attr_email:
+        type: string
+      attr_phone:
+        type: string
+      attr_username:
+        type: string
+      auto_create:
+        type: boolean
+      base_dn:
+        type: string
+      bind_dn:
+        type: string
+      enabled:
+        type: boolean
+      group_attr:
+        type: string
+      group_base_dn:
+        type: string
+      group_filter:
+        type: string
+      group_role_mapping:
+        items:
+          $ref: '#/definitions/setting.LDAPGroupRoleMapping'
+        type: array
+      host:
+        type: string
+      local_fallback:
+        type: boolean
+      port:
+        type: integer
+      sync_on_login:
+        type: boolean
+      use_tls:
+        type: boolean
+      user_filter:
+        type: string
+    type: object
+  services.LDAPSyncResult:
+    properties:
+      errors:
+        items:
+          type: string
+        type: array
+      failed:
+        type: integer
+      synced:
+        type: integer
+      total:
+        type: integer
+    type: object
   services.NodeSummary:
     properties:
       cpu_usage:
@@ -2680,6 +3370,21 @@ definitions:
         $ref: '#/definitions/services.PodSummary'
       statefulsets:
         $ref: '#/definitions/services.ResourceCount'
+    type: object
+  setting.LDAPGroupRoleMapping:
+    properties:
+      cicdaccess:
+        description: '发布域权限级别: none/read/write/admin'
+        type: string
+      clusterAccess:
+        description: '集群域权限级别: none/read/write/admin'
+        type: string
+      ldapgroup:
+        description: LDAP 组名（cn 值）
+        type: string
+      platformRole:
+        description: 平台角色标识
+        type: string
     type: object
 info:
   contact: {}
@@ -3120,7 +3825,7 @@ paths:
       - 认证管理
   /api/v1/auth/login:
     post:
-      description: 用户登录
+      description: 用户登录（支持本地/LDAP 双模式）
       parameters:
       - description: body
         in: body
@@ -4066,6 +4771,29 @@ paths:
       summary: 审批操作
       tags:
       - CICD Approval
+  /api/v1/k8s/cicd/approval/batch-action:
+    post:
+      consumes:
+      - application/json
+      description: 批量通过或拒绝审批申请
+      parameters:
+      - description: 批量操作参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.ApprovalBatchActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 操作结果
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量审批操作
+      tags:
+      - CICD Approval
   /api/v1/k8s/cicd/approval/create:
     post:
       consumes:
@@ -4130,6 +4858,37 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取审批详情
+      tags:
+      - CICD Approval
+  /api/v1/k8s/cicd/approval/feishu-callback:
+    get:
+      consumes:
+      - application/json
+      description: 飞书交互卡片审批回调接口（公开接口，无需JWT）
+      parameters:
+      - description: 审批Token
+        in: query
+        name: token
+        required: true
+        type: string
+      - description: '审批动作: approve/reject'
+        in: query
+        name: action
+        required: true
+        type: string
+      - description: 审批意见
+        in: query
+        name: reason
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 审批处理成功
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 飞书审批回调
       tags:
       - CICD Approval
   /api/v1/k8s/cicd/approval/list:
@@ -4715,6 +5474,86 @@ paths:
       summary: 批量停止流水线
       tags:
       - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/build-records:
+    get:
+      description: 分页查询所有流水线的构建运行记录，支持按状态、流水线ID、关键字筛选
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20
+        in: query
+        name: page_size
+        type: integer
+      - description: 状态筛选(pending/running/success/failed/aborted)
+        in: query
+        name: status
+        type: string
+      - description: 关键字搜索
+        in: query
+        name: keyword
+        type: string
+      - description: 流水线ID筛选
+        in: query
+        name: pipeline_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回构建记录列表
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取全量构建记录（跨流水线）
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/build-records/export:
+    get:
+      description: 导出所有构建记录为 CSV 文件
+      parameters:
+      - description: 状态筛选
+        in: query
+        name: status
+        type: string
+      - description: 关键字
+        in: query
+        name: keyword
+        type: string
+      - description: 流水线ID
+        in: query
+        name: pipeline_id
+        type: integer
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV文件
+          schema:
+            type: string
+      summary: 导出构建记录为 CSV
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/build-stats:
+    get:
+      description: 返回构建成功率、平均时长、今日/本周构建数、近N天趋势
+      parameters:
+      - description: 趋势天数，默认7
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取构建统计数据
+      tags:
+      - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/callback:
     post:
       consumes:
@@ -4755,6 +5594,30 @@ paths:
             additionalProperties: true
             type: object
       summary: Jenkins 构建状态回调（生产级）
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/check-name:
+    get:
+      description: 检查指定应用名称是否已被占用
+      parameters:
+      - description: 应用名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: 排除的流水线 ID（编辑时使用）
+        in: query
+        name: exclude_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回 available
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 检查应用名称是否可用
       tags:
       - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/create:
@@ -4823,6 +5686,26 @@ paths:
       summary: 删除流水线
       tags:
       - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/deploy-silence-status:
+    get:
+      description: 查看当前流水线是否有活跃的发布静默规则
+      parameters:
+      - description: 流水线ID
+        in: query
+        name: pipeline_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回静默状态
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取流水线发布静默状态
+      tags:
+      - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/detail:
     get:
       description: 获取流水线的完整配置信息
@@ -4853,6 +5736,49 @@ paths:
       summary: 获取流水线详情
       tags:
       - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/discover:
+    get:
+      description: 根据集群ID、命名空间和Deployment名称，自动解析镜像仓库、容器名等信息，用于流水线创建时的"从K8s导入"功能
+      parameters:
+      - description: 集群ID
+        in: query
+        name: cluster_id
+        required: true
+        type: integer
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: Deployment名称
+        in: query
+        name: deployment
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回自动发现的应用信息
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 从K8s Deployment自动发现应用信息
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/discover-apps:
+    get:
+      responses: {}
   /api/v1/k8s/cicd/pipeline/history:
     get:
       description: 分页获取流水线的历史运行记录
@@ -4889,6 +5815,20 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取流水线运行历史
+      tags:
+      - CICD Pipeline
+  /api/v1/k8s/cicd/pipeline/jenkins-config:
+    get:
+      description: 返回当前平台的 Jenkins 连接配置（脱敏），用于前端展示和诊断
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回 Jenkins 配置信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 Jenkins 配置信息
       tags:
       - CICD Pipeline
   /api/v1/k8s/cicd/pipeline/list:
@@ -5211,6 +6151,156 @@ paths:
       summary: 更新流水线
       tags:
       - CICD Pipeline
+  /api/v1/k8s/cicd/promote/chain:
+    get:
+      parameters:
+      - description: 流水线ID
+        in: query
+        name: pipeline_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取流水线的晋级链视图（各环境当前部署镜像/状态）
+      tags:
+      - CICD Promote
+  /api/v1/k8s/cicd/promote/run:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 晋级参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.PipelinePromoteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 镜像晋级：将已构建镜像发布到目标环境
+      tags:
+      - CICD Promote
+  /api/v1/k8s/cicd/promote/targets:
+    get:
+      parameters:
+      - description: 流水线ID
+        in: query
+        name: pipeline_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取流水线的环境部署目标列表
+      tags:
+      - CICD Promote
+  /api/v1/k8s/cicd/promote/targets/delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 删除参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.PipelineTargetDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除单个环境部署目标
+      tags:
+      - CICD Promote
+  /api/v1/k8s/cicd/promote/targets/save:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 环境目标配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.PipelineTargetSaveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 全量保存流水线的环境部署目标
+      tags:
+      - CICD Promote
+  /api/v1/k8s/cicd/quick-onboard:
+    post:
+      consumes:
+      - application/json
+      description: '支持 5 种工作负载类型: Deployment/StatefulSet/DaemonSet/CronJob/Job'
+      parameters:
+      - description: 接入参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.QuickOnboardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 快速接入应用（一键创建 K8s 资源 + 接入流水线 + 可选首次部署）
+      tags:
+      - CICD QuickOnboard
+  /api/v1/k8s/cicd/release/batch-cancel:
+    post:
+      consumes:
+      - application/json
+      description: 批量取消（智能判断：已部署成功/运行中的会触发回滚，未部署的直接取消）
+      parameters:
+      - description: 批量取消参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.CicdReleaseBatchCancelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 批量取消发布单
+      tags:
+      - CICD Release
   /api/v1/k8s/cicd/release/batch-retry:
     post:
       consumes:
@@ -5321,6 +6411,49 @@ paths:
       summary: 获取发布单详情
       tags:
       - CICD Release
+  /api/v1/k8s/cicd/release/history:
+    get:
+      description: 支持时间范围、命名空间、应用名筛选的发布历史查询
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 应用名称
+        in: query
+        name: app_name
+        type: string
+      - description: 命名空间
+        in: query
+        name: namespace
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 开始时间戳
+        in: query
+        name: start_time
+        type: integer
+      - description: 结束时间戳
+        in: query
+        name: end_time
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 应用发布历史查询（增强版）
+      tags:
+      - CICD Release
   /api/v1/k8s/cicd/release/list:
     get:
       parameters:
@@ -5407,6 +6540,20 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取发布单统计
+      tags:
+      - CICD Release
+  /api/v1/k8s/cicd/release/stats-enhanced:
+    get:
+      description: 返回今日/本周发布数、成功率、状态分布
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 增强版发布统计
       tags:
       - CICD Release
   /api/v1/k8s/cicd/release/sync-from-pipeline:
@@ -5833,6 +6980,26 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 执行部署阶段
+      tags:
+      - CICD-Stage
+  /api/v1/k8s/cicd/stage/deploy-status:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 阶段ID
+        in: query
+        name: stage_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 查询部署阶段实时状态与 Pod 列表
       tags:
       - CICD-Stage
   /api/v1/k8s/cicd/stage/history:
@@ -6600,6 +7767,37 @@ paths:
       summary: 获取 ConfigMap YAML
       tags:
       - K8s ConfigMap 管理
+  /api/v1/k8s/cronjob/apply-yaml:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: YAML 内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.YamlCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 应用 CronJob YAML 配置
+      tags:
+      - K8s CronJob 管理
   /api/v1/k8s/cronjob/create:
     post:
       consumes:
@@ -6722,6 +7920,45 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取 CronJob 详情（含历史 Job 列表）
+      tags:
+      - K8s CronJob 管理
+  /api/v1/k8s/cronjob/events:
+    get:
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        type: string
+      - description: CronJob 名称
+        in: query
+        name: name
+        type: string
+      - description: 返回条数限制（默认50）
+        in: query
+        name: limit
+        type: integer
+      - description: 最近N秒的事件
+        in: query
+        name: since_seconds
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 CronJob 相关事件
       tags:
       - K8s CronJob 管理
   /api/v1/k8s/cronjob/list:
@@ -6861,6 +8098,39 @@ paths:
             additionalProperties: true
             type: object
       summary: 从 YAML 更新 CronJob
+      tags:
+      - K8s CronJob 管理
+  /api/v1/k8s/cronjob/yaml:
+    get:
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: CronJob 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 CronJob YAML
       tags:
       - K8s CronJob 管理
   /api/v1/k8s/daemonset/apply_yaml:
@@ -7265,6 +8535,38 @@ paths:
             additionalProperties: true
             type: object
       summary: 回滚 DaemonSet
+      tags:
+      - K8s DaemonSet 管理
+  /api/v1/k8s/daemonset/update-resources:
+    post:
+      consumes:
+      - application/json
+      description: 直接修改 DaemonSet 容器的 CPU/Memory requests/limits
+      parameters:
+      - description: 资源配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeDeploymentUpdateResourcesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 快速修改容器资源限制
       tags:
       - K8s DaemonSet 管理
   /api/v1/k8s/daemonset/update_image:
@@ -7948,6 +9250,38 @@ paths:
       summary: 更新镜像（触发滚动升级）
       tags:
       - K8s Deployment 管理
+  /api/v1/k8s/deployment/update-resources:
+    post:
+      consumes:
+      - application/json
+      description: 直接修改 Deployment 容器的 CPU/Memory requests/limits，用于快速应对 OOM 等场景
+      parameters:
+      - description: 资源配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeDeploymentUpdateResourcesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 快速修改容器资源限制
+      tags:
+      - K8s Deployment 管理
   /api/v1/k8s/deployment/update-strategy:
     post:
       consumes:
@@ -8015,6 +9349,106 @@ paths:
       summary: 获取 Deployment 的 YAML 配置
       tags:
       - K8s Deployment 管理
+  /api/v1/k8s/hpa/batch-scale:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 批量扩缩容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeHPABatchScaleRequest'
+      responses: {}
+      summary: 批量扩容/缩容 HPA（618 促销场景）
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/batch-status:
+    post:
+      responses: {}
+      summary: 批量查询 HPA 当前状态（统一数据，验证扩缩容是否成功）
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 创建参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeHPACreateRequest'
+      responses: {}
+      summary: 创建 HPA
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/create-from-yaml:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: YAML 内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.YamlCreateRequest'
+      responses: {}
+      summary: 通过 YAML 创建 HPA
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/delete:
+    delete:
+      responses: {}
+      summary: 删除 HPA
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/detail:
+    get:
+      responses: {}
+      summary: 获取 HPA 详情
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/list:
+    get:
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        type: string
+      - description: HPA 名称(模糊)
+        in: query
+        name: name
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取 HPA 列表
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/scale:
+    post:
+      responses: {}
+      summary: 单独修改 HPA 副本数（min/max）
+      tags:
+      - K8s HPA 弹性扩缩容
+  /api/v1/k8s/hpa/update:
+    post:
+      responses: {}
+      summary: 更新 HPA
+      tags:
+      - K8s HPA 弹性扩缩容
   /api/v1/k8s/ingress/apply-yaml:
     put:
       consumes:
@@ -8496,6 +9930,45 @@ paths:
             additionalProperties: true
             type: object
       summary: 获取 Job 详情
+      tags:
+      - K8s Job 管理
+  /api/v1/k8s/job/events:
+    get:
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        type: string
+      - description: Job 名称
+        in: query
+        name: name
+        type: string
+      - description: 返回条数限制（默认50）
+        in: query
+        name: limit
+        type: integer
+      - description: 最近N秒的事件
+        in: query
+        name: since_seconds
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 Job 相关事件
       tags:
       - K8s Job 管理
   /api/v1/k8s/job/list:
@@ -9659,6 +11132,28 @@ paths:
       summary: 获取Pod的详情
       tags:
       - K8s Pod管理
+  /api/v1/k8s/pod/events:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 查询参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeEventListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取 Pod 事件列表
+      tags:
+      - K8s Pod 管理
   /api/v1/k8s/pod/evict:
     post:
       consumes:
@@ -10983,6 +12478,104 @@ paths:
       summary: 创建 ServiceAccount
       tags:
       - K8s RBAC
+    put:
+      consumes:
+      - application/json
+      description: 更新 K8s ServiceAccount Labels / Annotations / AutomountToken
+      parameters:
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 更新 ServiceAccount
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/serviceaccount/events:
+    get:
+      description: 获取指定 ServiceAccount 的 K8s 事件
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 ServiceAccount 事件
+      tags:
+      - K8s RBAC
+  /api/v1/k8s/rbac/serviceaccount/yaml:
+    get:
+      description: 获取指定 ServiceAccount 的 YAML 表示
+      parameters:
+      - description: 命名空间
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: 名称
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 ServiceAccount YAML
+      tags:
+      - K8s RBAC
+    put:
+      consumes:
+      - application/json
+      description: 通过 YAML 更新 ServiceAccount
+      parameters:
+      - description: YAML 内容
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 应用 ServiceAccount YAML
+      tags:
+      - K8s RBAC
   /api/v1/k8s/rbac/serviceaccounts:
     get:
       description: 获取 K8s ServiceAccount 列表
@@ -12162,6 +13755,38 @@ paths:
       summary: 获取 StatefulSet 对应的 Pod 列表
       tags:
       - K8s StatefulSet 管理
+  /api/v1/k8s/statefulset/update-resources:
+    post:
+      consumes:
+      - application/json
+      description: 直接修改 StatefulSet 容器的 CPU/Memory requests/limits
+      parameters:
+      - description: 资源配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.KubeDeploymentUpdateResourcesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 快速修改容器资源限制
+      tags:
+      - K8s StatefulSet 管理
   /api/v1/k8s/statefulset/update_image:
     put:
       consumes:
@@ -12459,6 +14084,112 @@ paths:
       summary: 获取 StorageClass YAML
       tags:
       - K8s StorageClass 管理
+  /api/v1/k8s/vpa/available:
+    get:
+      responses: {}
+      summary: 检测 VPA Operator 是否在集群中安装
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/k8s/vpa/create:
+    post:
+      responses: {}
+      summary: 创建 VPA
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/k8s/vpa/create-from-yaml:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: YAML 内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/requests.YamlCreateRequest'
+      responses: {}
+      summary: 通过 YAML 创建 VPA
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/k8s/vpa/delete:
+    delete:
+      responses: {}
+      summary: 删除 VPA
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/k8s/vpa/detail:
+    get:
+      responses: {}
+      summary: 获取 VPA 详情
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/k8s/vpa/list:
+    get:
+      responses: {}
+      summary: 获取 VPA 列表
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/k8s/vpa/update:
+    post:
+      responses: {}
+      summary: 更新 VPA
+      tags:
+      - K8s VPA 垂直扩缩容
+  /api/v1/ldap/config:
+    get:
+      description: 获取当前 LDAP 认证配置（脱敏）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.LDAPConfigResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 LDAP 配置
+      tags:
+      - LDAP管理
+  /api/v1/ldap/status:
+    get:
+      description: 获取 LDAP 启用状态和连接状态
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取 LDAP 状态
+      tags:
+      - LDAP管理
+  /api/v1/ldap/sync:
+    post:
+      description: 从 LDAP 同步所有用户到平台
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.LDAPSyncResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 全量同步 LDAP 用户
+      tags:
+      - LDAP管理
+  /api/v1/ldap/test:
+    post:
+      description: 测试 LDAP 服务器是否可连接
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: 测试 LDAP 连接
+      tags:
+      - LDAP管理
   /api/v1/platform/appstore/categories:
     get:
       description: 获取所有分类及其应用计数
@@ -12704,6 +14435,178 @@ paths:
       summary: 更新应用
       tags:
       - 应用商城
+  /api/v1/platform/audit/cleanup:
+    post:
+      description: 根据当前保留策略清理过期数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 手动清理过期审计日志
+      tags:
+      - 审计日志
+  /api/v1/platform/audit/export:
+    get:
+      description: 按筛选条件导出审计日志（最多10000条）
+      parameters:
+      - description: 用户名
+        in: query
+        name: username
+        type: string
+      - description: 操作类型
+        in: query
+        name: action
+        type: string
+      - description: 模块
+        in: query
+        name: module
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 开始时间
+        in: query
+        name: start_time
+        type: integer
+      - description: 结束时间
+        in: query
+        name: end_time
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.AuditLog'
+            type: array
+      summary: 导出审计日志
+      tags:
+      - 审计日志
+  /api/v1/platform/audit/logs:
+    get:
+      description: 支持多维度筛选、分页、排序
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      - description: 用户名
+        in: query
+        name: username
+        type: string
+      - description: 操作类型
+        in: query
+        name: action
+        type: string
+      - description: 模块
+        in: query
+        name: module
+        type: string
+      - description: '状态: success/failed'
+        in: query
+        name: status
+        type: string
+      - description: 开始时间(unix)
+        in: query
+        name: start_time
+        type: integer
+      - description: 结束时间(unix)
+        in: query
+        name: end_time
+        type: integer
+      - description: 关键词搜索
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AuditLogListResponse'
+      summary: 获取审计日志列表
+      tags:
+      - 审计日志
+  /api/v1/platform/audit/logs/{id}:
+    get:
+      description: 根据ID获取单条审计日志完整信息
+      parameters:
+      - description: 日志ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AuditLog'
+      summary: 获取审计日志详情
+      tags:
+      - 审计日志
+  /api/v1/platform/audit/retention:
+    get:
+      description: 返回当前保留天数和是否永久保留
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AuditRetentionPolicy'
+      summary: 获取审计日志保留策略
+      tags:
+      - 审计日志
+    put:
+      consumes:
+      - application/json
+      description: 设置保留天数(0=永久)或切换永久保留
+      parameters:
+      - description: 保留策略
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AuditRetentionUpdateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+      summary: 更新审计日志保留策略
+      tags:
+      - 审计日志
+  /api/v1/platform/audit/statistics:
+    get:
+      description: 返回今日/本周操作量、成功率、用户排行、模块排行等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AuditStatistics'
+      summary: 获取审计统计数据
+      tags:
+      - 审计日志
   /api/v1/platform/health:
     get:
       consumes:

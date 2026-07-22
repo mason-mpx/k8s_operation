@@ -673,7 +673,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/login": {
             "post": {
-                "description": "用户登录",
+                "description": "用户登录（支持本地/LDAP 双模式）",
                 "produces": [
                     "application/json"
                 ],
@@ -2142,6 +2142,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/approval/batch-action": {
+            "post": {
+                "description": "批量通过或拒绝审批申请",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Approval"
+                ],
+                "summary": "批量审批操作",
+                "parameters": [
+                    {
+                        "description": "批量操作参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.ApprovalBatchActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "操作结果",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/approval/create": {
             "post": {
                 "description": "创建部署审批申请",
@@ -2234,6 +2269,52 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "返回审批详情",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/approval/feishu-callback": {
+            "get": {
+                "description": "飞书交互卡片审批回调接口（公开接口，无需JWT）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Approval"
+                ],
+                "summary": "飞书审批回调",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "审批Token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "审批动作: approve/reject",
+                        "name": "action",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "审批意见",
+                        "name": "reason",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "审批处理成功",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -3119,6 +3200,128 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/pipeline/build-records": {
+            "get": {
+                "description": "分页查询所有流水线的构建运行记录，支持按状态、流水线ID、关键字筛选",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "获取全量构建记录（跨流水线）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认20",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态筛选(pending/running/success/failed/aborted)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键字搜索",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流水线ID筛选",
+                        "name": "pipeline_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回构建记录列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/build-records/export": {
+            "get": {
+                "description": "导出所有构建记录为 CSV 文件",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "导出构建记录为 CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV文件",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/build-stats": {
+            "get": {
+                "description": "返回构建成功率、平均时长、今日/本周构建数、近N天趋势",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "获取构建统计数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "趋势天数，默认7",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/pipeline/callback": {
             "post": {
                 "description": "Jenkins 构建完成后调用此接口通知平台更新状态",
@@ -3173,6 +3376,42 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/check-name": {
+            "get": {
+                "description": "检查指定应用名称是否已被占用",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "检查应用名称是否可用",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "应用名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排除的流水线 ID（编辑时使用）",
+                        "name": "exclude_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回 available",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -3279,6 +3518,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/pipeline/deploy-silence-status": {
+            "get": {
+                "description": "查看当前流水线是否有活跃的发布静默规则",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "获取流水线发布静默状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回静默状态",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/pipeline/detail": {
             "get": {
                 "description": "获取流水线的完整配置信息",
@@ -3321,6 +3590,69 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/discover": {
+            "get": {
+                "description": "根据集群ID、命名空间和Deployment名称，自动解析镜像仓库、容器名等信息，用于流水线创建时的\"从K8s导入\"功能",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "从K8s Deployment自动发现应用信息",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "集群ID",
+                        "name": "cluster_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Deployment名称",
+                        "name": "deployment",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回自动发现的应用信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/discover-apps": {
+            "get": {
+                "responses": {}
             }
         },
         "/api/v1/k8s/cicd/pipeline/history": {
@@ -3371,6 +3703,27 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/pipeline/jenkins-config": {
+            "get": {
+                "description": "返回当前平台的 Jenkins 连接配置（脱敏），用于前端展示和诊断",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Pipeline"
+                ],
+                "summary": "获取 Jenkins 配置信息",
+                "responses": {
+                    "200": {
+                        "description": "返回 Jenkins 配置信息",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -3854,6 +4207,236 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/promote/chain": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Promote"
+                ],
+                "summary": "获取流水线的晋级链视图（各环境当前部署镜像/状态）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/promote/run": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Promote"
+                ],
+                "summary": "镜像晋级：将已构建镜像发布到目标环境",
+                "parameters": [
+                    {
+                        "description": "晋级参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.PipelinePromoteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/promote/targets": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Promote"
+                ],
+                "summary": "获取流水线的环境部署目标列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流水线ID",
+                        "name": "pipeline_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/promote/targets/delete": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Promote"
+                ],
+                "summary": "删除单个环境部署目标",
+                "parameters": [
+                    {
+                        "description": "删除参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.PipelineTargetDeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/promote/targets/save": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Promote"
+                ],
+                "summary": "全量保存流水线的环境部署目标",
+                "parameters": [
+                    {
+                        "description": "环境目标配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.PipelineTargetSaveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/quick-onboard": {
+            "post": {
+                "description": "支持 5 种工作负载类型: Deployment/StatefulSet/DaemonSet/CronJob/Job",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD QuickOnboard"
+                ],
+                "summary": "快速接入应用（一键创建 K8s 资源 + 接入流水线 + 可选首次部署）",
+                "parameters": [
+                    {
+                        "description": "接入参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.QuickOnboardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/release/batch-cancel": {
+            "post": {
+                "description": "批量取消（智能判断：已部署成功/运行中的会触发回滚，未部署的直接取消）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Release"
+                ],
+                "summary": "批量取消发布单",
+                "parameters": [
+                    {
+                        "description": "批量取消参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.CicdReleaseBatchCancelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/release/batch-retry": {
             "post": {
                 "description": "批量重新发布（根据最近一次发布记录重新发布）",
@@ -4022,6 +4605,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cicd/release/history": {
+            "get": {
+                "description": "支持时间范围、命名空间、应用名筛选的发布历史查询",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Release"
+                ],
+                "summary": "应用发布历史查询（增强版）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "应用名称",
+                        "name": "app_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间戳",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间戳",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cicd/release/list": {
             "get": {
                 "produces": [
@@ -4146,6 +4794,27 @@ const docTemplate = `{
                     "CICD Release"
                 ],
                 "summary": "获取发布单统计",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/release/stats-enhanced": {
+            "get": {
+                "description": "返回今日/本周发布数、成功率、状态分布",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD Release"
+                ],
+                "summary": "增强版发布统计",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4798,6 +5467,37 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/requests.StageDeployRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cicd/stage/deploy-status": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CICD-Stage"
+                ],
+                "summary": "查询部署阶段实时状态与 Pod 列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "阶段ID",
+                        "name": "stage_id",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -5966,6 +6666,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/cronjob/apply-yaml": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s CronJob 管理"
+                ],
+                "summary": "应用 CronJob YAML 配置",
+                "parameters": [
+                    {
+                        "description": "YAML 内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.YamlCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/cronjob/create": {
             "post": {
                 "consumes": [
@@ -6138,6 +6885,65 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cronjob/events": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s CronJob 管理"
+                ],
+                "summary": "获取 CronJob 相关事件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "CronJob 名称",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "返回条数限制（默认50）",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最近N秒的事件",
+                        "name": "since_seconds",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -6352,6 +7158,55 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/cronjob/yaml": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s CronJob 管理"
+                ],
+                "summary": "获取 CronJob YAML",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "CronJob 名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -6940,6 +7795,54 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "DaemonSet 回滚成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/daemonset/update-resources": {
+            "post": {
+                "description": "直接修改 DaemonSet 容器的 CPU/Memory requests/limits",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s DaemonSet 管理"
+                ],
+                "summary": "快速修改容器资源限制",
+                "parameters": [
+                    {
+                        "description": "资源配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeDeploymentUpdateResourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
                         "schema": {
                             "type": "string"
                         }
@@ -7978,6 +8881,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/deployment/update-resources": {
+            "post": {
+                "description": "直接修改 Deployment 容器的 CPU/Memory requests/limits，用于快速应对 OOM 等场景",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Deployment 管理"
+                ],
+                "summary": "快速修改容器资源限制",
+                "parameters": [
+                    {
+                        "description": "资源配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeDeploymentUpdateResourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/deployment/update-strategy": {
             "post": {
                 "description": "更新 Deployment 的滚动更新策略（maxSurge/maxUnavailable/minReadySeconds 等）",
@@ -8075,6 +9026,158 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/k8s/hpa/batch-scale": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "批量扩容/缩容 HPA（618 促销场景）",
+                "parameters": [
+                    {
+                        "description": "批量扩缩容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeHPABatchScaleRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/batch-status": {
+            "post": {
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "批量查询 HPA 当前状态（统一数据，验证扩缩容是否成功）",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/create": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "创建 HPA",
+                "parameters": [
+                    {
+                        "description": "创建参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeHPACreateRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/create-from-yaml": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "通过 YAML 创建 HPA",
+                "parameters": [
+                    {
+                        "description": "YAML 内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.YamlCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/delete": {
+            "delete": {
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "删除 HPA",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/detail": {
+            "get": {
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "获取 HPA 详情",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/list": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "获取 HPA 列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "HPA 名称(模糊)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/scale": {
+            "post": {
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "单独修改 HPA 副本数（min/max）",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/hpa/update": {
+            "post": {
+                "tags": [
+                    "K8s HPA 弹性扩缩容"
+                ],
+                "summary": "更新 HPA",
+                "responses": {}
             }
         },
         "/api/v1/k8s/ingress/apply-yaml": {
@@ -8785,6 +9888,65 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/job/events": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Job 管理"
+                ],
+                "summary": "获取 Job 相关事件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Job 名称",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "返回条数限制（默认50）",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最近N秒的事件",
+                        "name": "since_seconds",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -10512,6 +11674,40 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "内部错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/pod/events": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s Pod 管理"
+                ],
+                "summary": "获取 Pod 事件列表",
+                "parameters": [
+                    {
+                        "description": "查询参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeEventListRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -12434,6 +13630,43 @@ const docTemplate = `{
                     }
                 }
             },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新 K8s ServiceAccount Labels / Annotations / AutomountToken",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "更新 ServiceAccount",
+                "parameters": [
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -12499,6 +13732,125 @@ const docTemplate = `{
                         "name": "name",
                         "in": "query",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/serviceaccount/events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定 ServiceAccount 的 K8s 事件",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "获取 ServiceAccount 事件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/k8s/rbac/serviceaccount/yaml": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取指定 ServiceAccount 的 YAML 表示",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "获取 ServiceAccount YAML",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "命名空间",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 YAML 更新 ServiceAccount",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s RBAC"
+                ],
+                "summary": "应用 ServiceAccount YAML",
+                "parameters": [
+                    {
+                        "description": "YAML 内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
                     }
                 ],
                 "responses": {
@@ -14266,6 +15618,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/statefulset/update-resources": {
+            "post": {
+                "description": "直接修改 StatefulSet 容器的 CPU/Memory requests/limits",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s StatefulSet 管理"
+                ],
+                "summary": "快速修改容器资源限制",
+                "parameters": [
+                    {
+                        "description": "资源配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.KubeDeploymentUpdateResourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/k8s/statefulset/update_image": {
             "put": {
                 "description": "仅修改 .spec.template.spec.containers[*].image，不影响其它字段；根据 UpdateStrategy 触发滚动更新",
@@ -14705,6 +16105,172 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/k8s/vpa/available": {
+            "get": {
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "检测 VPA Operator 是否在集群中安装",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/vpa/create": {
+            "post": {
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "创建 VPA",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/vpa/create-from-yaml": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "通过 YAML 创建 VPA",
+                "parameters": [
+                    {
+                        "description": "YAML 内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/requests.YamlCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/vpa/delete": {
+            "delete": {
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "删除 VPA",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/vpa/detail": {
+            "get": {
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "获取 VPA 详情",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/vpa/list": {
+            "get": {
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "获取 VPA 列表",
+                "responses": {}
+            }
+        },
+        "/api/v1/k8s/vpa/update": {
+            "post": {
+                "tags": [
+                    "K8s VPA 垂直扩缩容"
+                ],
+                "summary": "更新 VPA",
+                "responses": {}
+            }
+        },
+        "/api/v1/ldap/config": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取当前 LDAP 认证配置（脱敏）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LDAP管理"
+                ],
+                "summary": "获取 LDAP 配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/services.LDAPConfigResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ldap/status": {
+            "get": {
+                "description": "获取 LDAP 启用状态和连接状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LDAP管理"
+                ],
+                "summary": "获取 LDAP 状态",
+                "responses": {}
+            }
+        },
+        "/api/v1/ldap/sync": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "从 LDAP 同步所有用户到平台",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LDAP管理"
+                ],
+                "summary": "全量同步 LDAP 用户",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/services.LDAPSyncResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ldap/test": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "测试 LDAP 服务器是否可连接",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LDAP管理"
+                ],
+                "summary": "测试 LDAP 连接",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/platform/appstore/categories": {
             "get": {
                 "description": "获取所有分类及其应用计数",
@@ -15076,6 +16642,267 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/audit/cleanup": {
+            "post": {
+                "description": "根据当前保留策略清理过期数据",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "手动清理过期审计日志",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/audit/export": {
+            "get": {
+                "description": "按筛选条件导出审计日志（最多10000条）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "导出审计日志",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "username",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作类型",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.AuditLog"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/audit/logs": {
+            "get": {
+                "description": "支持多维度筛选、分页、排序",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "获取审计日志列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "username",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作类型",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态: success/failed",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间(unix)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间(unix)",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词搜索",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AuditLogListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/audit/logs/{id}": {
+            "get": {
+                "description": "根据ID获取单条审计日志完整信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "获取审计日志详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "日志ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AuditLog"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/audit/retention": {
+            "get": {
+                "description": "返回当前保留天数和是否永久保留",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "获取审计日志保留策略",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AuditRetentionPolicy"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "设置保留天数(0=永久)或切换永久保留",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "更新审计日志保留策略",
+                "parameters": [
+                    {
+                        "description": "保留策略",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AuditRetentionUpdateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/platform/audit/statistics": {
+            "get": {
+                "description": "返回今日/本周操作量、成功率、用户排行、模块排行等",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "审计日志"
+                ],
+                "summary": "获取审计统计数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AuditStatistics"
                         }
                     }
                 }
@@ -16358,6 +18185,17 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ActionSummary": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.AlertSettings": {
             "type": "object",
             "properties": {
@@ -16520,6 +18358,222 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ApprovalLevel": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "description": "审批级别显示名称（如\"测试负责人\"）",
+                    "type": "string"
+                },
+                "level": {
+                    "description": "审批级别（1=一级审批，2=二级审批...）",
+                    "type": "integer"
+                },
+                "role": {
+                    "description": "角色标识（如 test_lead / dev_lead / ops_lead / sre）",
+                    "type": "string"
+                },
+                "user_ids": {
+                    "description": "该级别审批人 ID 列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "models.AuditLog": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "create/update/delete/login/logout/exec/approve",
+                    "type": "string"
+                },
+                "action_display": {
+                    "description": "操作显示名称",
+                    "type": "string"
+                },
+                "cluster_id": {
+                    "type": "integer"
+                },
+                "cluster_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "detail": {
+                    "description": "操作详情JSON",
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "extra": {
+                    "description": "额外信息JSON",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "module": {
+                    "description": "cluster/workload/cicd/rbac/platform/auth/ai",
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "pipeline_id": {
+                    "type": "integer"
+                },
+                "pipeline_name": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "request_body": {
+                    "type": "string"
+                },
+                "request_method": {
+                    "type": "string"
+                },
+                "request_uri": {
+                    "type": "string"
+                },
+                "response_code": {
+                    "type": "integer"
+                },
+                "response_message": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "success/failed",
+                    "type": "string"
+                },
+                "target_id": {
+                    "description": "目标ID",
+                    "type": "string"
+                },
+                "target_name": {
+                    "description": "目标名称",
+                    "type": "string"
+                },
+                "target_type": {
+                    "description": "deployment/pod/pipeline/user/role...",
+                    "type": "string"
+                },
+                "user_agent": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "user_ip": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AuditLogListResponse": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AuditLog"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "statistics": {
+                    "$ref": "#/definitions/models.AuditStatistics"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.AuditRetentionPolicy": {
+            "type": "object",
+            "properties": {
+                "is_permanent": {
+                    "description": "是否永久保留",
+                    "type": "boolean"
+                },
+                "retention_days": {
+                    "description": "保留天数，0 = 永久保留",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.AuditRetentionUpdateReq": {
+            "type": "object",
+            "properties": {
+                "is_permanent": {
+                    "type": "boolean"
+                },
+                "retention_days": {
+                    "description": "0 = 永久",
+                    "type": "integer",
+                    "maximum": 3650,
+                    "minimum": 0
+                }
+            }
+        },
+        "models.AuditStatistics": {
+            "type": "object",
+            "properties": {
+                "action_summary": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ActionSummary"
+                    }
+                },
+                "hourly_counts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.HourlyCount"
+                    }
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "top_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TopModuleStat"
+                    }
+                },
+                "top_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TopUserStat"
+                    }
+                },
+                "total_all": {
+                    "type": "integer"
+                },
+                "total_today": {
+                    "type": "integer"
+                },
+                "total_week": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.BasicSettings": {
             "type": "object",
             "properties": {
@@ -16672,6 +18726,63 @@ const docTemplate = `{
                 }
             }
         },
+        "models.GitOpsConfig": {
+            "type": "object",
+            "properties": {
+                "argo_app_name": {
+                    "description": "ArgoCD 配置",
+                    "type": "string"
+                },
+                "argo_project": {
+                    "description": "ArgoCD Project (默认 \"default\")",
+                    "type": "string"
+                },
+                "auto_sync": {
+                    "description": "同步策略",
+                    "type": "boolean"
+                },
+                "build_context": {
+                    "description": "构建上下文 (默认 \".\")",
+                    "type": "string"
+                },
+                "dockerfile_path": {
+                    "description": "Dockerfile 路径 (默认 \"Dockerfile\")",
+                    "type": "string"
+                },
+                "git_manifest_repo": {
+                    "description": "Git 仓库（存放 K8s manifests）",
+                    "type": "string"
+                },
+                "image_registry": {
+                    "description": "镜像构建配置",
+                    "type": "string"
+                },
+                "image_repo": {
+                    "description": "镜像仓库名 (e.g., myapp)",
+                    "type": "string"
+                },
+                "manifest_path": {
+                    "description": "manifests 路径 (如 \"manifests/overlays/prod\")",
+                    "type": "string"
+                },
+                "prune_resource": {
+                    "description": "启用资源清理 (不在 Git 中的资源自动删除)",
+                    "type": "boolean"
+                },
+                "target_revision": {
+                    "description": "目标分支/标签",
+                    "type": "string"
+                },
+                "workflow_namespace": {
+                    "description": "WorkflowTemplate 命名空间",
+                    "type": "string"
+                },
+                "workflow_template": {
+                    "description": "Argo Workflows 配置",
+                    "type": "string"
+                }
+            }
+        },
         "models.HPAConfig": {
             "type": "object",
             "properties": {
@@ -16686,6 +18797,17 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "min_replicas": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.HourlyCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "hour": {
                     "type": "integer"
                 }
             }
@@ -16845,6 +18967,28 @@ const docTemplate = `{
                 }
             }
         },
+        "models.TopModuleStat": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "module": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.TopUserStat": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "requests.ApprovalActionRequest": {
             "type": "object",
             "properties": {
@@ -16854,6 +18998,25 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "reason": {
+                    "description": "审批意见",
+                    "type": "string"
+                }
+            }
+        },
+        "requests.ApprovalBatchActionRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "approve/reject",
+                    "type": "string"
+                },
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "reason": {
                     "description": "审批意见",
@@ -16969,19 +19132,28 @@ const docTemplate = `{
         "requests.BatchClusterPermissionRequest": {
             "type": "object",
             "properties": {
+                "access_level": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
+                },
                 "can_create": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_delete": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_exec": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_update": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_view": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "cluster_ids": {
@@ -17027,6 +19199,17 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.CicdReleaseBatchCancelRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "requests.CicdReleaseBatchRetryRequest": {
             "type": "object",
             "properties": {
@@ -17067,6 +19250,10 @@ const docTemplate = `{
                 "container_name": {
                     "type": "string"
                 },
+                "env": {
+                    "description": "镜像晋级链追踪（由 promote 服务填充，手动创建可不传）",
+                    "type": "string"
+                },
                 "image_digest": {
                     "type": "string"
                 },
@@ -17076,12 +19263,28 @@ const docTemplate = `{
                 "image_tag": {
                     "type": "string"
                 },
+                "message": {
+                    "description": "可选：发布说明/备注",
+                    "type": "string"
+                },
                 "namespace": {
                     "type": "string"
+                },
+                "pipeline_id": {
+                    "description": "模板化发布：传入 pipeline_id 后自动继承流水线的部署配置，以下字段均可省略",
+                    "type": "integer"
                 },
                 "request_id": {
                     "description": "可选，幂等校验用",
                     "type": "string"
+                },
+                "source_env": {
+                    "description": "晋级来源环境",
+                    "type": "string"
+                },
+                "source_run_id": {
+                    "description": "构建镜像的流水线运行ID",
+                    "type": "integer"
                 },
                 "strategy": {
                     "type": "string"
@@ -17149,19 +19352,28 @@ const docTemplate = `{
         "requests.ClusterPermissionCreateRequest": {
             "type": "object",
             "properties": {
+                "access_level": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
+                },
                 "can_create": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_delete": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_exec": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_update": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_view": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "cluster_id": {
@@ -17189,19 +19401,28 @@ const docTemplate = `{
         "requests.ClusterPermissionUpdateRequest": {
             "type": "object",
             "properties": {
+                "access_level": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
+                },
                 "can_create": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_delete": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_exec": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_update": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "can_view": {
+                    "description": "deprecated",
                     "type": "boolean"
                 },
                 "expire_at": {
@@ -17269,6 +19490,17 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.EnvVarDef": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "requests.EnvVarKV": {
             "type": "object",
             "properties": {
@@ -17283,12 +19515,23 @@ const docTemplate = `{
         "requests.EnvironmentCreateRequest": {
             "type": "object",
             "properties": {
+                "approval_levels": {
+                    "description": "多级审批配置",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApprovalLevel"
+                    }
+                },
                 "approval_user_ids": {
-                    "description": "审批人员ID列表",
+                    "description": "审批人员ID列表（兼容旧接口）",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
+                },
+                "auto_rollback_on_fail": {
+                    "description": "部署失败时自动回滚",
+                    "type": "boolean"
                 },
                 "cluster_id": {
                     "description": "关联集群ID",
@@ -17335,11 +19578,21 @@ const docTemplate = `{
         "requests.EnvironmentUpdateRequest": {
             "type": "object",
             "properties": {
+                "approval_levels": {
+                    "description": "多级审批配置",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApprovalLevel"
+                    }
+                },
                 "approval_user_ids": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
+                },
+                "auto_rollback_on_fail": {
+                    "type": "boolean"
                 },
                 "cluster_id": {
                     "type": "integer"
@@ -17589,6 +19842,17 @@ const docTemplate = `{
                 },
                 "kube_config": {
                     "description": "✅ 可选（不填就不更新）",
+                    "type": "string"
+                }
+            }
+        },
+        "requests.KVDef": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -17955,6 +20219,37 @@ const docTemplate = `{
         "requests.KubeDeploymentUpdateRequest": {
             "type": "object"
         },
+        "requests.KubeDeploymentUpdateResourcesRequest": {
+            "type": "object",
+            "properties": {
+                "container": {
+                    "description": "容器名称",
+                    "type": "string"
+                },
+                "cpu_limit": {
+                    "description": "CPU Limit (如 500m)",
+                    "type": "string"
+                },
+                "cpu_request": {
+                    "description": "CPU Request (如 100m)",
+                    "type": "string"
+                },
+                "memory_limit": {
+                    "description": "Memory Limit (如 512Mi)",
+                    "type": "string"
+                },
+                "memory_request": {
+                    "description": "Memory Request (如 128Mi)",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
         "requests.KubeEventListRequest": {
             "type": "object",
             "properties": {
@@ -17984,6 +20279,93 @@ const docTemplate = `{
                 },
                 "type": {
                     "description": "Normal | Warning",
+                    "type": "string"
+                }
+            }
+        },
+        "requests.KubeHPABatchItem": {
+            "type": "object",
+            "properties": {
+                "max_replicas": {
+                    "type": "integer"
+                },
+                "min_replicas": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "requests.KubeHPABatchScaleRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.KubeHPABatchItem"
+                    }
+                }
+            }
+        },
+        "requests.KubeHPACreateRequest": {
+            "type": "object",
+            "properties": {
+                "annotations": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "cpu_target_util": {
+                    "description": "目标 CPU 利用率 % (1-100)",
+                    "type": "integer"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "max_replicas": {
+                    "description": "最大副本数 \u003e min",
+                    "type": "integer"
+                },
+                "mem_target_util": {
+                    "description": "目标内存利用率 %",
+                    "type": "integer"
+                },
+                "min_replicas": {
+                    "description": "最小副本数 \u003e=0",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "scale_down_stab_seconds": {
+                    "description": "缩容稳定窗口（秒）",
+                    "type": "integer"
+                },
+                "scale_up_stab_seconds": {
+                    "description": "扩容稳定窗口（秒）",
+                    "type": "integer"
+                },
+                "target_api_version": {
+                    "description": "默认 apps/v1",
+                    "type": "string"
+                },
+                "target_kind": {
+                    "description": "Deployment/StatefulSet",
+                    "type": "string"
+                },
+                "target_name": {
+                    "description": "目标负载名称",
                     "type": "string"
                 }
             }
@@ -18818,6 +21200,10 @@ const docTemplate = `{
                 "enable_artifact_upload": {
                     "type": "boolean"
                 },
+                "enable_deploy_silence": {
+                    "description": "发布联动告警静默",
+                    "type": "boolean"
+                },
                 "enable_sonar": {
                     "type": "boolean"
                 },
@@ -18829,7 +21215,7 @@ const docTemplate = `{
                     }
                 },
                 "git_branch": {
-                    "description": "可选：分支，默认 main",
+                    "description": "可选：分支，留空用配置默认值",
                     "type": "string"
                 },
                 "git_repo": {
@@ -18846,6 +21232,12 @@ const docTemplate = `{
                 },
                 "require_approval": {
                     "type": "boolean"
+                },
+                "silence_buffer_minutes": {
+                    "type": "integer"
+                },
+                "silence_severities": {
+                    "type": "string"
                 },
                 "target_cluster_id": {
                     "type": "integer"
@@ -18927,6 +21319,10 @@ const docTemplate = `{
                     "description": "请求ID（用于日志追踪）",
                     "type": "string"
                 },
+                "run_id": {
+                    "description": "运行记录ID（精确匹配，避免 build_number 重复问题）",
+                    "type": "integer"
+                },
                 "status": {
                     "description": "SUCCESS / FAILURE / ABORTED",
                     "type": "string"
@@ -18948,11 +21344,19 @@ const docTemplate = `{
                     "description": "部署环境",
                     "type": "string"
                 },
+                "deploy_mode": {
+                    "description": "GitOps 部署模式配置",
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
                 "enable_artifact_upload": {
                     "description": "是否启用制品上传",
+                    "type": "boolean"
+                },
+                "enable_deploy_silence": {
+                    "description": "发布联动告警静默",
                     "type": "boolean"
                 },
                 "enable_sonar": {
@@ -18971,6 +21375,14 @@ const docTemplate = `{
                 "git_repo": {
                     "type": "string"
                 },
+                "gitops_config": {
+                    "description": "GitOps 配置（DeployMode=gitops 时必填）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.GitOpsConfig"
+                        }
+                    ]
+                },
                 "jenkins_job": {
                     "type": "string"
                 },
@@ -18987,6 +21399,14 @@ const docTemplate = `{
                 "require_approval": {
                     "description": "是否需要审批",
                     "type": "boolean"
+                },
+                "silence_buffer_minutes": {
+                    "description": "静默缓冲时间(分钟)",
+                    "type": "integer"
+                },
+                "silence_severities": {
+                    "description": "静默的告警级别",
+                    "type": "string"
                 },
                 "target_cluster_id": {
                     "description": "目标集群ID",
@@ -19015,6 +21435,43 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "integer"
+                }
+            }
+        },
+        "requests.PipelinePromoteRequest": {
+            "type": "object",
+            "properties": {
+                "image_digest": {
+                    "description": "显式镜像digest",
+                    "type": "string"
+                },
+                "image_repo": {
+                    "description": "显式镜像仓库",
+                    "type": "string"
+                },
+                "image_tag": {
+                    "description": "显式镜像tag",
+                    "type": "string"
+                },
+                "pipeline_id": {
+                    "description": "流水线ID",
+                    "type": "integer"
+                },
+                "reason": {
+                    "description": "晋级说明",
+                    "type": "string"
+                },
+                "source_release_id": {
+                    "description": "已有发布单ID（从其它环境晋级）",
+                    "type": "integer"
+                },
+                "source_run_id": {
+                    "description": "镜像来源（三选一，优先级：显式镜像 \u003e source_release_id \u003e source_run_id）",
+                    "type": "integer"
+                },
+                "target_env": {
+                    "description": "目标环境(dev/test/staging/prod)",
+                    "type": "string"
                 }
             }
         },
@@ -19077,6 +21534,73 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.PipelineTargetDeleteRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "requests.PipelineTargetItem": {
+            "type": "object",
+            "properties": {
+                "auto_deploy": {
+                    "description": "是否自动部署",
+                    "type": "boolean"
+                },
+                "cluster_id": {
+                    "description": "目标集群ID",
+                    "type": "integer"
+                },
+                "container": {
+                    "description": "容器名称",
+                    "type": "string"
+                },
+                "env": {
+                    "description": "环境标识(dev/test/staging/prod)",
+                    "type": "string"
+                },
+                "namespace": {
+                    "description": "目标命名空间",
+                    "type": "string"
+                },
+                "promote_from": {
+                    "description": "上游来源环境",
+                    "type": "string"
+                },
+                "require_approval": {
+                    "description": "是否需要审批",
+                    "type": "boolean"
+                },
+                "sort_order": {
+                    "description": "顺序",
+                    "type": "integer"
+                },
+                "workload_kind": {
+                    "description": "工作负载类型",
+                    "type": "string"
+                },
+                "workload_name": {
+                    "description": "工作负载名称",
+                    "type": "string"
+                }
+            }
+        },
+        "requests.PipelineTargetSaveRequest": {
+            "type": "object",
+            "properties": {
+                "pipeline_id": {
+                    "type": "integer"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.PipelineTargetItem"
+                    }
+                }
+            }
+        },
         "requests.PipelineUpdateRequest": {
             "type": "object",
             "properties": {
@@ -19097,6 +21621,10 @@ const docTemplate = `{
                 },
                 "enable_artifact_upload": {
                     "description": "是否启用制品上传",
+                    "type": "boolean"
+                },
+                "enable_deploy_silence": {
+                    "description": "发布联动告警静默",
                     "type": "boolean"
                 },
                 "enable_sonar": {
@@ -19135,6 +21663,14 @@ const docTemplate = `{
                     "description": "是否需要审批",
                     "type": "boolean"
                 },
+                "silence_buffer_minutes": {
+                    "description": "静默缓冲时间(分钟)",
+                    "type": "integer"
+                },
+                "silence_severities": {
+                    "description": "静默的告警级别",
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -19160,6 +21696,21 @@ const docTemplate = `{
                 }
             }
         },
+        "requests.PortDef": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "protocol": {
+                    "description": "TCP/UDP，默认 TCP",
+                    "type": "string"
+                }
+            }
+        },
         "requests.PortMapping": {
             "type": "object",
             "properties": {
@@ -19172,6 +21723,159 @@ const docTemplate = `{
                 },
                 "target_port": {
                     "type": "integer"
+                }
+            }
+        },
+        "requests.QuickOnboardRequest": {
+            "type": "object",
+            "properties": {
+                "app_name": {
+                    "description": "--- 基础信息 ---",
+                    "type": "string"
+                },
+                "auto_deploy": {
+                    "description": "--- 可选：是否立即部署 ---",
+                    "type": "boolean"
+                },
+                "cluster_id": {
+                    "description": "--- 集群 ---",
+                    "type": "integer"
+                },
+                "configmap_data": {
+                    "description": "--- ConfigMap ---",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.KVDef"
+                    }
+                },
+                "configmap_mount_path": {
+                    "description": "如 /etc/config",
+                    "type": "string"
+                },
+                "container_name": {
+                    "type": "string"
+                },
+                "cpu_lim": {
+                    "description": "如 \"500m\"",
+                    "type": "string"
+                },
+                "cpu_req": {
+                    "description": "--- 资源配置 ---",
+                    "type": "string"
+                },
+                "cron_concurrency_policy": {
+                    "description": "Allow/Forbid/Replace",
+                    "type": "string"
+                },
+                "cron_schedule": {
+                    "description": "--- CronJob 专属 ---",
+                    "type": "string"
+                },
+                "env_vars": {
+                    "description": "--- 环境变量 ---",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.EnvVarDef"
+                    }
+                },
+                "git_branch": {
+                    "type": "string"
+                },
+                "git_repo": {
+                    "description": "--- 可选：Git 仓库（用于创建流水线）---",
+                    "type": "string"
+                },
+                "image": {
+                    "description": "--- 镜像 ---",
+                    "type": "string"
+                },
+                "job_backoff_limit": {
+                    "description": "重试次数",
+                    "type": "integer"
+                },
+                "job_completions": {
+                    "description": "--- Job 专属 ---",
+                    "type": "integer"
+                },
+                "job_parallelism": {
+                    "description": "并行度",
+                    "type": "integer"
+                },
+                "job_ttl_seconds_after_finished": {
+                    "description": "完成后保留时间",
+                    "type": "integer"
+                },
+                "mem_lim": {
+                    "description": "如 \"256Mi\"",
+                    "type": "string"
+                },
+                "mem_req": {
+                    "description": "如 \"128Mi\"",
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "ports": {
+                    "description": "--- 端口 ---",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.PortDef"
+                    }
+                },
+                "pvc_access_mode": {
+                    "description": "ReadWriteOnce/ReadWriteMany/ReadOnlyMany",
+                    "type": "string"
+                },
+                "pvc_mount_path": {
+                    "description": "如 /data",
+                    "type": "string"
+                },
+                "pvc_name": {
+                    "description": "--- PVC 存储 ---",
+                    "type": "string"
+                },
+                "pvc_size": {
+                    "description": "如 \"10Gi\"",
+                    "type": "string"
+                },
+                "pvc_storage_class": {
+                    "description": "storage class 名称",
+                    "type": "string"
+                },
+                "replicas": {
+                    "description": "--- 副本数（Deployment/StatefulSet 有效）---",
+                    "type": "integer"
+                },
+                "secret_data": {
+                    "description": "--- Secret ---",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.KVDef"
+                    }
+                },
+                "secret_mount_path": {
+                    "description": "如 /etc/secrets",
+                    "type": "string"
+                },
+                "service_ports": {
+                    "description": "可选，默认用 ports",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/requests.PortDef"
+                    }
+                },
+                "service_type": {
+                    "description": "--- Service 配置 ---",
+                    "type": "string"
+                },
+                "workload_kind": {
+                    "description": "Deployment|StatefulSet|DaemonSet|CronJob|Job",
+                    "type": "string"
+                },
+                "workload_name": {
+                    "description": "可选，默认=app_name",
+                    "type": "string"
                 }
             }
         },
@@ -19239,6 +21943,18 @@ const docTemplate = `{
                 },
                 "role_type": {
                     "type": "string"
+                },
+                "scope_cicd": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
+                },
+                "scope_cluster": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
+                },
+                "scope_platform": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
                 }
             }
         },
@@ -19273,6 +21989,16 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "scope_cicd": {
+                    "type": "string"
+                },
+                "scope_cluster": {
+                    "type": "string"
+                },
+                "scope_platform": {
+                    "description": "none/read/write/admin",
+                    "type": "string"
                 },
                 "sort_order": {
                     "type": "integer"
@@ -19363,6 +22089,10 @@ const docTemplate = `{
                 },
                 "pipeline_id": {
                     "description": "流水线ID",
+                    "type": "integer"
+                },
+                "run_id": {
+                    "description": "运行记录ID（优先精确匹配，避免 build_number 重用/多流水线共用 Job 定位到旧记录）",
                     "type": "integer"
                 },
                 "stage_type": {
@@ -19948,6 +22678,85 @@ const docTemplate = `{
                 }
             }
         },
+        "services.LDAPConfigResponse": {
+            "type": "object",
+            "properties": {
+                "attr_email": {
+                    "type": "string"
+                },
+                "attr_phone": {
+                    "type": "string"
+                },
+                "attr_username": {
+                    "type": "string"
+                },
+                "auto_create": {
+                    "type": "boolean"
+                },
+                "base_dn": {
+                    "type": "string"
+                },
+                "bind_dn": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "group_attr": {
+                    "type": "string"
+                },
+                "group_base_dn": {
+                    "type": "string"
+                },
+                "group_filter": {
+                    "type": "string"
+                },
+                "group_role_mapping": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/setting.LDAPGroupRoleMapping"
+                    }
+                },
+                "host": {
+                    "type": "string"
+                },
+                "local_fallback": {
+                    "type": "boolean"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "sync_on_login": {
+                    "type": "boolean"
+                },
+                "use_tls": {
+                    "type": "boolean"
+                },
+                "user_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.LDAPSyncResult": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "synced": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "services.NodeSummary": {
             "type": "object",
             "properties": {
@@ -20264,6 +23073,27 @@ const docTemplate = `{
                 },
                 "statefulsets": {
                     "$ref": "#/definitions/services.ResourceCount"
+                }
+            }
+        },
+        "setting.LDAPGroupRoleMapping": {
+            "type": "object",
+            "properties": {
+                "cicdaccess": {
+                    "description": "发布域权限级别: none/read/write/admin",
+                    "type": "string"
+                },
+                "clusterAccess": {
+                    "description": "集群域权限级别: none/read/write/admin",
+                    "type": "string"
+                },
+                "ldapgroup": {
+                    "description": "LDAP 组名（cn 值）",
+                    "type": "string"
+                },
+                "platformRole": {
+                    "description": "平台角色标识",
+                    "type": "string"
                 }
             }
         }

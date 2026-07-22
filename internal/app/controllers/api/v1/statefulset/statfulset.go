@@ -162,9 +162,12 @@ func (c *KubeStatefulSetController) Detail(ctx *gin.Context) {
 		return // ← 修复：错误时必须 return
 	}
 
+	status, statusReason := stsbuilder.GetStatefulSetStatus(sts)
 	r.Success(gin.H{
-		"message": "获取详情成功",
-		"result":  sts,
+		"message":       "获取详情成功",
+		"status":        status,
+		"status_reason": statusReason,
+		"data":          sts,
 	})
 }
 
@@ -552,4 +555,32 @@ func (c *KubeStatefulSetController) ApplyYaml(ctx *gin.Context) {
 		"name":      param.Name,
 		"message":   "YAML 应用成功",
 	})
+}
+
+// UpdateResources godoc
+// @Summary 快速修改容器资源限制
+// @Description 直接修改 StatefulSet 容器的 CPU/Memory requests/limits
+// @Tags K8s StatefulSet 管理
+// @Accept json
+// @Produce json
+// @Param body body requests.KubeDeploymentUpdateResourcesRequest true "资源配置"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/k8s/statefulset/update-resources [post]
+func (c *KubeStatefulSetController) UpdateResources(ctx *gin.Context) {
+	param := requests.NewKubeDeploymentUpdateResourcesRequest()
+	r := response.NewResponse(ctx)
+	if ok := valid.Validate(ctx, param, requests.ValidKubeDeploymentUpdateResourcesRequest); !ok {
+		return
+	}
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	result, err := svc.KubeUpdateStatefulSetResources(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("更新 StatefulSet 容器资源限制失败", zap.Error(err))
+		return
+	}
+	r.Success(result)
 }

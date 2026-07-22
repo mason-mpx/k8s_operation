@@ -35,15 +35,15 @@ const (
 	LanguageTypeJava     = "java"     // Java Spring 项目
 	LanguageTypeFrontend = "frontend" // 前端项目 (Vue/React)
 	LanguageTypePython   = "python"   // Python 项目
-	LanguageTypeCustom   = "custom"   // 自定义（需手动指定 jenkins_job）
 )
 
 // DefaultJenkinsJobMap 语言类型 -> Jenkins 通用 Builder Job 名称
+// Job 命名与 configs/jenkins-templates/ 下的模板文件对应
 var DefaultJenkinsJobMap = map[string]string{
-	LanguageTypeGo:       "k8s-builder-go",
-	LanguageTypeJava:     "k8s-builder-java",
-	LanguageTypeFrontend: "k8s-builder-frontend",
-	LanguageTypePython:   "k8s-builder-python",
+	LanguageTypeGo:       "go-pipeline",
+	LanguageTypeJava:     "java-spring-pipeline",
+	LanguageTypeFrontend: "frontend-pipeline",
+	LanguageTypePython:   "python-pipeline",
 }
 
 // DefaultScriptPathMap 语言类型 -> Jenkins Pipeline Script Path
@@ -57,7 +57,7 @@ var DefaultScriptPathMap = map[string]string{
 
 // ValidLanguageTypes 合法的语言类型列表
 var ValidLanguageTypes = []string{
-	LanguageTypeGo, LanguageTypeJava, LanguageTypeFrontend, LanguageTypePython, LanguageTypeCustom,
+	LanguageTypeGo, LanguageTypeJava, LanguageTypeFrontend, LanguageTypePython,
 }
 
 // EnvVar 环境变量结构
@@ -152,12 +152,19 @@ const (
 // CicdPipeline 对应表：cicd_pipeline
 type CicdPipeline struct {
 	ID          int64  `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	Name        string `gorm:"column:name" json:"name"`
+	// Name 应用名称，与 deleted_at 组成复合唯一索引：
+	// 活跃记录 deleted_at=0，保证同名应用不重复；
+	// 软删除后 deleted_at=时间戳，不同时间戳允许重名。
+	Name        string `gorm:"column:name;uniqueIndex:idx_pipeline_name_del" json:"name"`
 	Description string `gorm:"column:description" json:"description"`
 
 	// Git配置
 	GitRepo   string `gorm:"column:git_repo" json:"git_repo"`
 	GitBranch string `gorm:"column:git_branch" json:"git_branch"`
+
+	// 部署模式：jenkins | gitops（默认 jenkins，兼容已有数据）
+	DeployMode   string  `gorm:"column:deploy_mode;size:20;default:'jenkins'" json:"deploy_mode"`
+	GitOpsConfig JSONMap `gorm:"column:gitops_config;type:json" json:"gitops_config,omitempty"` // GitOps 配置 (ArgoCD + Argo Workflows)
 
 	// Jenkins配置
 	JenkinsURL          string `gorm:"column:jenkins_url" json:"jenkins_url"`
@@ -174,8 +181,20 @@ type CicdPipeline struct {
 	TargetContainer    string `gorm:"column:target_container" json:"target_container"`         // 容器名称
 	DeployEnv          string `gorm:"column:deploy_env" json:"deploy_env"`                      // 部署环境(dev/staging/prod)
 	RequireApproval      bool   `gorm:"column:require_approval" json:"require_approval"`              // 是否需要审批
+	// 金丝雀部署配置
+	EnableCanary       bool   `gorm:"column:enable_canary" json:"enable_canary"`
+	CanaryReplicas     int32  `gorm:"column:canary_replicas;default:1" json:"canary_replicas"`
+	CanaryTrafficRatio int32  `gorm:"column:canary_traffic_ratio;default:10" json:"canary_traffic_ratio"`
+	CanaryDurationSec  int32  `gorm:"column:canary_duration_sec;default:300" json:"canary_duration_sec"`
+	CanaryAutoPromote  bool   `gorm:"column:canary_auto_promote" json:"canary_auto_promote"`
+	CanaryAnalysisRules string `gorm:"column:canary_analysis_rules;type:text" json:"canary_analysis_rules"`
 	EnableSonar          bool   `gorm:"column:enable_sonar" json:"enable_sonar"`                        // 是否启用 SonarQube 代码扫描
 	EnableArtifactUpload bool   `gorm:"column:enable_artifact_upload" json:"enable_artifact_upload"`    // 是否启用制品上传
+
+	// 发布联动告警静默
+	EnableDeploySilence  bool   `gorm:"column:enable_deploy_silence" json:"enable_deploy_silence"`      // 部署时自动创建静默规则
+	SilenceBufferMinutes int    `gorm:"column:silence_buffer_minutes;default:10" json:"silence_buffer_minutes"` // 静默缓冲时间(分钟)，部署完成后延长静默
+	SilenceSeverities    string `gorm:"column:silence_severities;size:100;default:'warning,info'" json:"silence_severities"` // 静默的告警级别(逗号分隔)，critical 默认不静默
 
 	// 最新部署信息
 	LastDeployImage   string `gorm:"column:last_deploy_image" json:"last_deploy_image"`     // 最新部署镜像
@@ -200,7 +219,7 @@ type CicdPipeline struct {
 	CreatedUserID int64  `gorm:"column:created_user_id" json:"created_user_id"`
 	CreatedAt     uint64 `gorm:"column:created_at" json:"created_at"`
 	ModifiedAt    uint64 `gorm:"column:modified_at" json:"modified_at"`
-	DeletedAt     uint64 `gorm:"column:deleted_at" json:"deleted_at"`
+	DeletedAt     uint64 `gorm:"column:deleted_at;uniqueIndex:idx_pipeline_name_del" json:"deleted_at"` // 与 name 组成复合唯一索引，活跃时=0
 	IsDel         uint8  `gorm:"column:is_del" json:"is_del"`
 }
 
@@ -216,10 +235,16 @@ type CicdPipelineRun struct {
 	TriggerType   string `gorm:"column:trigger_type" json:"trigger_type"`
 	TriggerUserID int64  `gorm:"column:trigger_user_id" json:"trigger_user_id"`
 
-	GitCommit      string `gorm:"column:git_commit" json:"git_commit"`
-	GitBranch      string `gorm:"column:git_branch" json:"git_branch"`
+	GitCommit        string `gorm:"column:git_commit" json:"git_commit"`
+	GitBranch        string `gorm:"column:git_branch" json:"git_branch"`
 	GitCommitMessage string `gorm:"column:git_commit_message" json:"git_commit_message"` // Git提交消息
-	JenkinsBuildURL string `gorm:"column:jenkins_build_url" json:"jenkins_build_url"` // Jenkins构建URL
+	JenkinsBuildURL  string `gorm:"column:jenkins_build_url" json:"jenkins_build_url"`   // Jenkins构建URL
+
+	// GitOps / Argo Workflows 跟踪字段
+	WorkflowName string `gorm:"column:workflow_name" json:"workflow_name,omitempty"` // Argo Workflow 资源名称
+	ArgoAppName  string `gorm:"column:argo_app_name" json:"argo_app_name,omitempty"` // ArgoCD Application 名称
+	SyncRevision string `gorm:"column:sync_revision" json:"sync_revision,omitempty"` // ArgoCD 同步版本 (Git SHA)
+	SyncStatus   string `gorm:"column:sync_status" json:"sync_status,omitempty"`     // ArgoCD 同步状态
 
 	// 构建产物
 	ImageURL    string `gorm:"column:image_url" json:"image_url,omitempty"`       // 构建产出的镜像地址
@@ -258,6 +283,7 @@ const (
 	StageTypeUploadArtifact = "upload_artifact" // 上传制品到制品库
 	StageTypeBuild          = "build"           // 构建镜像
 	StageTypePush           = "push"            // 推送镜像
+	StageTypePrepareAgents  = "prepare_agents"  // 准备构建探针
 	StageTypeApproval       = "approval"        // 人工审批
 	StageTypeDeploy         = "deploy"          // 部署
 )
@@ -403,12 +429,23 @@ type PipelineListItem struct {
 	Description     string `json:"description"`
 	GitRepo         string `json:"git_repo"`
 	GitBranch       string `json:"git_branch"`
+	DeployMode      string `json:"deploy_mode"`
 	JenkinsJob      string `json:"jenkins_job"`
 	LanguageType    string `json:"language_type"`
 	Status          string `json:"status"`
 	LastRunStatus   string `json:"last_run_status"`
 	LastRunTime     uint64 `json:"last_run_time"`
 	LastBuildNumber int    `json:"last_build_number"`
+	AutoDeploy      bool   `json:"auto_deploy"`
+	RequireApproval bool   `json:"require_approval"`
+	// 金丝雀部署配置
+	EnableCanary       bool   `gorm:"column:enable_canary" json:"enable_canary"`
+	CanaryReplicas     int32  `gorm:"column:canary_replicas;default:1" json:"canary_replicas"`
+	CanaryTrafficRatio int32  `gorm:"column:canary_traffic_ratio;default:10" json:"canary_traffic_ratio"`
+	CanaryDurationSec  int32  `gorm:"column:canary_duration_sec;default:300" json:"canary_duration_sec"`
+	CanaryAutoPromote  bool   `gorm:"column:canary_auto_promote" json:"canary_auto_promote"`
+	CanaryAnalysisRules string `gorm:"column:canary_analysis_rules;type:text" json:"canary_analysis_rules"`
+	LastDeployStatus string `json:"last_deploy_status"`
 	CreatedAt       uint64 `json:"created_at"`
 }
 
@@ -420,12 +457,16 @@ func (p *CicdPipeline) ToPipelineListItem() *PipelineListItem {
 		Description:     p.Description,
 		GitRepo:         p.GitRepo,
 		GitBranch:       p.GitBranch,
+		DeployMode:      p.DeployMode,
 		JenkinsJob:      p.JenkinsJob,
 		LanguageType:    p.LanguageType,
 		Status:          p.Status,
 		LastRunStatus:   p.LastRunStatus,
 		LastRunTime:     p.LastRunTime,
 		LastBuildNumber: p.LastBuildNumber,
+		AutoDeploy:      p.AutoDeploy,
+		RequireApproval: p.RequireApproval,
+		LastDeployStatus: p.LastDeployStatus,
 		CreatedAt:       p.CreatedAt,
 	}
 }

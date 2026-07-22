@@ -40,6 +40,39 @@ func (d *Dao) PipelineGetByName(ctx context.Context, name string) (*models.CicdP
 	return &p, nil
 }
 
+// PipelineGetByGitRepoBranch 根据仓库+分支查找已有流水线（用于冲突警告）
+// excludeID != 0 时排除该 ID（编辑模式下排除自身）
+func (d *Dao) PipelineGetByGitRepoBranch(ctx context.Context, gitRepo, gitBranch string, excludeID int64) ([]*models.CicdPipeline, error) {
+	var list []*models.CicdPipeline
+	query := d.db.WithContext(ctx).
+		Where("git_repo = ? AND git_branch = ? AND is_del = 0", gitRepo, gitBranch)
+	if excludeID > 0 {
+		query = query.Where("id != ?", excludeID)
+	}
+	err := query.Select("id, name").Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+// PipelineGetByWorkload 根据自动部署目标查找已有流水线（用于冲突警告）
+// excludeID != 0 时排除该 ID
+func (d *Dao) PipelineGetByWorkload(ctx context.Context, clusterID int64, namespace, workloadName string, excludeID int64) ([]*models.CicdPipeline, error) {
+	var list []*models.CicdPipeline
+	query := d.db.WithContext(ctx).
+		Where("target_cluster_id = ? AND target_namespace = ? AND target_workload_name = ? AND auto_deploy = 1 AND is_del = 0",
+			clusterID, namespace, workloadName)
+	if excludeID > 0 {
+		query = query.Where("id != ?", excludeID)
+	}
+	err := query.Select("id, name").Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 // PipelineList 获取流水线列表
 func (d *Dao) PipelineList(ctx context.Context, keyword, status string, page, pageSize int) ([]*models.CicdPipeline, int64, error) {
 	var list []*models.CicdPipeline
@@ -204,6 +237,36 @@ func (d *Dao) PipelineRunList(ctx context.Context, pipelineID int64, page, pageS
 	return list, total, nil
 }
 
+// PipelineRunListAll 获取全量构建记录（跨流水线）支持分页、筛选、搜索
+func (d *Dao) PipelineRunListAll(ctx context.Context, page, pageSize int, status, keyword string, pipelineID int64) ([]*models.CicdPipelineRun, int64, error) {
+	var list []*models.CicdPipelineRun
+	var total int64
+
+	query := d.db.WithContext(ctx).Model(&models.CicdPipelineRun{})
+
+	if pipelineID > 0 {
+		query = query.Where("pipeline_id = ?", pipelineID)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if keyword != "" {
+		kw := "%" + keyword + "%"
+		query = query.Where("(image_url LIKE ? OR error_message LIKE ? OR trigger_user LIKE ?)", kw, kw, kw)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Order("id DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}
+
 // PipelineRunUpdate 更新运行记录
 func (d *Dao) PipelineRunUpdate(ctx context.Context, id int64, updates map[string]interface{}) error {
 	updates["modified_at"] = time.Now().Unix()
@@ -267,10 +330,13 @@ func (d *Dao) PipelineGetByJenkinsJob(ctx context.Context, jobName string) (*mod
 }
 
 // PipelineRunGetByBuildNumber 根据幂等键查找运行记录 (pipeline_id + build_number)
+// 注意：同一 pipeline_id + build_number 可能存在多条记录（Jenkins 重用构建号），
+// 必须按 id DESC 取最新记录，否则会命中旧记录导致回调被误判为重复
 func (d *Dao) PipelineRunGetByBuildNumber(ctx context.Context, pipelineID int64, buildNumber int) (*models.CicdPipelineRun, error) {
 	var run models.CicdPipelineRun
 	err := d.db.WithContext(ctx).
 		Where("pipeline_id = ? AND build_number = ?", pipelineID, buildNumber).
+		Order("id DESC").
 		First(&run).Error
 	if err != nil {
 		return nil, err
@@ -346,12 +412,14 @@ func (d *Dao) PipelineRunMarkTimeout(ctx context.Context, maxAgeMinutes int) (in
 }
 
 // PipelineUpdateDeployInfo 更新流水线最新部署信息
-func (d *Dao) PipelineUpdateDeployInfo(ctx context.Context, id int64, image, digest string, deployTime uint64, status string) error {
+// version 为 K8s 集群中的当前版本号（Deployment 的 ReplicaSet revision / StatefulSet/DaemonSet 的 ControllerRevision revision）
+func (d *Dao) PipelineUpdateDeployInfo(ctx context.Context, id int64, image, digest string, deployTime uint64, status, version string) error {
 	return d.PipelineUpdate(ctx, id, map[string]interface{}{
-		"last_deploy_image":  image,
-		"last_deploy_digest": digest,
-		"last_deploy_time":   deployTime,
-		"last_deploy_status": status,
+		"last_deploy_image":   image,
+		"last_deploy_digest":  digest,
+		"last_deploy_time":    deployTime,
+		"last_deploy_status":  status,
+		"last_deploy_version": version,
 	})
 }
 
@@ -389,8 +457,8 @@ func (d *Dao) EnvironmentList(ctx context.Context, page, pageSize int, keyword s
 
 	query := d.db.WithContext(ctx).
 		Table("cicd_environment AS e").
-		Select("e.*, c.name AS cluster_name").
-		Joins("LEFT JOIN k8s_cluster c ON c.id = e.cluster_id").
+		Select("e.*, c.cluster_name AS cluster_name").
+		Joins("LEFT JOIN kube_cluster c ON c.id = e.cluster_id").
 		Where("e.is_del = 0")
 
 	if keyword != "" {
@@ -423,6 +491,15 @@ func (d *Dao) EnvironmentGetByName(ctx context.Context, name string) (*models.Ci
 	var env models.CicdEnvironment
 	err := d.db.WithContext(ctx).
 		Where("name = ? AND is_del = 0", name).
+		First(&env).Error
+	return &env, err
+}
+
+// EnvironmentGetByNamespace 根据命名空间查找环境配置
+func (d *Dao) EnvironmentGetByNamespace(ctx context.Context, namespace string) (*models.CicdEnvironment, error) {
+	var env models.CicdEnvironment
+	err := d.db.WithContext(ctx).
+		Where("namespace = ? AND is_del = 0", namespace).
 		First(&env).Error
 	return &env, err
 }
@@ -512,6 +589,41 @@ func (d *Dao) ApprovalList(ctx context.Context, page, pageSize int, status strin
 	return list, total, nil
 }
 
+// ApprovalListByUser 获取指定用户提交的审批列表（开发者只看自己的）
+func (d *Dao) ApprovalListByUser(ctx context.Context, userID int64, page, pageSize int, status string, pipelineID int64) ([]*models.ApprovalListItem, int64, error) {
+	var list []*models.ApprovalListItem
+	var total int64
+
+	query := d.db.WithContext(ctx).
+		Table("cicd_approval AS a").
+		Select(`a.*, 
+			COALESCE(p.name, '') AS pipeline_name,
+			COALESCE(u1.username, '') AS request_username,
+			COALESCE(u2.username, '') AS approve_username`).
+		Joins("LEFT JOIN cicd_pipeline AS p ON a.pipeline_id = p.id").
+		Joins("LEFT JOIN `user` AS u1 ON a.request_user_id = u1.id").
+		Joins("LEFT JOIN `user` AS u2 ON a.approve_user_id = u2.id").
+		Where("a.request_user_id = ?", userID)
+
+	if status != "" {
+		query = query.Where("a.status = ?", status)
+	}
+	if pipelineID > 0 {
+		query = query.Where("a.pipeline_id = ?", pipelineID)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Order("a.id DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}
+
 // ApprovalStats 获取各状态审批数量统计
 func (d *Dao) ApprovalStats(ctx context.Context) (map[string]int64, error) {
 	type StatusCount struct {
@@ -521,6 +633,37 @@ func (d *Dao) ApprovalStats(ctx context.Context) (map[string]int64, error) {
 	var rows []StatusCount
 	err := d.db.WithContext(ctx).
 		Model(&models.CicdApproval{}).
+		Select("status, COUNT(*) AS cnt").
+		Group("status").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	stats := map[string]int64{
+		"pending":  0,
+		"approved": 0,
+		"rejected": 0,
+		"expired":  0,
+		"total":    0,
+	}
+	for _, r := range rows {
+		stats[r.Status] = r.Count
+		stats["total"] += r.Count
+	}
+	return stats, nil
+}
+
+// ApprovalStatsByUser 获取指定用户的审批统计
+func (d *Dao) ApprovalStatsByUser(ctx context.Context, userID int64) (map[string]int64, error) {
+	type StatusCount struct {
+		Status string `gorm:"column:status"`
+		Count  int64  `gorm:"column:cnt"`
+	}
+	var rows []StatusCount
+	err := d.db.WithContext(ctx).
+		Model(&models.CicdApproval{}).
+		Where("request_user_id = ?", userID).
 		Select("status, COUNT(*) AS cnt").
 		Group("status").
 		Find(&rows).Error
@@ -588,6 +731,15 @@ func (d *Dao) ApprovalGetByStageID(ctx context.Context, stageID int64) (*models.
 	var approval models.CicdApproval
 	err := d.db.WithContext(ctx).
 		Where("stage_id = ? AND status = ?", stageID, models.ApprovalStatusPending).
+		First(&approval).Error
+	return &approval, err
+}
+
+// ApprovalGetByFeishuToken 根据飞书Token获取审批记录
+func (d *Dao) ApprovalGetByFeishuToken(ctx context.Context, token string) (*models.CicdApproval, error) {
+	var approval models.CicdApproval
+	err := d.db.WithContext(ctx).
+		Where("feishu_token = ?", token).
 		First(&approval).Error
 	return &approval, err
 }
@@ -757,4 +909,110 @@ func (d *Dao) ApprovalExistsByStageID(ctx context.Context, stageID int64) (bool,
 		Where("stage_id = ?", stageID).
 		Count(&count).Error
 	return count > 0, err
+}
+
+// ==================== 构建统计 ====================
+
+// BuildStatsResult 构建统计结果
+type BuildStatsResult struct {
+	TotalBuilds    int64   `json:"total_builds"`
+	SuccessBuilds  int64   `json:"success_builds"`
+	FailedBuilds   int64   `json:"failed_builds"`
+	RunningBuilds  int64   `json:"running_builds"`
+	AvgDuration    float64 `json:"avg_duration"`
+	SuccessRate    float64 `json:"success_rate"`
+	TodayBuilds    int64   `json:"today_builds"`
+	WeekBuilds     int64   `json:"week_builds"`
+}
+
+// PipelineRunBuildStats 获取构建统计数据
+func (d *Dao) PipelineRunBuildStats(ctx context.Context) (*BuildStatsResult, error) {
+	stats := &BuildStatsResult{}
+
+	// 总数 & 各状态统计
+	type statusCount struct {
+		Status string `gorm:"column:status"`
+		Cnt    int64  `gorm:"column:cnt"`
+	}
+	var rows []statusCount
+	err := d.db.WithContext(ctx).
+		Model(&models.CicdPipelineRun{}).
+		Select("status, COUNT(*) AS cnt").
+		Group("status").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		stats.TotalBuilds += r.Cnt
+		switch r.Status {
+		case models.PipelineRunStatusSuccess:
+			stats.SuccessBuilds = r.Cnt
+		case models.PipelineRunStatusFailed:
+			stats.FailedBuilds = r.Cnt
+		case models.PipelineRunStatusRunning, models.PipelineRunStatusPending:
+			stats.RunningBuilds += r.Cnt
+		}
+	}
+	if stats.TotalBuilds > 0 {
+		stats.SuccessRate = float64(stats.SuccessBuilds) / float64(stats.TotalBuilds) * 100
+	}
+
+	// 平均构建时长（仅计算已完成且 duration > 0 的记录）
+	var avgDur struct {
+		Avg float64 `gorm:"column:avg_dur"`
+	}
+	d.db.WithContext(ctx).
+		Model(&models.CicdPipelineRun{}).
+		Select("AVG(duration_sec) AS avg_dur").
+		Where("status IN (?, ?) AND duration_sec > 0", models.PipelineRunStatusSuccess, models.PipelineRunStatusFailed).
+		Scan(&avgDur)
+	stats.AvgDuration = avgDur.Avg
+
+	// 今日构建数
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	d.db.WithContext(ctx).
+		Model(&models.CicdPipelineRun{}).
+		Where("created_at >= ?", todayStart.Unix()).
+		Count(&stats.TodayBuilds)
+
+	// 本周构建数
+	weekStart := todayStart.AddDate(0, 0, -int(now.Weekday()))
+	d.db.WithContext(ctx).
+		Model(&models.CicdPipelineRun{}).
+		Where("created_at >= ?", weekStart.Unix()).
+		Count(&stats.WeekBuilds)
+
+	return stats, nil
+}
+
+// BuildTrendItem 构建趋势项
+type BuildTrendItem struct {
+	Date    string `json:"date" gorm:"column:date"`
+	Success int64  `json:"success" gorm:"column:success"`
+	Failed  int64  `json:"failed" gorm:"column:failed"`
+	Total   int64  `json:"total" gorm:"column:total"`
+}
+
+// PipelineRunBuildTrend 获取最近N天的构建趋势
+func (d *Dao) PipelineRunBuildTrend(ctx context.Context, days int) ([]BuildTrendItem, error) {
+	now := time.Now()
+	startTime := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -days+1)
+
+	var results []BuildTrendItem
+	err := d.db.WithContext(ctx).
+		Model(&models.CicdPipelineRun{}).
+		Select(`FROM_UNIXTIME(created_at, '%Y-%m-%d') AS date,
+			SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
+			SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+			COUNT(*) AS total`).
+		Where("created_at >= ?", startTime.Unix()).
+		Group("date").
+		Order("date ASC").
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
 }

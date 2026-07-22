@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -87,6 +88,15 @@ func (s *Services) getStageDefinitionsForPipeline(pipeline *models.CicdPipeline)
 	stages := make([]StageDefinition, len(DefaultStageDefinitions))
 	copy(stages, DefaultStageDefinitions)
 	
+	// 判断是否需要审批：pipeline 标志 OR 环境配置要求审批（双重保险）
+	needApproval := pipeline.RequireApproval
+	if !needApproval && pipeline.DeployEnv != "" {
+		env, err := s.dao.EnvironmentGetByName(context.Background(), pipeline.DeployEnv)
+		if err == nil && env != nil && env.RequireApproval {
+			needApproval = true
+		}
+	}
+	
 	// 根据流水线配置调整
 	for i := range stages {
 		switch stages[i].Type {
@@ -99,7 +109,7 @@ func (s *Services) getStageDefinitionsForPipeline(pipeline *models.CicdPipeline)
 		case models.StageTypeUploadArtifact:
 			stages[i].Enabled = pipeline.EnableArtifactUpload
 		case models.StageTypeApproval:
-			stages[i].Enabled = pipeline.RequireApproval
+			stages[i].Enabled = needApproval
 		case models.StageTypeDeploy:
 			stages[i].Enabled = pipeline.AutoDeploy
 		}
@@ -252,7 +262,14 @@ func (s *Services) StageCallback(ctx context.Context, req *requests.StageCallbac
 	// 1. 查找流水线和运行记录
 	var runID int64
 	
-	if req.PipelineID > 0 {
+	// 优先用 run_id 精确匹配（避免 build_number 重用/多流水线共用同一 Jenkins Job 定位到旧记录）
+	if req.RunID > 0 {
+		if run, err := s.dao.PipelineRunGetByID(ctx, req.RunID); err == nil && run != nil {
+			runID = run.ID
+		}
+	}
+	
+	if runID == 0 && req.PipelineID > 0 {
 		// 根据 pipeline_id + build_number 查找
 		run, err := s.dao.PipelineRunGetByBuildNumber(ctx, req.PipelineID, req.BuildNumber)
 		if err == nil && run != nil {
@@ -544,6 +561,12 @@ func (s *Services) UpdateBuildStagesComplete(ctx context.Context, runID int64, s
 					zap.Int64("pipeline_id", approvalStage.PipelineID),
 					zap.Int64("approval_id", approval.ID),
 				)
+
+				// 发送飞书审批通知（开发自助发布 + 飞书审批模式）
+				pipeline, pErr := s.dao.PipelineGetByID(ctx, approvalStage.PipelineID)
+				if pErr == nil && pipeline != nil {
+					s.NotifyFeishuApproval(ctx, pipeline, run, approval)
+				}
 			}
 		}
 	}
@@ -616,6 +639,24 @@ func (s *Services) ApproveStage(ctx context.Context, stageID int64, userID int64
 				"status":       models.StageStatusPending,
 				"deploy_image": run.ImageURL,
 			})
+
+			// 审批通过后自动触发部署
+			global.Logger.Info("[流水线] 审批通过，自动触发部署",
+				zap.Int64("stage_id", stageID),
+				zap.Int64("deploy_stage_id", deployStage.ID),
+				zap.String("image", run.ImageURL),
+			)
+			go func() {
+				deployReq := &requests.StageDeployRequest{
+					StageID: deployStage.ID,
+				}
+				if err := s.ExecuteDeployStage(context.Background(), deployReq, userID); err != nil {
+					global.Logger.Error("[流水线] 自动触发部署失败",
+						zap.Int64("deploy_stage_id", deployStage.ID),
+						zap.Error(err),
+					)
+				}
+			}()
 		}
 	}
 
@@ -804,12 +845,27 @@ func (s *Services) executeDeployAsync(ctx context.Context, stageID int64, run *m
 	logs.WriteString(fmt.Sprintf("容器: %s\n", container))
 	logs.WriteString(fmt.Sprintf("新镜像: %s\n\n", image))
 
+	// ===== 发布联动告警静默 =====
+	var silenceRuleID int64
+	pipeline, _ := s.dao.PipelineGetByID(ctx, run.PipelineID)
+	if pipeline != nil && pipeline.EnableDeploySilence {
+		silenceInfo, silenceErr := s.CreateDeploySilence(ctx, pipeline, namespace, workloadName)
+		if silenceErr != nil {
+			logs.WriteString(fmt.Sprintf("[WARN] 创建发布静默规则失败（不影响部署）: %v\n", silenceErr))
+		} else if silenceInfo != nil {
+			silenceRuleID = silenceInfo.SilenceRuleID
+			logs.WriteString(fmt.Sprintf("[INFO] 发布静默已生效，规则ID: %d，级别: %s\n", silenceRuleID, pipeline.SilenceSeverities))
+		}
+		s.updateStageLogsIfNeeded(ctx, stageID, logs.String())
+	}
+
 	// 初始化 K8s 客户端
 	client, err := s.K8sClusterInit(ctx, &requests.K8sClusterInitRequest{ID: uint32(clusterID)})
 	if err != nil {
 		errMsg := fmt.Sprintf("初始化集群客户端失败: %v", err)
 		logs.WriteString(fmt.Sprintf("[ERROR] %s\n", errMsg))
-		s.finishDeployStage(ctx, stageID, run, models.StageStatusFailed, errMsg, logs.String(), startTime, "")
+		s.ReleaseDeploySilence(ctx, silenceRuleID, false)
+		s.finishDeployStage(ctx, stageID, run, models.StageStatusFailed, errMsg, logs.String(), startTime, "", "")
 		return
 	}
 
@@ -835,6 +891,10 @@ func (s *Services) executeDeployAsync(ctx context.Context, stageID int64, run *m
 		err = s.updateStatefulSetImage(ctx, client.Kube, namespace, workloadName, container, image, &logs)
 	case "DaemonSet":
 		err = s.updateDaemonSetImage(ctx, client.Kube, namespace, workloadName, container, image, &logs)
+	case "CronJob":
+		err = s.updateCronJobImage(ctx, client.Kube, namespace, workloadName, container, image, &logs)
+	case "Job":
+		err = s.updateJobImage(ctx, client.Kube, namespace, workloadName, container, image, &logs)
 	default:
 		err = fmt.Errorf("不支持的工作负载类型: %s", workloadKind)
 	}
@@ -842,12 +902,20 @@ func (s *Services) executeDeployAsync(ctx context.Context, stageID int64, run *m
 	if err != nil {
 		errMsg := fmt.Sprintf("更新镜像失败: %v", err)
 		logs.WriteString(fmt.Sprintf("[ERROR] %s\n", errMsg))
-		s.finishDeployStage(ctx, stageID, run, models.StageStatusFailed, errMsg, logs.String(), startTime, oldImage)
+		s.ReleaseDeploySilence(ctx, silenceRuleID, false)
+		s.finishDeployStage(ctx, stageID, run, models.StageStatusFailed, errMsg, logs.String(), startTime, oldImage, "")
 		return
 	}
 
+	// 部署成功，释放静默（延续2分钟后解除）
+	s.ReleaseDeploySilence(ctx, silenceRuleID, true)
+	if silenceRuleID > 0 {
+		logs.WriteString("[INFO] 发布静默将在2分钟后自动解除\n")
+	}
+
 	logs.WriteString(fmt.Sprintf("\n[%s] 部署完成\n", time.Now().Format("2006-01-02 15:04:05")))
-	s.finishDeployStage(ctx, stageID, run, models.StageStatusSuccess, "", logs.String(), startTime, oldImage)
+	deployVersion := s.getCurrentWorkloadRevision(ctx, client.Kube, workloadKind, namespace, workloadName)
+	s.finishDeployStage(ctx, stageID, run, models.StageStatusSuccess, "", logs.String(), startTime, oldImage, deployVersion)
 }
 
 // getCurrentImage 获取工作负载当前镜像
@@ -879,6 +947,26 @@ func (s *Services) getCurrentImage(ctx context.Context, client kubernetes.Interf
 			return ""
 		}
 		for _, c := range ds.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image
+			}
+		}
+	case "CronJob":
+		cj, err := client.BatchV1().CronJobs(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+		if err != nil {
+			return ""
+		}
+		for _, c := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			if c.Name == container {
+				return c.Image
+			}
+		}
+	case "Job":
+		job, err := client.BatchV1().Jobs(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+		if err != nil {
+			return ""
+		}
+		for _, c := range job.Spec.Template.Spec.Containers {
 			if c.Name == container {
 				return c.Image
 			}
@@ -1003,7 +1091,7 @@ func (s *Services) waitDeploymentRolloutWithUpdate(ctx context.Context, client k
 		}
 
 		// 检查 Pod 状态（捕获 ImagePullBackOff 等错误）
-		podErr := s.checkDeploymentPodStatus(ctx, client, namespace, name, dp.Spec.Selector, logs)
+		podErr := checkPodErrors(ctx, client, namespace, dp.Spec.Selector, logs)
 		if podErr != nil {
 			return podErr
 		}
@@ -1061,49 +1149,6 @@ func (s *Services) updateStageLogsIfNeeded(ctx context.Context, stageID int64, l
 			"logs": logs,
 		})
 	}
-}
-
-// checkDeploymentPodStatus 检查 Pod 状态，捕获 ImagePullBackOff 等错误
-func (s *Services) checkDeploymentPodStatus(ctx context.Context, client kubernetes.Interface, namespace, name string, selector *metav1.LabelSelector, logs *strings.Builder) error {
-	if selector == nil {
-		return nil
-	}
-
-	// 构建 label selector
-	labelSelector := metav1.FormatLabelSelector(selector)
-	
-	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		return nil // 获取 Pod 失败不需要成为致命错误
-	}
-
-	for _, pod := range pods.Items {
-		// 检查容器状态
-		for _, cs := range pod.Status.ContainerStatuses {
-			if cs.State.Waiting != nil {
-				reason := cs.State.Waiting.Reason
-				msg := cs.State.Waiting.Message
-				
-				// 检测镜像拉取失败
-				if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
-					errMsg := fmt.Sprintf("镜像拉取失败 [%s]: %s", reason, msg)
-					logs.WriteString(fmt.Sprintf("[ERROR] Pod %s: %s\n", pod.Name, errMsg))
-					return errors.New(errMsg)
-				}
-				
-				// 检测 CrashLoopBackOff
-				if reason == "CrashLoopBackOff" {
-					errMsg := fmt.Sprintf("容器崩溃重启 [%s]: %s", reason, msg)
-					logs.WriteString(fmt.Sprintf("[ERROR] Pod %s: %s\n", pod.Name, errMsg))
-					return errors.New(errMsg)
-				}
-			}
-		}
-	}
-
-	return nil
 }
 
 // updateStatefulSetImage 更新 StatefulSet 镜像
@@ -1187,7 +1232,7 @@ func (s *Services) waitStatefulSetRollout(ctx context.Context, client kubernetes
 			ss.Status.ReadyReplicas))
 
 		// 检查 Pod 状态
-		podErr := s.checkDeploymentPodStatus(ctx, client, namespace, name, ss.Spec.Selector, logs)
+		podErr := checkPodErrors(ctx, client, namespace, ss.Spec.Selector, logs)
 		if podErr != nil {
 			return podErr
 		}
@@ -1281,7 +1326,7 @@ func (s *Services) waitDaemonSetRollout(ctx context.Context, client kubernetes.I
 			ds.Status.NumberAvailable))
 
 		// 检查 Pod 状态
-		podErr := s.checkDeploymentPodStatus(ctx, client, namespace, name, ds.Spec.Selector, logs)
+		podErr := checkPodErrors(ctx, client, namespace, ds.Spec.Selector, logs)
 		if podErr != nil {
 			return podErr
 		}
@@ -1298,8 +1343,104 @@ func (s *Services) waitDaemonSetRollout(ctx context.Context, client kubernetes.I
 	return fmt.Errorf("DaemonSet Rollout 超时（%v）", timeout)
 }
 
+// updateCronJobImage 更新 CronJob 镜像
+func (s *Services) updateCronJobImage(ctx context.Context, client kubernetes.Interface, namespace, name, container, image string, logs *strings.Builder) error {
+	logs.WriteString(fmt.Sprintf("[INFO] 正在更新 CronJob %s/%s 的镜像...\n", namespace, name))
+
+	if container == "" {
+		return fmt.Errorf("容器名称未配置，请在流水线配置中设置目标容器")
+	}
+
+	// 1. 获取 CronJob
+	cj, err := client.BatchV1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("获取 CronJob 失败: %v", err)
+	}
+
+	// 2. 验证容器名称是否存在
+	containerFound := false
+	for _, c := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		if c.Name == container {
+			containerFound = true
+			break
+		}
+	}
+	if !containerFound {
+		availableContainers := make([]string, 0)
+		for _, c := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			availableContainers = append(availableContainers, c.Name)
+		}
+		return fmt.Errorf("容器 '%s' 不存在于 CronJob %s/%s，可用容器: %v", container, namespace, name, availableContainers)
+	}
+
+	// 3. Patch 更新镜像
+	patchData := fmt.Sprintf(`{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}}}`, container, image)
+	_, err = client.BatchV1().CronJobs(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		[]byte(patchData),
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("镜像更新失败: %v", err)
+	}
+
+	logs.WriteString(fmt.Sprintf("[INFO] 容器 %s 的新镜像: %s\n", container, image))
+	logs.WriteString("[INFO] CronJob 镜像更新完成，下次调度将使用新镜像\n")
+	return nil
+}
+
+// updateJobImage 更新 Job 镜像
+func (s *Services) updateJobImage(ctx context.Context, client kubernetes.Interface, namespace, name, container, image string, logs *strings.Builder) error {
+	logs.WriteString(fmt.Sprintf("[INFO] 正在更新 Job %s/%s 的镜像...\n", namespace, name))
+
+	if container == "" {
+		return fmt.Errorf("容器名称未配置，请在流水线配置中设置目标容器")
+	}
+
+	// 1. 获取 Job
+	job, err := client.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("获取 Job 失败: %v", err)
+	}
+
+	// 2. 验证容器名称是否存在
+	containerFound := false
+	for _, c := range job.Spec.Template.Spec.Containers {
+		if c.Name == container {
+			containerFound = true
+			break
+		}
+	}
+	if !containerFound {
+		availableContainers := make([]string, 0)
+		for _, c := range job.Spec.Template.Spec.Containers {
+			availableContainers = append(availableContainers, c.Name)
+		}
+		return fmt.Errorf("容器 '%s' 不存在于 Job %s/%s，可用容器: %v", container, namespace, name, availableContainers)
+	}
+
+	// 3. Patch 更新镜像
+	patchData := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}`, container, image)
+	_, err = client.BatchV1().Jobs(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		[]byte(patchData),
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("镜像更新失败: %v", err)
+	}
+
+	logs.WriteString(fmt.Sprintf("[INFO] 容器 %s 的新镜像: %s\n", container, image))
+	logs.WriteString("[INFO] Job 镜像更新完成\n")
+	return nil
+}
+
 // finishDeployStage 完成部署阶段
-func (s *Services) finishDeployStage(ctx context.Context, stageID int64, run *models.CicdPipelineRun, status, errMsg, logs string, startTime time.Time, oldImage string) {
+func (s *Services) finishDeployStage(ctx context.Context, stageID int64, run *models.CicdPipelineRun, status, errMsg, logs string, startTime time.Time, oldImage, version string) {
 	duration := int(time.Since(startTime).Seconds())
 	
 	// 更新阶段状态
@@ -1337,7 +1478,7 @@ func (s *Services) finishDeployStage(ctx context.Context, stageID int64, run *mo
 
 	// 如果成功，更新流水线部署信息
 	if status == models.StageStatusSuccess && stage != nil {
-		_ = s.dao.PipelineUpdateDeployInfo(ctx, run.PipelineID, stage.DeployImage, "", uint64(time.Now().Unix()), "success")
+		_ = s.dao.PipelineUpdateDeployInfo(ctx, run.PipelineID, stage.DeployImage, "", uint64(time.Now().Unix()), "success", version)
 	}
 
 	// 发送钉钉通知（异步）
@@ -1847,6 +1988,7 @@ func (s *Services) validateTargetRS(ctx context.Context, client *K8sClients, nam
 }
 
 // rollbackDeployment 回滚 Deployment 到上一个版本
+// 修复：使用与 RollbackDeployStage 一致的正确版本查找逻辑
 func (s *Services) rollbackDeployment(ctx context.Context, stage *models.CicdPipelineStage) (string, error) {
 	// 初始化 K8s 客户端
 	client, err := s.K8sClusterInit(ctx, &requests.K8sClusterInitRequest{ID: uint32(stage.DeployClusterID)})
@@ -1875,31 +2017,45 @@ func (s *Services) rollbackDeployment(ctx context.Context, stage *models.CicdPip
 	}
 
 	// 找到上一个版本（按 revision 排序）
-	var targetRS string
+	// 修复：正确跟踪当前最大版本和第二大版本的 RS 名称（与 RollbackDeployStage 逻辑一致）
 	var maxRevision, secondRevision int64
+	var currentRSName, previousRSName string
+
 	for _, rs := range rsList.Items {
+		isOwned := false
 		for _, owner := range rs.OwnerReferences {
 			if owner.UID == deploy.UID {
-				rev := int64(0)
-				if revStr, ok := rs.Annotations["deployment.kubernetes.io/revision"]; ok {
-					fmt.Sscanf(revStr, "%d", &rev)
-				}
-				if rev > maxRevision {
-					secondRevision = maxRevision
-					targetRS = rs.Name
-					maxRevision = rev
-				} else if rev > secondRevision {
-					secondRevision = rev
-					targetRS = rs.Name
-				}
+				isOwned = true
 				break
 			}
 		}
+		if !isOwned {
+			continue
+		}
+
+		rev := int64(0)
+		if revStr, ok := rs.Annotations["deployment.kubernetes.io/revision"]; ok {
+			fmt.Sscanf(revStr, "%d", &rev)
+		}
+
+		if rev > maxRevision {
+			// 找到新的最大版本，将之前的最大版本降为第二大
+			secondRevision = maxRevision
+			previousRSName = currentRSName
+			maxRevision = rev
+			currentRSName = rs.Name
+		} else if rev > secondRevision {
+			// 找到新的第二大版本
+			secondRevision = rev
+			previousRSName = rs.Name
+		}
 	}
 
-	if targetRS == "" {
+	if previousRSName == "" {
 		return "", errors.New("找不到可回滚的版本")
 	}
+
+	targetRS := previousRSName
 
 	// 获取目标 ReplicaSet 的模板
 	var targetRSObj *appv1.ReplicaSet
@@ -1930,7 +2086,8 @@ func (s *Services) rollbackDeployment(ctx context.Context, stage *models.CicdPip
 	return targetRS, nil
 }
 
-// GetDeploymentHistory 获取 Deployment 的历史版本列表
+// GetDeploymentHistory 获取工作负载的历史版本列表
+// 支持 Deployment（ReplicaSet）、StatefulSet/DaemonSet（ControllerRevision）
 func (s *Services) GetDeploymentHistory(ctx context.Context, stageID int64) ([]*DeploymentRevision, error) {
 	stage, err := s.dao.StageGetByID(ctx, stageID)
 	if err != nil {
@@ -1939,6 +2096,21 @@ func (s *Services) GetDeploymentHistory(ctx context.Context, stageID int64) ([]*
 
 	if stage.StageType != models.StageTypeDeploy {
 		return nil, errors.New("该阶段不是部署阶段")
+	}
+
+	// 确定工作负载类型：优先从流水线配置获取，回退到阶段记录
+	workloadKind := stage.DeployWorkloadKind
+	if workloadKind == "" {
+		run, runErr := s.dao.PipelineRunGetByID(ctx, stage.RunID)
+		if runErr == nil && run != nil {
+			pipeline, pipeErr := s.dao.PipelineGetByID(ctx, run.PipelineID)
+			if pipeErr == nil && pipeline != nil {
+				workloadKind = pipeline.TargetWorkloadKind
+			}
+		}
+	}
+	if workloadKind == "" {
+		workloadKind = "Deployment"
 	}
 
 	// 初始化 K8s 客户端
@@ -1950,23 +2122,31 @@ func (s *Services) GetDeploymentHistory(ctx context.Context, stageID int64) ([]*
 	namespace := stage.DeployNamespace
 	workloadName := stage.DeployWorkloadName
 
-	// 获取 Deployment
+	switch workloadKind {
+	case "StatefulSet":
+		return s.getStatefulSetHistory(ctx, client, namespace, workloadName)
+	case "DaemonSet":
+		return s.getDaemonSetHistory(ctx, client, namespace, workloadName)
+	default:
+		return s.getDeploymentHistory(ctx, client, namespace, workloadName)
+	}
+}
+
+// getDeploymentHistory 获取 Deployment 的历史版本列表（通过 ReplicaSet）
+func (s *Services) getDeploymentHistory(ctx context.Context, client *K8sClients, namespace, workloadName string) ([]*DeploymentRevision, error) {
 	deploy, err := client.Kube.AppsV1().Deployments(namespace).Get(ctx, workloadName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("获取 Deployment 失败: %w", err)
 	}
 
-	// 获取关联的 ReplicaSet
 	selector := metav1.FormatLabelSelector(deploy.Spec.Selector)
 	rsList, err := client.Kube.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return nil, fmt.Errorf("获取 ReplicaSet 列表失败: %w", err)
 	}
 
-	// 构建历史版本列表
 	revisions := make([]*DeploymentRevision, 0, len(rsList.Items))
 	for _, rs := range rsList.Items {
-		// 检查是否是该 Deployment 的 ReplicaSet
 		isOwned := false
 		for _, owner := range rs.OwnerReferences {
 			if owner.UID == deploy.UID {
@@ -1978,28 +2158,147 @@ func (s *Services) GetDeploymentHistory(ctx context.Context, stageID int64) ([]*
 			continue
 		}
 
-		// 提取版本信息
 		revision := int64(0)
 		if revStr, ok := rs.Annotations["deployment.kubernetes.io/revision"]; ok {
 			fmt.Sscanf(revStr, "%d", &revision)
 		}
 
-		// 提取镜像信息
 		image := ""
 		if len(rs.Spec.Template.Spec.Containers) > 0 {
 			image = rs.Spec.Template.Spec.Containers[0].Image
 		}
 
+		// 修复：安全处理 nil 指针（旧 RS 的 Replicas 可能为 nil）
+		isCurrent := false
+		if rs.Spec.Replicas != nil {
+			isCurrent = *rs.Spec.Replicas > 0
+		}
+
 		revisions = append(revisions, &DeploymentRevision{
-			Revision:    revision,
-			RSName:      rs.Name,
-			Image:       image,
-			CreatedAt:   rs.CreationTimestamp.Unix(),
-			IsCurrent:   *rs.Spec.Replicas > 0,
+			Revision:  revision,
+			RSName:    rs.Name,
+			Image:     image,
+			CreatedAt: rs.CreationTimestamp.Unix(),
+			IsCurrent: isCurrent,
 		})
 	}
 
-	// 按版本号降序排序
+	sortRevisionsDesc(revisions)
+	return revisions, nil
+}
+
+// getStatefulSetHistory 获取 StatefulSet 的历史版本列表（通过 ControllerRevision）
+func (s *Services) getStatefulSetHistory(ctx context.Context, client *K8sClients, namespace, workloadName string) ([]*DeploymentRevision, error) {
+	sts, err := client.Kube.AppsV1().StatefulSets(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("获取 StatefulSet 失败: %w", err)
+	}
+
+	selector := metav1.FormatLabelSelector(sts.Spec.Selector)
+	crList, err := client.Kube.AppsV1().ControllerRevisions(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return nil, fmt.Errorf("获取 ControllerRevision 列表失败: %w", err)
+	}
+
+	revisions := make([]*DeploymentRevision, 0, len(crList.Items))
+	for _, cr := range crList.Items {
+		isOwned := false
+		for _, owner := range cr.OwnerReferences {
+			if owner.UID == sts.UID {
+				isOwned = true
+				break
+			}
+		}
+		if !isOwned {
+			continue
+		}
+
+		image := ""
+		// 从 ControllerRevision.Data 中提取镜像信息
+		if len(cr.Data.Raw) > 0 {
+			var stsSpec appv1.StatefulSetSpec
+			if json.Unmarshal(cr.Data.Raw, &stsSpec) == nil && len(stsSpec.Template.Spec.Containers) > 0 {
+				image = stsSpec.Template.Spec.Containers[0].Image
+			}
+		}
+
+		revisions = append(revisions, &DeploymentRevision{
+			Revision:  cr.Revision,
+			RSName:    cr.Name,
+			Image:     image,
+			CreatedAt: cr.CreationTimestamp.Unix(),
+			IsCurrent: cr.Name == sts.Status.CurrentRevision,
+		})
+	}
+
+	sortRevisionsDesc(revisions)
+	return revisions, nil
+}
+
+// getDaemonSetHistory 获取 DaemonSet 的历史版本列表（通过 ControllerRevision）
+func (s *Services) getDaemonSetHistory(ctx context.Context, client *K8sClients, namespace, workloadName string) ([]*DeploymentRevision, error) {
+	ds, err := client.Kube.AppsV1().DaemonSets(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("获取 DaemonSet 失败: %w", err)
+	}
+
+	selector := metav1.FormatLabelSelector(ds.Spec.Selector)
+	crList, err := client.Kube.AppsV1().ControllerRevisions(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return nil, fmt.Errorf("获取 ControllerRevision 列表失败: %w", err)
+	}
+
+	// DaemonSet 的最新版本即为当前版本
+	var maxRevision int64
+	for _, cr := range crList.Items {
+		isOwned := false
+		for _, owner := range cr.OwnerReferences {
+			if owner.UID == ds.UID {
+				isOwned = true
+				break
+			}
+		}
+		if isOwned && cr.Revision > maxRevision {
+			maxRevision = cr.Revision
+		}
+	}
+
+	revisions := make([]*DeploymentRevision, 0, len(crList.Items))
+	for _, cr := range crList.Items {
+		isOwned := false
+		for _, owner := range cr.OwnerReferences {
+			if owner.UID == ds.UID {
+				isOwned = true
+				break
+			}
+		}
+		if !isOwned {
+			continue
+		}
+
+		image := ""
+		if len(cr.Data.Raw) > 0 {
+			var dsSpec appv1.DaemonSetSpec
+			if json.Unmarshal(cr.Data.Raw, &dsSpec) == nil && len(dsSpec.Template.Spec.Containers) > 0 {
+				image = dsSpec.Template.Spec.Containers[0].Image
+			}
+		}
+
+		revisions = append(revisions, &DeploymentRevision{
+			Revision:  cr.Revision,
+			RSName:    cr.Name,
+			Image:     image,
+			CreatedAt: cr.CreationTimestamp.Unix(),
+			IsCurrent: cr.Revision == maxRevision,
+		})
+	}
+
+	sortRevisionsDesc(revisions)
+	return revisions, nil
+}
+
+// sortRevisionsDesc 按版本号降序排序
+func sortRevisionsDesc(revisions []*DeploymentRevision) {
 	for i := 0; i < len(revisions)-1; i++ {
 		for j := i + 1; j < len(revisions); j++ {
 			if revisions[j].Revision > revisions[i].Revision {
@@ -2007,14 +2306,12 @@ func (s *Services) GetDeploymentHistory(ctx context.Context, stageID int64) ([]*
 			}
 		}
 	}
-
-	return revisions, nil
 }
 
-// DeploymentRevision Deployment 历史版本信息
+// DeploymentRevision 工作负载历史版本信息（通用：Deployment/StatefulSet/DaemonSet）
 type DeploymentRevision struct {
 	Revision  int64  `json:"revision"`   // 版本号
-	RSName    string `json:"rs_name"`    // ReplicaSet 名称
+	RSName    string `json:"rs_name"`    // ReplicaSet/ControllerRevision 名称
 	Image     string `json:"image"`      // 镜像
 	CreatedAt int64  `json:"created_at"` // 创建时间
 	IsCurrent bool   `json:"is_current"` // 是否当前版本

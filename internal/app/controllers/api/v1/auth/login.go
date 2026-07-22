@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
@@ -13,14 +14,15 @@ import (
 	"k8soperation/internal/errorcode"
 	"k8soperation/pkg/app/response"
 	"k8soperation/pkg/jwt"
+	ldapclient "k8soperation/pkg/ldap"
 	"k8soperation/pkg/utils"
 	"k8soperation/pkg/valid"
 	"time"
 )
 
-// Create godoc
+// Login godoc
 // @Summary 用户登录
-// @Description 用户登录
+// @Description 用户登录（支持本地/LDAP 双模式）
 // @Tags 认证管理
 // @Produce json
 // @Param body body requests.AuthLoginRequest true "body"
@@ -28,73 +30,76 @@ import (
 // @Failure 400 {object} map[string]interface{} "请求错误"
 // @Failure 500 {object} map[string]interface{} "内部错误"
 // @Router /api/v1/auth/login [post]
-// AuthController 结构体的登录处理方法
-// 处理用户登录请求，验证用户信息并返回token
 func (u *AuthController) Login(ctx *gin.Context) {
-	// 创建登录请求参数结构体
 	param := requests.NewAuthLoginRequest()
-	// 创建响应结构体
 	response := response.NewResponse(ctx)
 
-	// 验证请求参数是否合法，如果不合法则直接返回
 	if ok := valid.Validate(ctx, param, requests.ValidAuthLoginRequest); !ok {
 		return
 	}
-	// 创建服务层实例
+
 	svc := services.NewServices()
 
-	// 调用服务层的用户登录方法
-	user, err := svc.UserLogin(param)
+	var user *models.User
+	var err error
+	authMethod := "local" // 认证方式标记
 
-	// 处理登录错误情况
-	if err != nil {
-		// 记录登录失败的错误日志
-		global.Logger.Error("用户登录失败,", zap.String("error", err.Error()))
-		// 返回登录失败的错误响应
-		response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
-		return
+	// ====== LDAP 登录尝试 ======
+	if ldapclient.IsEnabled() {
+		ldapUser, isLDAP, ldapErr := svc.LDAPLogin(param.Username, param.Password)
+		if ldapErr == nil && ldapUser != nil {
+			// LDAP 认证成功
+			user = ldapUser
+			authMethod = "ldap"
+		} else if isLDAP && ldapErr != nil && ldapErr.Error() != "LDAP_AUTH_FAILED" {
+			// LDAP 认证失败且不回退
+			global.Logger.Error("LDAP 登录失败", zap.String("error", ldapErr.Error()))
+			response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
+			return
+		}
+		// 如果 LDAP 认证失败且允许回退，继续本地认证
 	}
 
-	// 用户不存在
+	// ====== 本地登录 ======
 	if user == nil {
-		global.Logger.Error("用户登录失败,用户不存在")
-		response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
-		return
+		user, err = svc.UserLogin(param)
+		if err != nil {
+			global.Logger.Error("用户登录失败", zap.String("error", err.Error()))
+			response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
+			return
+		}
+		if user == nil {
+			global.Logger.Error("用户登录失败,用户不存在")
+			response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
+			return
+		}
+
+		// 验证密码（本地模式）
+		matched, needMigrate := utils.CheckPasswordSmart(user.Password, param.Password)
+		if !matched {
+			global.Logger.Error("用户登录失败,密码错误")
+			response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
+			return
+		}
+
+		// 自动迁移旧密码
+		if needMigrate {
+			go func() {
+				if err := svc.MigrateUserPassword(user.ID, param.Password); err != nil {
+					global.Logger.Warn("密码迁移失败", zap.Uint32("user_id", user.ID), zap.Error(err))
+				}
+			}()
+		}
 	}
 
-	// 用户已被禁用
+	// ====== 统一检查用户状态 ======
 	if user.Status == 0 {
 		global.Logger.Error("用户登录失败,账号已禁用", zap.String("username", user.Username))
 		response.ToErrorResponse(errorcode.ErrorUserDisabled)
 		return
 	}
 
-	// 验证用户密码是否正确（智能验证，兼容旧明文密码）
-	matched, needMigrate := utils.CheckPasswordSmart(user.Password, param.Password)
-	if !matched {
-		// 记录密码错误的日志
-		global.Logger.Error("用户登录失败,密码错误")
-		// 返回登录失败的错误响应
-		response.ToErrorResponse(errorcode.ErrorAuthLoginFail)
-		return
-	}
-
-	// 如果是旧明文密码，自动迁移到 bcrypt
-	if needMigrate {
-		go func() {
-			if err := svc.MigrateUserPassword(user.ID, param.Password); err != nil {
-				global.Logger.Warn("密码迁移失败",
-					zap.Uint32("user_id", user.ID),
-					zap.Error(err))
-			} else {
-				global.Logger.Info("密码已自动迁移到 bcrypt",
-					zap.Uint32("user_id", user.ID),
-					zap.String("username", user.Username))
-			}
-		}()
-	}
-
-	// 生成 JWT token（必须接收两个返回值）
+	// ====== 签发 JWT ======
 	mgr := jwt.NewManager()
 	token, err := mgr.IssueToken(cast.ToString(user.ID), user.Username)
 	if err != nil {
@@ -103,14 +108,14 @@ func (u *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// 构造安全的用户返回体（别把密码等敏感字段直接回给前端）
+	// ====== 构造响应 ======
 	respUser := gin.H{
-		"id":       user.ID,
-		"username": user.Username,
-		// 需要的话补充其他非敏感字段
+		"id":          user.ID,
+		"username":    user.Username,
+		"auth_method": authMethod,
 	}
 
-	// ====== 存入 Session ======
+	// ====== 存入 Session（支持同一账户多人并发登录） ======
 	sessionInfo := models.LoginSessionInfo{
 		Username:  param.Username,
 		Token:     token,
@@ -124,15 +129,21 @@ func (u *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
+	// 使用 userID + 时间戳 作为 session key，确保同一账户多处登录不会互相覆盖
+	sessionKey := fmt.Sprintf("login:%d:%d", user.ID, time.Now().UnixNano())
 	session := sessions.Default(ctx)
-	session.Set(utils.EncodeMD5(user.Username), string(sessionBty))
+	session.Set(sessionKey, string(sessionBty))
 	if err := session.Save(); err != nil {
-		global.Logger.Error("session 保存失败", zap.String("error", err.Error()))
-		response.ToErrorResponse(errorcode.ServerError)
-		return
+		// Session 保存失败不中断登录（JWT 为主认证方式，Session 仅为辅助）
+		// Redis Cluster 模式下 gin-contrib/sessions 不支持 MOVED 重定向
+		global.Logger.Warn("session 保存失败(不影响登录)", zap.String("error", err.Error()))
 	}
 
-	// ====== 最终返回 ======
+	global.Logger.Info("用户登录成功",
+		zap.String("username", user.Username),
+		zap.String("auth_method", authMethod))
+
+	// ====== 返回 ======
 	response.Success(gin.H{
 		"user":  respUser,
 		"token": token,

@@ -4,9 +4,6 @@ import {Message} from '@arco-design/web-vue'
 import {useClusterStore} from '@/stores/cluster'
 import {pinia} from '@/stores'
 
-// 判断是否通过穿透地址访问（非 localhost）
-const isRemoteAccess = !['localhost', '127.0.0.1'].includes(window.location.hostname)
-
 // ===== 错误消息去重，防止短时间内重复 toast =====
 const recentErrors = new Map()
 const ERROR_DEDUP_INTERVAL = 3000 // 3秒内相同消息不重复弹出
@@ -25,21 +22,9 @@ function showDedupError(msg) {
   Message.error({ content: msg, duration: 2000 })
 }
 
-// 动态计算远程 API 地址：
-// 1. 优先使用环境变量 VITE_REMOTE_API_URL
-// 2. 否则使用当前域名 + 后端穿透端口（从环境变量 VITE_REMOTE_API_PORT 获取，默认 59979）
-const getRemoteBaseURL = () => {
-  if (import.meta.env.VITE_REMOTE_API_URL) {
-    return import.meta.env.VITE_REMOTE_API_URL
-  }
-  // 使用当前访问域名 + 后端端口，确保 DDNS 切换后仍可用
-  const backendPort = import.meta.env.VITE_REMOTE_API_PORT || '59979'
-  return `${window.location.protocol}//${window.location.hostname}:${backendPort}`
-}
-
 const http = axios.create({
-  // 穿透访问时动态请求后端穿透地址，本地访问时走 Vite proxy
-  baseURL: isRemoteAccess ? getRemoteBaseURL() : '',
+  // nginx 反向代理 /api/ → 后端，同源相对路径，无需关心端口差异
+  baseURL: '',
   timeout: 45000,
   withCredentials: false, // JWT Header 模式：不走 Cookie
 })
@@ -71,7 +56,7 @@ let refreshQueue = []
 
 // ===== 这些接口不要触发 refresh（避免死循环）=====
 const isAuthPublicApi = (url = '') =>
-  url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')
+  url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh') || url.includes('/auth/logout')
 
 // ===== 判断请求 URL 是否需要携带 X-Cluster-ID =====
 // 只有真正访问目标集群资源的接口才需要（B 类路由）
@@ -122,7 +107,7 @@ http.interceptors.request.use(
     if (needsClusterID(config.url)) {
       const clusterStore = useClusterStore(pinia)
       const cid = clusterStore.current?.id ?? getClusterIdFromPath()
-    
+
       // 注意：cid 可能是 number / string；只要不是 null/undefined/空字符串，就写入 header
       if (cid !== undefined && cid !== null && cid !== '') {
         config.headers['X-Cluster-ID'] = String(cid)

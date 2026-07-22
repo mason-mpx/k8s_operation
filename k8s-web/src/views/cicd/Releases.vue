@@ -8,11 +8,16 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
           </div>
           <div>
-            <h1 class="banner-title">发布管理</h1>
-            <p class="banner-desc">管理应用发布记录，支持回滚和重新部署</p>
+            <h1 class="banner-title">发布单中心</h1>
+            <p class="banner-desc">直接发布：选定镜像并指定集群（开发 / 测试 / 生产）一键部署，覆盖审批 → 部署 → 回滚全流程</p>
+            <p class="banner-hint">需要一次构建、跨环境逐级晋级同一镜像？请使用<router-link class="banner-inline-link" to="/cicd/promotion">镜像晋级</router-link></p>
           </div>
         </div>
         <div class="banner-actions">
+          <button class="btn-banner-new-app" @click="$router.push('/cicd/pipelines/create')" title="新建应用，配置构建流水线">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            <span>新建应用</span>
+          </button>
           <button class="btn-banner-sync" @click="syncFromPipeline" :disabled="syncing">
             <svg :class="{ spinning: syncing }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
             <span>{{ syncing ? '同步中...' : '同步流水线' }}</span>
@@ -88,6 +93,19 @@
           <span class="record-badge">{{ total }} 条</span>
         </div>
         <div class="toolbar-right">
+          <button class="filter-toggle-btn" :class="{ active: showFilterPanel }" @click="showFilterPanel = !showFilterPanel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <span>筛选</span>
+            <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
+          </button>
+          <div class="view-toggle">
+            <button :class="['toggle-btn', { active: releaseViewMode === 'card' }]" @click="releaseViewMode = 'card'" title="卡片视图">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"/></svg>
+            </button>
+            <button :class="['toggle-btn', { active: releaseViewMode === 'table' }]" @click="releaseViewMode = 'table'" title="表格视图">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/></svg>
+            </button>
+          </div>
           <div class="search-box" :class="{ focused: searchFocused }">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input v-model="searchKeyword" placeholder="搜索应用名、镜像..." @input="handleSearch" @focus="searchFocused = true" @blur="searchFocused = false" />
@@ -97,6 +115,65 @@
           </div>
         </div>
       </div>
+
+      <!-- 高级筛选面板 -->
+      <transition name="filter-slide">
+        <div v-if="showFilterPanel" class="filter-panel">
+          <div class="filter-row">
+            <div class="filter-item">
+              <label class="filter-label">应用</label>
+              <select v-model="filterApp" class="filter-select" @change="applyFilters">
+                <option value="">全部应用</option>
+                <option v-for="p in pipelines" :key="p.id" :value="p.name">{{ p.name }}</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label class="filter-label">状态</label>
+              <select v-model="filterStatus" class="filter-select" @change="applyFilters">
+                <option value="">全部状态</option>
+                <option value="Pending">等待中</option>
+                <option value="AwaitingApproval">待审批</option>
+                <option value="Running">部署中</option>
+                <option value="Succeeded">发布成功</option>
+                <option value="Failed">发布失败</option>
+                <option value="Rollback">已回滚</option>
+                <option value="Canceled">已取消</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label class="filter-label">命名空间</label>
+              <select v-model="filterNamespace" class="filter-select" @change="applyFilters">
+                <option value="">全部命名空间</option>
+                <option v-for="ns in namespaceOptions" :key="ns" :value="ns">{{ ns }}</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label class="filter-label">时间范围</label>
+              <select v-model="filterTimeRange" class="filter-select" @change="applyFilters">
+                <option value="">全部时间</option>
+                <option value="1h">最近 1 小时</option>
+                <option value="24h">最近 24 小时</option>
+                <option value="7d">最近 7 天</option>
+                <option value="30d">最近 30 天</option>
+                <option value="90d">最近 90 天</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label class="filter-label">发布人</label>
+              <select v-model="filterCreator" class="filter-select" @change="applyFilters">
+                <option value="">全部</option>
+                <option v-for="u in creatorOptions" :key="u" :value="u">{{ u }}</option>
+              </select>
+            </div>
+            <div class="filter-actions">
+              <button class="filter-reset-btn" @click="resetFilters" :disabled="activeFilterCount === 0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1.5 14.5a2 2 0 0 1-2 1.5H8.5a2 2 0 0 1-2-1.5L5 6"/></svg>
+                重置
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
 
       <!-- 批量操作工具栏（全宽醒目） -->
       <transition name="batch-slide">
@@ -116,6 +193,10 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
               <span>批量回滚</span>
             </button>
+            <button class="batch-action-btn stop" @click="handleBatchCancel" :disabled="batchLoading">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              <span>批量取消</span>
+            </button>
             <button class="batch-action-btn cancel" @click="selectedIds = []">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               <span>取消选择</span>
@@ -132,21 +213,180 @@
 
       <!-- 空状态 -->
       <div v-else-if="releases.length === 0" class="empty-state">
-        <div class="empty-svg">
-          <svg viewBox="0 0 200 160" fill="none">
-            <rect x="35" y="15" width="130" height="95" rx="10" fill="#f0f5ff" stroke="#d6e4ff" stroke-width="2"/>
-            <rect x="52" y="38" width="96" height="8" rx="4" fill="#d6e4ff"/>
-            <rect x="52" y="54" width="68" height="8" rx="4" fill="#d6e4ff"/>
-            <rect x="52" y="70" width="80" height="8" rx="4" fill="#d6e4ff"/>
-            <circle cx="100" cy="135" r="18" fill="#f0f5ff" stroke="#d6e4ff" stroke-width="2"/>
-            <path d="M93 135l4 4 10-10" stroke="#4e7cf6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <h3>暂无发布记录</h3>
-        <p>点击上方「创建发布」按钮创建第一个发布单</p>
+        <!-- 无应用引导：先建应用再发布 -->
+        <template v-if="pipelines.length === 0">
+          <div class="onboard-cards">
+            <div class="onboard-hero">
+              <div class="onboard-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <h3>还没有配置任何应用</h3>
+              <p>先创建一个应用，即可自动完成构建、部署、发布全流程</p>
+            </div>
+            <div class="onboard-steps">
+              <div class="onboard-step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <div class="step-title">新建应用</div>
+                  <div class="step-desc">填写应用名 + Git 仓库 + 语言类型，3 个字段完成配置</div>
+                </div>
+              </div>
+              <div class="onboard-step-arrow">→</div>
+              <div class="onboard-step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <div class="step-title">触发构建</div>
+                  <div class="step-desc">git push 或手动触发，Jenkins 自动构建镜像</div>
+                </div>
+              </div>
+              <div class="onboard-step-arrow">→</div>
+              <div class="onboard-step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <div class="step-title">一键发布</div>
+                  <div class="step-desc">选应用 + 填版本号，直接部署到 K8s</div>
+                </div>
+              </div>
+            </div>
+            <div class="onboard-actions">
+              <button class="btn-onboard-primary" @click="$router.push('/cicd/pipelines/create')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                快速新建应用
+              </button>
+              <button class="btn-onboard-secondary" @click="showCreateDialog = true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                手动创建发布单
+              </button>
+            </div>
+          </div>
+        </template>
+        <!-- 有应用但无发布记录 -->
+        <template v-else>
+          <div class="empty-svg">
+            <svg viewBox="0 0 200 160" fill="none">
+              <rect x="35" y="15" width="130" height="95" rx="10" fill="#f0f5ff" stroke="#d6e4ff" stroke-width="2"/>
+              <rect x="52" y="38" width="96" height="8" rx="4" fill="#d6e4ff"/>
+              <rect x="52" y="54" width="68" height="8" rx="4" fill="#d6e4ff"/>
+              <rect x="52" y="70" width="80" height="8" rx="4" fill="#d6e4ff"/>
+              <circle cx="100" cy="135" r="18" fill="#f0f5ff" stroke="#d6e4ff" stroke-width="2"/>
+              <path d="M93 135l4 4 10-10" stroke="#4e7cf6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>暂无发布记录</h3>
+          <p style="margin-bottom:16px;">已有 {{ pipelines.length }} 个应用，立即发布</p>
+          <button class="btn-onboard-primary" style="margin:0 auto;" @click="showCreateDialog = true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            创建第一个发布
+          </button>
+        </template>
       </div>
 
-      <!-- 表格 - Rancher 风格 -->
+      <!-- 卡片视图 - 大厂级发布单卡片（3层信息结构） -->
+      <div v-else-if="releaseViewMode === 'card'" class="release-cards-grid">
+        <div v-for="rel in releases" :key="rel.id" class="release-card" :class="[`card-${normalizeStatus(rel.status)}`, { selected: selectedIds.includes(rel.id) }]">
+          <!-- 卡片头部：应用 + 状态 -->
+          <div class="rc-header">
+            <div class="rc-check">
+              <input type="checkbox" class="row-checkbox" :checked="selectedIds.includes(rel.id)" @change="toggleSelect(rel.id)" />
+            </div>
+            <div class="rc-app-info">
+              <div class="rc-avatar" :class="normalizeStatus(rel.status)">
+                {{ (rel.app_name || rel.name || '?').charAt(0).toUpperCase() }}
+              </div>
+              <div class="rc-app-meta">
+                <span class="rc-app-name">{{ rel.app_name || rel.name || '-' }}</span>
+                <span class="rc-app-id">#{{ rel.id }}</span>
+              </div>
+            </div>
+            <span class="rc-status-badge" :class="normalizeStatus(rel.status)">
+              <span class="rc-status-dot"></span>
+              {{ statusText(rel.status) }}
+            </span>
+          </div>
+
+          <!-- Tier 1: 基础信息（谁发的 / 环境 / 策略） -->
+          <div class="rc-tier">
+            <div class="rc-field">
+              <span class="rc-label">模式</span>
+              <span :class="['deploy-mode-tag', rel.deploy_mode === 'gitops' ? 'mode-gitops' : 'mode-jenkins']">
+                {{ rel.deploy_mode === 'gitops' ? 'GitOps' : 'Jenkins' }}
+              </span>
+            </div>
+            <div class="rc-field">
+              <span class="rc-label">环境</span>
+              <span class="rc-value ns">{{ rel.namespace || 'default' }}</span>
+            </div>
+            <div class="rc-field">
+              <span class="rc-label">策略</span>
+              <span class="rc-value">{{ strategyText(rel.strategy) || '滚动更新' }}</span>
+            </div>
+            <div class="rc-field">
+              <span class="rc-label">时间</span>
+              <span class="rc-value">{{ formatDate(rel.created_at) }}</span>
+            </div>
+          </div>
+
+          <!-- Tier 2: 构建信息（镜像 / tag） -->
+          <div class="rc-tier">
+            <div class="rc-field full">
+              <span class="rc-label">镜像</span>
+              <code class="rc-image" :title="getFullImage(rel)">{{ formatImage(rel) }}</code>
+            </div>
+          </div>
+
+          <!-- Tier 3: 部署信息（K8s目标） -->
+          <div class="rc-tier">
+            <div class="rc-field">
+              <span class="rc-label">工作负载</span>
+              <code class="rc-workload">{{ rel.workload_kind || 'Deployment' }}/{{ rel.workload_name || '-' }}</code>
+            </div>
+            <div class="rc-field" v-if="rel.container_name">
+              <span class="rc-label">容器</span>
+              <span class="rc-value">{{ rel.container_name }}</span>
+            </div>
+          </div>
+
+          <!-- 失败原因 -->
+          <div v-if="rel.message && (rel.status === 'Failed' || rel.status === 'Canceled')" class="rc-error">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>{{ rel.message.length > 80 ? rel.message.slice(0, 80) + '...' : rel.message }}</span>
+          </div>
+
+          <!-- 卡片操作栏 -->
+          <div class="rc-actions">
+            <button class="rc-act-btn" @click="viewRelease(rel)" title="查看详情">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              详情
+            </button>
+            <button v-if="normalizeStatus(rel.status) === 'success' || normalizeStatus(rel.status) === 'failed'" class="rc-act-btn primary" @click="retryRelease(rel)" title="重新发布">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              重发
+            </button>
+            <button v-if="normalizeStatus(rel.status) === 'success' || rel.status === 'Failed'" class="rc-act-btn warning" @click="rollbackRelease(rel)" :title="rel.status === 'Failed' ? '回滚到部署前版本' : '回滚'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              回滚
+            </button>
+            <button v-if="normalizeStatus(rel.status) === 'deploying'" class="rc-act-btn danger" @click="cancelRelease(rel)" title="取消">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              取消
+            </button>
+            <button v-if="canEdit(rel.status)" class="rc-act-btn" @click="editRelease(rel)" title="编辑">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              编辑
+            </button>
+            <button v-if="canDelete(rel.status)" class="rc-act-btn danger-text" @click="deleteRelease(rel)" title="删除">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              删除
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 表格视图 - Rancher 风格 -->
       <div v-else class="table-wrapper">
         <table class="data-table">
           <thead>
@@ -155,10 +395,14 @@
                 <input type="checkbox" class="row-checkbox" :checked="isAllSelected" :indeterminate.prop="isIndeterminate" @change="toggleAll" />
               </th>
               <th>应用</th>
+              <th>模式</th>
+              <th>版本号</th>
               <th>状态</th>
+              <th>命名空间</th>
+              <th>集群</th>
               <th>工作负载</th>
               <th>镜像</th>
-              <th>命名空间</th>
+              <th>发布人</th>
               <th>策略</th>
               <th>时间</th>
               <th>操作</th>
@@ -181,11 +425,27 @@
                 </div>
               </td>
               <td>
-                <span class="status-pill" :class="normalizeStatus(rel.status)">
-                  <span class="status-dot"></span>
-                  {{ statusText(rel.status) }}
+                <code class="version-tag" v-if="rel.image_tag">{{ rel.image_tag }}</code>
+                <span v-else class="text-muted">-</span>
+              </td>
+              <td>
+                <span :class="['deploy-mode-tag', rel.deploy_mode === 'gitops' ? 'mode-gitops' : 'mode-jenkins']">
+                  {{ rel.deploy_mode === 'gitops' ? 'GitOps' : 'Jenkins' }}
                 </span>
               </td>
+              <td>
+                <div class="status-cell">
+                  <span class="status-pill" :class="normalizeStatus(rel.status)">
+                    <span class="status-dot"></span>
+                    {{ statusText(rel.status) }}
+                  </span>
+                  <span v-if="rel.message && (rel.status === 'Failed' || rel.status === 'Canceled')" class="fail-reason" :title="rel.message">
+                    {{ rel.message.length > 40 ? rel.message.slice(0, 40) + '...' : rel.message }}
+                  </span>
+                </div>
+              </td>
+              <td><span class="ns-badge">{{ rel.namespace || 'default' }}</span></td>
+              <td><span class="cluster-badge" v-if="rel.cluster_name || rel.cluster_id">{{ rel.cluster_name || `cluster-${rel.cluster_id}` }}</span><span v-else class="text-muted">-</span></td>
               <td>
                 <div class="workload-cell">
                   <code class="workload-tag">{{ rel.workload_kind || 'Deployment' }}/{{ rel.workload_name || '-' }}</code>
@@ -195,7 +455,13 @@
               <td>
                 <code class="image-code" :title="getFullImage(rel)">{{ formatImage(rel) }}</code>
               </td>
-              <td><span class="ns-badge">{{ rel.namespace || 'default' }}</span></td>
+              <td>
+                <div class="creator-cell" v-if="rel.creator || rel.created_by">
+                  <span class="creator-avatar">{{ (rel.creator || rel.created_by || '?').charAt(0).toUpperCase() }}</span>
+                  <span class="creator-name">{{ rel.creator || rel.created_by || '-' }}</span>
+                </div>
+                <span v-else class="text-muted">系统</span>
+              </td>
               <td><span class="strategy-tag" v-if="rel.strategy">{{ strategyText(rel.strategy) }}</span><span v-else class="text-muted">-</span></td>
               <td><span class="time-text">{{ formatDate(rel.created_at) }}</span></td>
               <td>
@@ -209,10 +475,10 @@
                   <button v-if="normalizeStatus(rel.status) === 'deploying'" class="act-btn cancel" @click="cancelRelease(rel)" title="取消">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                   </button>
-                  <button v-if="normalizeStatus(rel.status) === 'success'" class="act-btn rollback" @click="rollbackRelease(rel)" title="回滚">
+                  <button v-if="normalizeStatus(rel.status) === 'success' || rel.status === 'Failed'" class="act-btn rollback" @click="rollbackRelease(rel)" :title="rel.status === 'Failed' ? '回滚到部署前版本' : '回滚'">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                   </button>
-                  <button v-if="normalizeStatus(rel.status) === 'failed'" class="act-btn retry" @click="retryRelease(rel)" title="重试">
+                  <button v-if="normalizeStatus(rel.status) === 'success' || normalizeStatus(rel.status) === 'failed' || normalizeStatus(rel.status) === 'rollback'" class="act-btn retry" @click="retryRelease(rel)" :title="normalizeStatus(rel.status) === 'failed' ? '重试' : '重新部署'">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                   </button>
                   <button v-if="canDelete(rel.status)" class="act-btn delete" @click="deleteRelease(rel)" title="删除">
@@ -268,34 +534,98 @@
               </button>
             </div>
             <div class="modal-body">
+              <!-- 无应用时：引导新建 -->
+              <div v-if="pipelines.length === 0" class="no-app-guide">
+                <div class="guide-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <div class="guide-text">
+                  <div class="guide-title">还没有配置应用</div>
+                  <div class="guide-desc">建议先创建应用配置，以后发布只需选应用+填版本号</div>
+                </div>
+                <button class="btn-guide-create" @click="showCreateDialog = false; $router.push('/cicd/pipelines/create')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  新建应用
+                </button>
+              </div>
+              <div v-if="pipelines.length === 0" class="guide-divider">
+                <span>或者手动配置发布目标</span>
+              </div>
               <div class="field">
-                <label>选择流水线</label>
-                <select v-model="createForm.pipeline_id">
-                  <option value="">请选择流水线</option>
+                <label>选择应用 <span v-if="pipelines.length > 0" class="required">*</span><span v-else class="optional">（选填）</span></label>
+                <select v-model="createForm.pipeline_id" @change="onPipelineSelect">
+                  <option value="">请选择要发布的应用</option>
                   <option v-for="p in pipelines" :key="p.id" :value="p.id">{{ p.name }}</option>
                 </select>
               </div>
-              <div class="field">
-                <label>发布名称</label>
-                <input v-model="createForm.name" placeholder="例如: v1.0.0-release" />
+              <!-- 应用配置预览 -->
+              <div v-if="selectedPipelineInfo" class="pipeline-inherit-hint">
+                <div class="hint-title">📦 部署目标：</div>
+                <div class="hint-items" v-if="selectedPipelineInfo.namespace || selectedPipelineInfo.workload || selectedPipelineInfo.image_repo">
+                  <span v-if="selectedPipelineInfo.image_repo">镜像仓库: <b>{{ selectedPipelineInfo.image_repo }}</b></span>
+                  <span v-if="selectedPipelineInfo.namespace">命名空间: <b>{{ selectedPipelineInfo.namespace }}</b></span>
+                  <span v-if="selectedPipelineInfo.workload">工作负载: <b>{{ selectedPipelineInfo.workload }}</b></span>
+                  <span v-if="selectedPipelineInfo.container">容器: <b>{{ selectedPipelineInfo.container }}</b></span>
+                </div>
+                <div class="hint-items hint-warning" v-else>
+                  <span>⚠️ 该应用尚未配置部署目标（命名空间/工作负载/镜像仓库），发布后将仅触发构建</span>
+                  <a class="hint-link" @click="showCreateDialog = false; $router.push(`/cicd/pipelines/${createForm.pipeline_id}?tab=settings`)">去配置 →</a>
+                </div>
+                <div class="hint-note" v-if="selectedPipelineInfo.namespace || selectedPipelineInfo.workload || selectedPipelineInfo.image_repo">只需填写版本号即可发布</div>
               </div>
-              <div class="field-row">
+              <div class="field">
+                <label>版本号 / 镜像标签 <span class="required">*</span></label>
+                <input v-model="createForm.version" placeholder="例如: v1.2.3 或 abc1234" />
+              </div>
+              <!-- 未选择应用时：手动填写部署目标（新应用首次发布） -->
+              <template v-if="!createForm.pipeline_id">
                 <div class="field">
-                  <label>版本号</label>
-                  <input v-model="createForm.version" placeholder="v1.0.0" />
+                  <label>应用名称 <span class="required">*</span></label>
+                  <input v-model="createForm.name" placeholder="例如: user-service" />
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <label>命名空间</label>
+                    <input v-model="createForm.namespace" placeholder="production" />
+                  </div>
+                  <div class="field">
+                    <label>工作负载类型</label>
+                    <select v-model="createForm.workload_kind">
+                      <option value="Deployment">Deployment</option>
+                      <option value="StatefulSet">StatefulSet</option>
+                      <option value="DaemonSet">DaemonSet</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <label>工作负载名称</label>
+                    <input v-model="createForm.workload_name" placeholder="与应用名一致则可留空" />
+                  </div>
+                  <div class="field">
+                    <label>容器名称</label>
+                    <input v-model="createForm.container_name" placeholder="留空则默认第一个容器" />
+                  </div>
                 </div>
                 <div class="field">
-                  <label>命名空间</label>
-                  <input v-model="createForm.namespace" placeholder="production" />
+                  <label>镜像地址 <span class="required">*</span></label>
+                  <input v-model="createForm.image" placeholder="harbor.example.com/proj/app:v1.0.0" />
                 </div>
-              </div>
-              <div class="field">
-                <label>镜像地址</label>
-                <input v-model="createForm.image" placeholder="registry.cn-hangzhou.aliyuncs.com/xxx/app:v1.0.0" />
-              </div>
+                <div class="field">
+                  <label>目标集群 <span class="required">*</span></label>
+                  <select v-model="createForm.cluster_id">
+                    <option value="">请选择目标集群</option>
+                    <option v-for="c in clusters" :key="c.id" :value="c.id">{{ c.cluster_name || c.name }}</option>
+                  </select>
+                </div>
+              </template>
               <div class="field">
                 <label>备注 <span class="optional">(选填)</span></label>
-                <textarea v-model="createForm.remark" placeholder="发布说明..." rows="3"></textarea>
+                <textarea v-model="createForm.remark" placeholder="发布说明..." rows="2"></textarea>
               </div>
             </div>
             <div class="modal-foot">
@@ -428,6 +758,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { getPipelines } from '@/api/platform/pipeline'
+import { getK8sClusterList } from '@/api/platform/cluster'
 import {
   getReleases,
   getReleaseStats,
@@ -439,6 +770,7 @@ import {
   retryRelease as retryReleaseApi,
   batchRetryRelease as batchRetryReleaseApi,
   batchRollbackRelease as batchRollbackReleaseApi,
+  batchCancelRelease as batchCancelReleaseApi,
   syncReleasesFromPipeline as syncReleasesApi
 } from '@/api/cicd'
 
@@ -446,15 +778,56 @@ export default {
   name: 'Releases',
   setup() {
     const router = useRouter()
-    const loading = ref(false)
+    const loading = ref(true)
     const releases = ref([])
     const searchKeyword = ref('')
     const searchFocused = ref(false)
     const statusFilter = ref('')
+    const releaseViewMode = ref('card') // 默认卡片视图
     const currentPage = ref(1)
     const pageSizeRef = ref(10)
     const total = ref(0)
     const jumpPage = ref(1)
+
+    // 高级筛选
+    const showFilterPanel = ref(false)
+    const filterApp = ref('')
+    const filterStatus = ref('')
+    const filterNamespace = ref('')
+    const filterTimeRange = ref('')
+    const filterCreator = ref('')
+
+    // 筛选选项（从已加载数据中动态提取）
+    const namespaceOptions = computed(() => {
+      const nsSet = new Set(releases.value.map(r => r.namespace).filter(Boolean))
+      return [...nsSet].sort()
+    })
+    const creatorOptions = computed(() => {
+      const cSet = new Set(releases.value.map(r => r.creator || r.created_by).filter(Boolean))
+      return [...cSet].sort()
+    })
+    const activeFilterCount = computed(() => {
+      let count = 0
+      if (filterApp.value) count++
+      if (filterStatus.value) count++
+      if (filterNamespace.value) count++
+      if (filterTimeRange.value) count++
+      if (filterCreator.value) count++
+      return count
+    })
+    const applyFilters = () => {
+      currentPage.value = 1
+      loadReleases()
+    }
+    const resetFilters = () => {
+      filterApp.value = ''
+      filterStatus.value = ''
+      filterNamespace.value = ''
+      filterTimeRange.value = ''
+      filterCreator.value = ''
+      currentPage.value = 1
+      loadReleases()
+    }
 
     // 批量选择
     const selectedIds = ref([])
@@ -488,7 +861,7 @@ export default {
     const statsData = ref({ total: 0, deploying: 0, success: 0, failed: 0, rollback: 0 })
 
     const normalizeStatus = (status) => {
-      const map = { Pending: 'pending', Queued: 'deploying', Running: 'deploying', Succeeded: 'success', Failed: 'failed', Canceled: 'failed', Rollback: 'rollback' }
+      const map = { Pending: 'pending', AwaitingApproval: 'awaiting', Queued: 'deploying', Running: 'deploying', Succeeded: 'success', Failed: 'failed', Canceled: 'failed', Rollback: 'rollback' }
       return map[status] || status
     }
 
@@ -549,7 +922,7 @@ export default {
           const s = res.data.stats
           statsData.value = {
             total: s.total || 0,
-            deploying: (s.Running || 0) + (s.Queued || 0) + (s.Pending || 0),
+            deploying: (s.Running || 0) + (s.Queued || 0) + (s.Pending || 0) + (s.AwaitingApproval || 0),
             success: s.Succeeded || 0,
             failed: (s.Failed || 0) + (s.Canceled || 0),
             rollback: s.Rollback || 0
@@ -565,8 +938,19 @@ export default {
       loading.value = true
       try {
         const statusMap = { deploying: 'Running', success: 'Succeeded', failed: 'Failed', rollback: 'Rollback', pending: 'Pending' }
-        const backendStatus = statusFilter.value ? statusMap[statusFilter.value] : undefined
-        const response = await getReleases({ page: currentPage.value, page_size: pageSizeRef.value, keyword: searchKeyword.value || undefined, status: backendStatus })
+        // 优先使用高级筛选面板的状态，其次使用顶部卡片的状态筛选
+        const backendStatus = filterStatus.value || (statusFilter.value ? statusMap[statusFilter.value] : undefined)
+        const params = {
+          page: currentPage.value,
+          page_size: pageSizeRef.value,
+          keyword: searchKeyword.value || undefined,
+          status: backendStatus || undefined,
+          app_name: filterApp.value || undefined,
+          namespace: filterNamespace.value || undefined,
+          creator: filterCreator.value || undefined,
+          time_range: filterTimeRange.value || undefined
+        }
+        const response = await getReleases(params)
         if (response.code === 0) {
           releases.value = response.data?.list || []
           total.value = response.data?.total || 0
@@ -592,21 +976,103 @@ export default {
       } catch (e) { console.error('加载流水线失败:', e) }
     }
 
+    // 集群列表（用于手动发布时选择目标集群）
+    const clusters = ref([])
+    const loadClusters = async () => {
+      try {
+        const r = await getK8sClusterList()
+        if (r.code === 0) clusters.value = r.data?.list || r.data || []
+      } catch (e) { console.error('加载集群列表失败:', e) }
+    }
+
     // 创建
     const showCreateDialog = ref(false)
     const creating = ref(false)
-    const createForm = ref({ pipeline_id: '', name: '', version: '', namespace: 'production', image: '', remark: '' })
+    const createForm = ref({ pipeline_id: '', name: '', version: '', namespace: 'production', image: '', remark: '', workload_kind: 'Deployment', workload_name: '', container_name: '', cluster_id: '' })
+    const selectedPipelineInfo = ref(null)
+
+    // 选择应用后自动显示部署目标信息
+    const onPipelineSelect = () => {
+      const pid = createForm.value.pipeline_id
+      if (!pid) {
+        selectedPipelineInfo.value = null
+        return
+      }
+      const p = pipelines.value.find(item => item.id == pid)
+      if (p) {
+        selectedPipelineInfo.value = {
+          namespace: p.target_namespace || '',
+          workload: p.target_workload_name ? `${p.target_workload_kind || 'Deployment'}/${p.target_workload_name}` : '',
+          container: p.target_container || '',
+          cluster: p.target_cluster_id || '',
+          image_repo: (p.env_vars || []).find(e => e.name === 'IMAGE_REPO')?.value || ''
+        }
+      } else {
+        selectedPipelineInfo.value = null
+      }
+    }
+
     const handleCreate = async () => {
-      if (!createForm.value.name || !createForm.value.version) {
-        Message.warning({ content: '请填写发布名称和版本号' }); return
+      if (!createForm.value.version) {
+        Message.warning({ content: '请填写版本号/镜像标签' }); return
+      }
+      if (!createForm.value.pipeline_id && !createForm.value.image) {
+        Message.warning({ content: '请选择应用或填写镜像地址' }); return
+      }
+      if (!createForm.value.pipeline_id && !createForm.value.name) {
+        Message.warning({ content: '请填写应用名称' }); return
+      }
+      if (!createForm.value.pipeline_id && !createForm.value.cluster_id) {
+        Message.warning({ content: '请选择目标集群' }); return
       }
       creating.value = true
       try {
-        const r = await createRelease({ pipeline_id: createForm.value.pipeline_id ? Number(createForm.value.pipeline_id) : undefined, name: createForm.value.name, version: createForm.value.version, namespace: createForm.value.namespace, image: createForm.value.image, description: createForm.value.remark })
+        // 自动生成应用名称
+        const selectedPipeline = pipelines.value.find(p => p.id == createForm.value.pipeline_id)
+        const appName = selectedPipeline ? selectedPipeline.name : createForm.value.name
+
+        // 解析完整镜像地址为 image_repo + image_tag
+        // 例：harbor.example.com/proj/app:v1.0.0 → repo=harbor.example.com/proj/app, tag=v1.0.0
+        let imageRepo = ''
+        let imageTag = createForm.value.version
+        if (createForm.value.image) {
+          const lastColon = createForm.value.image.lastIndexOf(':')
+          if (lastColon > 0 && !createForm.value.image.substring(lastColon + 1).includes('/')) {
+            imageRepo = createForm.value.image.substring(0, lastColon)
+            imageTag = createForm.value.image.substring(lastColon + 1) || createForm.value.version
+          } else {
+            imageRepo = createForm.value.image
+          }
+        }
+
+        // 构建符合后端 CicdReleaseCreateRequest 的 payload
+        const payload = {
+          pipeline_id: createForm.value.pipeline_id ? Number(createForm.value.pipeline_id) : undefined,
+          app_name: appName,
+          image_tag: imageTag,
+          image_repo: imageRepo || (selectedPipelineInfo.value ? selectedPipelineInfo.value.image_repo : '') || undefined,
+          namespace: createForm.value.namespace || 'production',
+          message: createForm.value.remark || ''
+        }
+        // 新应用手动发布时传入部署目标
+        if (!createForm.value.pipeline_id) {
+          payload.image_repo = imageRepo
+          payload.workload_kind = createForm.value.workload_kind || 'Deployment'
+          payload.workload_name = createForm.value.workload_name || appName
+          payload.container_name = createForm.value.container_name || ''
+          payload.cluster_ids = [Number(createForm.value.cluster_id)]
+        }
+        const r = await createRelease(payload)
         if (r.code === 0) {
-          Message.success({ content: '发布创建成功' }); showCreateDialog.value = false
-          createForm.value = { pipeline_id: '', name: '', version: '', namespace: 'production', image: '', remark: '' }
-          loadAll()
+          Message.success({ content: '发布单已创建，正在跳转构建界面...' }); showCreateDialog.value = false
+          createForm.value = { pipeline_id: '', name: '', version: '', namespace: 'production', image: '', remark: '', workload_kind: 'Deployment', workload_name: '', container_name: '', cluster_id: '' }
+          selectedPipelineInfo.value = null
+          // 创建发布后跳转到关联流水线的执行阶段页面，实时查看构建进度
+          if (payload.pipeline_id) {
+            router.push(`/cicd/pipelines/${payload.pipeline_id}?tab=stages`)
+          } else {
+            router.push('/cicd/approvals')
+          }
         } else { throw new Error(r.msg || '创建失败') }
       } catch (e) { Message.error({ content: e.message || '创建发布单失败' }) }
       finally { creating.value = false }
@@ -684,9 +1150,13 @@ export default {
       })
     }
     const rollbackRelease = (rel) => {
-      openConfirm('回滚发布', `确定要回滚 "${rel.app_name || rel.name}" 吗？将恢复到上一个稳定版本。`, '确认回滚', 'warning', async () => {
+      const isFailed = rel.status === 'Failed'
+      const msg = isFailed
+        ? `发布单 "${rel.app_name || rel.name}" 部署失败，确定回滚吗？将工作负载恢复到本次部署前的镜像。`
+        : `确定要回滚 "${rel.app_name || rel.name}" 吗？将恢复到上一个稳定版本。`
+      openConfirm('回滚发布', msg, '确认回滚', 'warning', async () => {
         const r = await rollbackReleaseApi(rel.id)
-        if (r.code === 0) { Message.success({ content: '回滚成功' }); loadAll() } else { throw new Error(r.msg || '回滚失败') }
+        if (r.code === 0) { Message.success({ content: '回滚已提交' }); loadAll() } else { throw new Error(r.msg || '回滚失败') }
       })
     }
     const retryRelease = (rel) => {
@@ -752,6 +1222,30 @@ export default {
       })
     }
 
+    // 批量取消
+    const handleBatchCancel = () => {
+      const ids = selectedIds.value.filter(id => {
+        const rel = releases.value.find(r => r.id === id)
+        return rel && ['Pending', 'Queued', 'Running', 'Succeeded'].includes(rel.status)
+      })
+      if (ids.length === 0) {
+        Message.warning({ content: '请选择可取消的记录（等待中/排队中/运行中/已成功状态）' }); return
+      }
+      openConfirm('批量取消', `确定要取消已选的 ${ids.length} 个发布单吗？\n已部署成功/运行中的会触发回滚，未部署的直接取消。`, '确认取消', 'warning', async () => {
+        batchLoading.value = true
+        try {
+          const r = await batchCancelReleaseApi(ids)
+          if (r.code === 0) {
+            const data = r.data || {}
+            Message.success({ content: data.message || `批量取消完成`, duration: 3000 })
+            selectedIds.value = []
+            loadAll()
+          } else { throw new Error(r.msg || '批量取消失败') }
+        } catch (e) { Message.error({ content: e.message || '批量取消失败' }) }
+        finally { batchLoading.value = false }
+      })
+    }
+
     // 同步流水线记录
     const syncFromPipeline = async () => {
       syncing.value = true
@@ -774,7 +1268,7 @@ export default {
     watch(currentPage, () => { loadReleases() })
 
     const statusText = (status) => {
-      const map = { deploying: '部署中', success: '发布成功', failed: '发布失败', rollback: '已回滚', pending: '等待中', Pending: '等待中', Queued: '排队中', Running: '部署中', Succeeded: '发布成功', Failed: '发布失败', Canceled: '已取消', Rollback: '已回滚' }
+      const map = { deploying: '部署中', success: '发布成功', failed: '发布失败', rollback: '已回滚', pending: '等待中', Pending: '等待中', AwaitingApproval: '待审批', Queued: '排队中', Running: '部署中', Succeeded: '发布成功', Failed: '发布失败', Canceled: '已取消', Rollback: '已回滚', awaiting: '待审批' }
       return map[status] || status
     }
     const strategyText = (s) => ({ rolling: '滚动更新', recreate: '重建', canary: '金丝雀', bluegreen: '蓝绿部署' })[s] || s
@@ -805,19 +1299,37 @@ export default {
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
 
-    onMounted(() => { loadAll(); loadPipelines() })
+    onMounted(() => {
+      loadAll(); loadPipelines(); loadClusters()
+      // 支持从流水线列表直接跳转创建发布单（预选流水线）
+      const pipelineId = router.currentRoute.value.query.pipeline_id
+      const action = router.currentRoute.value.query.action
+      if (pipelineId && action === 'create') {
+        // 等待 pipelines 加载后预选
+        const unwatch = watch(pipelines, (val) => {
+          if (val.length > 0) {
+            createForm.value.pipeline_id = Number(pipelineId)
+            showCreateDialog.value = true
+            unwatch()
+          }
+        })
+      }
+    })
 
     return {
-      loading, releases, searchKeyword, searchFocused, statusFilter, currentPage, totalPages, total,
-      statsData, setFilter, pipelines, showCreateDialog, creating, createForm, handleCreate,
+      loading, releases, searchKeyword, searchFocused, statusFilter, releaseViewMode, currentPage, totalPages, total,
+      statsData, setFilter, pipelines, clusters, showCreateDialog, creating, createForm, handleCreate,
+      selectedPipelineInfo, onPipelineSelect,
       showEditDialog, editing, editForm, editRelease, handleEdit, canEdit, canDelete, deleteRelease,
       showConfirmDialog, confirmTitle, confirmMessage, confirmBtnText, confirmType, confirming, confirmAction,
       viewRelease, cancelRelease, rollbackRelease, retryRelease, handleSearch, clearSearch,
       statusText, normalizeStatus, strategyText, formatImage, getFullImage, formatDate, loadAll,
       visiblePages, goToPage, jumpPage, jumpToPage, pageSizeRef, onPageSizeChange,
       selectedIds, batchLoading, isAllSelected, isIndeterminate, toggleAll, toggleSelect,
-      handleBatchRetry, handleBatchRollback,
-      syncing, syncFromPipeline
+      handleBatchRetry, handleBatchRollback, handleBatchCancel,
+      syncing, syncFromPipeline,
+      showFilterPanel, filterApp, filterStatus, filterNamespace, filterTimeRange, filterCreator,
+      namespaceOptions, creatorOptions, activeFilterCount, applyFilters, resetFilters
     }
   }
 }
@@ -845,20 +1357,97 @@ export default {
 .banner-icon svg { width: 26px; height: 26px; color: #67d5b5; }
 .banner-title { margin: 0; font-size: 22px; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
 .banner-desc { margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.55); }
+.banner-hint { margin: 4px 0 0; font-size: 12px; color: rgba(255,255,255,0.4); }
+.banner-inline-link { color: #7dd3fc; text-decoration: none; margin-left: 2px; }
+.banner-inline-link:hover { color: #bae6fd; text-decoration: underline; }
 .banner-actions { display: flex; gap: 10px; }
-.btn-banner-refresh, .btn-banner-create, .btn-banner-sync {
+.btn-banner-refresh, .btn-banner-create, .btn-banner-sync, .btn-banner-new-app {
   display: flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px;
   font-size: 13px; cursor: pointer; transition: all 0.25s; border: 1px solid rgba(255,255,255,0.15);
 }
 .btn-banner-refresh { background: rgba(255,255,255,0.1); color: #fff; }
 .btn-banner-refresh:hover { background: rgba(255,255,255,0.18); }
 .btn-banner-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-banner-refresh svg, .btn-banner-create svg, .btn-banner-sync svg { width: 16px; height: 16px; }
+.btn-banner-refresh svg, .btn-banner-create svg, .btn-banner-sync svg, .btn-banner-new-app svg { width: 16px; height: 16px; }
+.btn-banner-new-app { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.25); }
+.btn-banner-new-app:hover { background: rgba(255,255,255,0.22); transform: translateY(-1px); }
 .btn-banner-create { background: linear-gradient(135deg, #4e7cf6, #3b5fe0); color: #fff; border-color: transparent; font-weight: 600; }
 .btn-banner-create:hover { box-shadow: 0 4px 14px rgba(78,124,246,0.4); transform: translateY(-1px); }
 .btn-banner-sync { background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: transparent; font-weight: 600; }
 .btn-banner-sync:hover { box-shadow: 0 4px 14px rgba(16,185,129,0.4); transform: translateY(-1px); }
 .btn-banner-sync:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ---- Onboarding ---- */
+.onboard-cards {
+  display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 720px;
+  padding: 40px 32px; background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
+  border-radius: 16px; border: 1px solid #e0e7ff;
+}
+.onboard-hero { text-align: center; margin-bottom: 32px; }
+.onboard-icon {
+  width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 16px;
+  background: linear-gradient(135deg, #4e7cf6, #3b5fe0);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px rgba(78,124,246,0.3);
+}
+.onboard-icon svg { width: 32px; height: 32px; color: #fff; }
+.onboard-hero h3 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: #1e293b; }
+.onboard-hero p { margin: 0; font-size: 14px; color: #64748b; }
+.onboard-steps {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
+  background: #fff; padding: 20px 24px; border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06); width: 100%;
+}
+.onboard-step { display: flex; align-items: flex-start; gap: 12px; flex: 1; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #4e7cf6, #3b5fe0);
+  color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.step-content .step-title { font-size: 14px; font-weight: 600; color: #1e293b; }
+.step-content .step-desc { font-size: 12px; color: #64748b; margin-top: 3px; }
+.onboard-step-arrow { font-size: 20px; color: #cbd5e1; flex-shrink: 0; align-self: center; }
+.onboard-actions { display: flex; gap: 12px; }
+.btn-onboard-primary {
+  display: flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 10px;
+  background: linear-gradient(135deg, #4e7cf6, #3b5fe0); color: #fff; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.25s;
+  box-shadow: 0 4px 14px rgba(78,124,246,0.35);
+}
+.btn-onboard-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(78,124,246,0.45); }
+.btn-onboard-primary svg { width: 16px; height: 16px; }
+.btn-onboard-secondary {
+  display: flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 10px;
+  background: #fff; color: #64748b; border: 1.5px solid #e2e8f0;
+  font-size: 14px; cursor: pointer; transition: all 0.25s;
+}
+.btn-onboard-secondary:hover { border-color: #4e7cf6; color: #4e7cf6; }
+.btn-onboard-secondary svg { width: 16px; height: 16px; }
+
+/* ---- Modal: No-app guide ---- */
+.no-app-guide {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: linear-gradient(135deg, #f0f7ff, #eef2ff); border-radius: 10px;
+  border: 1px solid #c7d7fd; margin-bottom: 4px;
+}
+.guide-icon { color: #4e7cf6; flex-shrink: 0; }
+.guide-text { flex: 1; }
+.guide-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 3px; }
+.guide-desc { font-size: 12px; color: #64748b; }
+.btn-guide-create {
+  display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px;
+  background: #4e7cf6; color: #fff; border: none; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
+}
+.btn-guide-create:hover { background: #3b5fe0; transform: translateY(-1px); }
+.btn-guide-create svg { width: 14px; height: 14px; }
+.guide-divider {
+  display: flex; align-items: center; gap: 12px; margin: 10px 0;
+  font-size: 12px; color: #94a3b8;
+}
+.guide-divider::before, .guide-divider::after {
+  content: ''; flex: 1; height: 1px; background: #e2e8f0;
+}
+.guide-divider span { white-space: nowrap; }
 
 /* ---- Metrics ---- */
 .metrics-row {
@@ -907,6 +1496,55 @@ export default {
 .clear-btn { background: none; border: none; cursor: pointer; padding: 2px; color: #94a3b8; display: flex; }
 .clear-btn:hover { color: #ef4444; }
 .clear-btn svg { width: 14px; height: 14px; }
+
+/* ---- Filter Toggle Button ---- */
+.filter-toggle-btn {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  font-size: 13px; color: #475569; cursor: pointer; transition: all 0.2s; font-weight: 500;
+}
+.filter-toggle-btn:hover { border-color: #4e7cf6; color: #4e7cf6; background: #f8faff; }
+.filter-toggle-btn.active { border-color: #4e7cf6; color: #4e7cf6; background: #eef2ff; }
+.filter-toggle-btn svg { width: 14px; height: 14px; }
+.filter-count {
+  background: #4e7cf6; color: #fff; font-size: 10px; font-weight: 700;
+  width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+
+/* ---- Filter Panel (Advanced) ---- */
+.filter-panel {
+  background: #fff; border: 1px solid #e5e9f2; border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.02);
+}
+.filter-row {
+  display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+}
+.filter-item { display: flex; flex-direction: column; gap: 4px; min-width: 150px; flex: 1; }
+.filter-label {
+  font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.filter-select {
+  padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 7px;
+  font-size: 13px; color: #334155; background: #f8fafc; cursor: pointer;
+  transition: all 0.2s; outline: none; appearance: auto;
+}
+.filter-select:hover { border-color: #94a3b8; }
+.filter-select:focus { border-color: #4e7cf6; box-shadow: 0 0 0 3px rgba(78,124,246,0.1); background: #fff; }
+.filter-actions { display: flex; align-items: flex-end; }
+.filter-reset-btn {
+  display: flex; align-items: center; gap: 5px; padding: 8px 14px;
+  border: 1px solid #e2e8f0; border-radius: 7px; background: #fff;
+  font-size: 12px; color: #64748b; cursor: pointer; transition: all 0.2s;
+}
+.filter-reset-btn:hover:not(:disabled) { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+.filter-reset-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.filter-reset-btn svg { width: 13px; height: 13px; }
+
+/* Filter slide transition */
+.filter-slide-enter-active, .filter-slide-leave-active { transition: all 0.25s ease; }
+.filter-slide-enter-from, .filter-slide-leave-to { opacity: 0; transform: translateY(-8px); max-height: 0; margin-bottom: 0; padding: 0; overflow: hidden; }
+.filter-slide-enter-to, .filter-slide-leave-from { max-height: 200px; }
 
 /* ---- Batch Toolbar (Full-width prominent) ---- */
 .batch-toolbar {
@@ -970,6 +1608,16 @@ export default {
   background: linear-gradient(135deg, #d97706, #b45309);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.batch-action-btn.stop {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+.batch-action-btn.stop:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .batch-action-btn.cancel {
@@ -1037,6 +1685,17 @@ export default {
 .status-pill.rollback .status-dot { background: #8b5cf6; }
 .status-pill.pending { background: #f8fafc; color: #64748b; }
 .status-pill.pending .status-dot { background: #cbd5e1; }
+.status-pill.awaiting { background: #fff7ed; color: #c2410c; }
+.status-pill.awaiting .status-dot { background: #f97316; box-shadow: 0 0 6px rgba(249,115,22,0.4); animation: pulse 2s infinite; }
+
+.status-cell { display: flex; flex-direction: column; gap: 4px; }
+.fail-reason {
+  font-size: 11px; color: #dc2626; line-height: 1.4;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; cursor: help;
+  background: #fef2f2; padding: 2px 8px; border-radius: 4px;
+  border-left: 2px solid #ef4444;
+}
 
 .workload-cell { display: flex; flex-direction: column; gap: 4px; }
 .workload-tag { font-size: 12px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; color: #475569; font-family: 'SF Mono','Fira Code',monospace; }
@@ -1046,6 +1705,24 @@ export default {
 .strategy-tag { font-size: 11px; background: #f1f5f9; color: #64748b; padding: 3px 8px; border-radius: 5px; }
 .time-text { font-size: 12px; color: #64748b; white-space: nowrap; }
 .text-muted { color: #cbd5e1; }
+
+/* ---- New columns: version / cluster / creator ---- */
+.version-tag {
+  font-size: 12px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #065f46;
+  padding: 3px 10px; border-radius: 5px; font-family: 'SF Mono','Fira Code',monospace;
+  font-weight: 600; border: 1px solid #a7f3d0;
+}
+.cluster-badge {
+  font-size: 11px; background: #fdf4ff; color: #86198f; padding: 3px 8px;
+  border-radius: 5px; font-weight: 600; border: 1px solid #f0abfc;
+}
+.creator-cell { display: flex; align-items: center; gap: 6px; }
+.creator-avatar {
+  width: 24px; height: 24px; border-radius: 50%; font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #4338ca;
+}
+.creator-name { font-size: 12px; color: #475569; font-weight: 500; }
 
 .actions-cell { display: flex; gap: 4px; }
 .act-btn {
@@ -1195,14 +1872,210 @@ export default {
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Pipeline Inherit Hint */
+.pipeline-inherit-hint {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.pipeline-inherit-hint .hint-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #065f46;
+  margin-bottom: 6px;
+}
+.pipeline-inherit-hint .hint-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.pipeline-inherit-hint .hint-items span {
+  font-size: 12px;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.pipeline-inherit-hint .hint-items b {
+  color: #064e3b;
+}
+.pipeline-inherit-hint .hint-note {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 8px;
+  font-style: italic;
+}
+.pipeline-inherit-hint .hint-items.hint-warning {
+  flex-direction: column;
+  gap: 6px;
+}
+.pipeline-inherit-hint .hint-items.hint-warning span {
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.pipeline-inherit-hint .hint-link {
+  font-size: 12px;
+  color: #4e7cf6;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 500;
+}
+.pipeline-inherit-hint .hint-link:hover {
+  color: #3b63d4;
+}
+
 @media (max-width: 1200px) {
   .metrics-row { grid-template-columns: repeat(3, 1fr); }
+  .release-cards-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
   .metrics-row { grid-template-columns: repeat(2, 1fr); }
+  .release-cards-grid { grid-template-columns: 1fr; }
   .page-banner { padding: 20px; }
   .content-area { padding: 16px 20px; }
   .toolbar { flex-direction: column; gap: 12px; align-items: stretch; }
   .table-wrapper { overflow-x: auto; }
 }
+
+/* ---- View Toggle ---- */
+.view-toggle { display: flex; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-right: 8px; }
+.toggle-btn {
+  padding: 6px 10px; border: none; background: #fff; cursor: pointer;
+  display: flex; align-items: center; transition: all 0.15s;
+}
+.toggle-btn svg { width: 15px; height: 15px; color: #94a3b8; }
+.toggle-btn.active { background: #f1f5f9; }
+.toggle-btn.active svg { color: #4e7cf6; }
+.toggle-btn + .toggle-btn { border-left: 1px solid #e2e8f0; }
+
+/* ---- Release Cards Grid ---- */
+.release-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.release-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  transition: all 0.25s;
+}
+.release-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+.release-card.selected { border-color: #4e7cf6; box-shadow: 0 0 0 2px rgba(78,124,246,0.15); }
+.release-card.card-deploying { border-left: 3px solid #f59e0b; }
+.release-card.card-success   { border-left: 3px solid #10b981; }
+.release-card.card-failed    { border-left: 3px solid #ef4444; }
+.release-card.card-rollback  { border-left: 3px solid #8b5cf6; }
+.release-card.card-pending   { border-left: 3px solid #cbd5e1; }
+.release-card.card-awaiting  { border-left: 3px solid #f97316; }
+
+/* Card Header */
+.rc-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 10px;
+}
+.rc-check { flex-shrink: 0; }
+.rc-app-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.rc-avatar {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.rc-avatar.deploying { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.rc-avatar.success   { background: linear-gradient(135deg, #10b981, #059669); }
+.rc-avatar.failed    { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.rc-avatar.rollback  { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.rc-avatar.pending   { background: linear-gradient(135deg, #94a3b8, #64748b); }
+.rc-avatar.awaiting  { background: linear-gradient(135deg, #f97316, #ea580c); }
+
+.rc-app-meta { min-width: 0; }
+.rc-app-name {
+  display: block; font-size: 14px; font-weight: 600; color: #1e293b;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rc-app-id { font-size: 11px; color: #94a3b8; }
+
+.rc-status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.rc-status-badge.deploying { background: #fffbeb; color: #d97706; }
+.rc-status-badge.success { background: #ecfdf5; color: #059669; }
+.rc-status-badge.failed { background: #fef2f2; color: #dc2626; }
+.rc-status-badge.rollback { background: #f5f3ff; color: #7c3aed; }
+.rc-status-badge.pending { background: #f8fafc; color: #64748b; }
+.rc-status-badge.awaiting { background: #fff7ed; color: #c2410c; }
+.rc-status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+.rc-status-badge.deploying .rc-status-dot,
+.rc-status-badge.awaiting .rc-status-dot { animation: pulse 1.5s infinite; }
+
+/* Card Tiers */
+.rc-tier {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  padding: 8px 14px;
+  border-top: 1px solid #f8fafc;
+}
+.rc-field { display: flex; flex-direction: column; gap: 2px; }
+.rc-field.full { flex: 1; min-width: 0; }
+.rc-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+.rc-value { font-size: 12px; color: #475569; }
+.rc-value.ns {
+  background: #eff6ff; color: #2563eb; padding: 1px 6px;
+  border-radius: 4px; font-size: 11px; font-family: 'SF Mono', monospace;
+}
+.rc-image {
+  font-size: 11px; background: #f8fafc; padding: 3px 8px; border-radius: 4px;
+  color: #475569; font-family: 'SF Mono', monospace;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block;
+}
+.rc-workload {
+  font-size: 11px; background: #f1f5f9; padding: 2px 6px;
+  border-radius: 4px; color: #475569; font-family: 'SF Mono', monospace;
+}
+
+/* Error Banner */
+.rc-error {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 0 14px; padding: 8px 10px;
+  background: #fef2f2; border-radius: 6px;
+  border-left: 2px solid #ef4444;
+}
+.rc-error svg { width: 14px; height: 14px; color: #ef4444; flex-shrink: 0; margin-top: 1px; }
+.rc-error span { font-size: 11px; color: #dc2626; line-height: 1.4; word-break: break-all; }
+
+/* Card Actions */
+.rc-actions {
+  display: flex; border-top: 1px solid #f8fafc;
+  margin-top: 8px;
+}
+.rc-act-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 9px 4px; border: none; background: transparent;
+  cursor: pointer; font-size: 11px; color: #64748b; transition: all 0.15s;
+}
+.rc-act-btn:hover { background: #f8fafc; color: #334155; }
+.rc-act-btn.primary { color: #4e7cf6; font-weight: 600; }
+.rc-act-btn.primary:hover { background: #f0f5ff; }
+.rc-act-btn.warning { color: #f59e0b; }
+.rc-act-btn.warning:hover { background: #fffbeb; }
+.rc-act-btn.danger { color: #ef4444; }
+.rc-act-btn.danger:hover { background: #fef2f2; }
+.rc-act-btn.danger-text { color: #94a3b8; }
+.rc-act-btn.danger-text:hover { background: #fef2f2; color: #ef4444; }
+.rc-act-btn svg { width: 13px; height: 13px; }
+.rc-act-btn + .rc-act-btn { border-left: 1px solid #f8fafc; }
 </style>

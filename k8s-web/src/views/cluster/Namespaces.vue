@@ -711,8 +711,8 @@ const canOperate = computed(() => {
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = ref(10) // 与 Pods.vue 保持一致
-const loading = ref(false)
-const viewMode = ref('card') // 默认卡片视图
+const loading = ref(true)
+const viewMode = ref('table') // 默认列表视图
 const statusFilter = ref('all')
 let searchDebounceTimer = null
 

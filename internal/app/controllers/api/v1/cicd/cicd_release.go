@@ -47,7 +47,32 @@ func (c *CicdReleaseController) Create(ctx *gin.Context) {
 		rsp.ToErrorResponse(errorcode.ErrorCicdReleaseCreateFail.WithDetails(err.Error()))
 		return
 	}
-	rsp.Success(gin.H{"release_id": id})
+
+	result := gin.H{"release_id": id}
+
+	// 创建发布单后自动触发流水线构建（如果关联了 pipeline_id）
+	if param.PipelineID > 0 {
+		runReq := &requests.PipelineRunRequest{ID: param.PipelineID}
+		run, runErr := svc.PipelineRun(ctx.Request.Context(), runReq, userID)
+		if runErr != nil {
+			global.Logger.Warn("[发布] 创建发布单后自动触发构建失败",
+				zap.Int64("release_id", id),
+				zap.Int64("pipeline_id", param.PipelineID),
+				zap.Error(runErr),
+			)
+			result["auto_build_error"] = runErr.Error()
+		} else if run != nil {
+			result["run_id"] = run.ID
+			result["message"] = "发布单创建成功并已自动触发构建"
+			global.Logger.Info("[发布] 创建发布单后自动触发构建成功",
+				zap.Int64("release_id", id),
+				zap.Int64("pipeline_id", param.PipelineID),
+				zap.Int64("run_id", run.ID),
+			)
+		}
+	}
+
+	rsp.Success(result)
 }
 
 // Detail godoc
@@ -428,6 +453,53 @@ func (c *CicdReleaseController) BatchRollback(ctx *gin.Context) {
 	})
 }
 
+// BatchCancel godoc
+// @Summary 批量取消发布单
+// @Description 批量取消（智能判断：已部署成功/运行中的会触发回滚，未部署的直接取消）
+// @Tags CICD Release
+// @Accept json
+// @Produce json
+// @Param body body requests.CicdReleaseBatchCancelRequest true "批量取消参数"
+// @Success 200 {object} map[string]any
+// @Router /api/v1/k8s/cicd/release/batch-cancel [post]
+func (c *CicdReleaseController) BatchCancel(ctx *gin.Context) {
+	param := requests.NewCicdReleaseBatchCancelRequest()
+	rsp := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, requests.ValidCicdReleaseBatchCancelRequest); !ok {
+		return
+	}
+
+	if len(param.IDs) == 0 {
+		rsp.ToErrorResponse(errorcode.InvalidParams.WithDetails("发布单ID列表不能为空"))
+		return
+	}
+
+	userID := ctx.GetInt64("user_id")
+	svc := services.NewServices()
+	results, err := svc.CicdReleaseBatchCancel(ctx.Request.Context(), param.IDs, userID)
+	if err != nil {
+		global.Logger.Error("CicdReleaseBatchCancel error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ServerError.WithDetails(err.Error()))
+		return
+	}
+
+	// 统计成功/失败
+	successCount := 0
+	for _, r := range results {
+		if r.Success {
+			successCount++
+		}
+	}
+
+	rsp.Success(gin.H{
+		"message": fmt.Sprintf("批量取消完成：成功 %d / 共 %d", successCount, len(results)),
+		"results": results,
+		"success": successCount,
+		"total":   len(results),
+	})
+}
+
 // SyncFromPipeline godoc
 // @Summary 同步流水线运行记录到发布管理
 // @Description 将最近的流水线运行记录同步到发布管理页面
@@ -450,4 +522,61 @@ func (c *CicdReleaseController) SyncFromPipeline(ctx *gin.Context) {
 		"message": fmt.Sprintf("同步完成：新增 %d 条发布记录", synced),
 		"synced":  synced,
 	})
+}
+
+// History godoc
+// @Summary 应用发布历史查询（增强版）
+// @Description 支持时间范围、命名空间、应用名筛选的发布历史查询
+// @Tags CICD Release
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Param app_name query string false "应用名称"
+// @Param namespace query string false "命名空间"
+// @Param status query string false "状态"
+// @Param start_time query int false "开始时间戳"
+// @Param end_time query int false "结束时间戳"
+// @Success 200 {object} map[string]any
+// @Router /api/v1/k8s/cicd/release/history [get]
+func (c *CicdReleaseController) History(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+	appName := ctx.Query("app_name")
+	namespace := ctx.Query("namespace")
+	status := ctx.Query("status")
+	startTime, _ := strconv.ParseInt(ctx.Query("start_time"), 10, 64)
+	endTime, _ := strconv.ParseInt(ctx.Query("end_time"), 10, 64)
+
+	svc := services.NewServices()
+	list, total, err := svc.CicdReleaseHistory(ctx.Request.Context(), appName, namespace, status, startTime, endTime, page, pageSize)
+	if err != nil {
+		global.Logger.Error("CicdReleaseHistory error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ErrorCicdReleaseQueryFail.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.SuccessList(list, total)
+}
+
+// StatsEnhanced godoc
+// @Summary 增强版发布统计
+// @Description 返回今日/本周发布数、成功率、状态分布
+// @Tags CICD Release
+// @Produce json
+// @Success 200 {object} map[string]any
+// @Router /api/v1/k8s/cicd/release/stats-enhanced [get]
+func (c *CicdReleaseController) StatsEnhanced(ctx *gin.Context) {
+	rsp := response.NewResponse(ctx)
+
+	svc := services.NewServices()
+	stats, err := svc.CicdReleaseStatsEnhanced(ctx.Request.Context())
+	if err != nil {
+		global.Logger.Error("CicdReleaseStatsEnhanced error", zap.Error(err))
+		rsp.ToErrorResponse(errorcode.ErrorCicdReleaseQueryFail.WithDetails(err.Error()))
+		return
+	}
+
+	rsp.Success(stats)
 }

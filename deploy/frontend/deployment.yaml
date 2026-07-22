@@ -1,0 +1,96 @@
+# ============================================================
+# K8sOperation 前端 - Deployment
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8soperation-web
+  namespace: k8soperation
+  labels:
+    app.kubernetes.io/name: k8soperation-web
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2                                # 前端无状态，可多副本
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8soperation-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k8soperation-web
+        app.kubernetes.io/component: frontend
+    spec:
+      imagePullSecrets:
+        - name: aliyun-registry
+      containers:
+        - name: devops-fe
+          image: registry.cn-hangzhou.aliyuncs.com/k8s-gos/devops-fe:v16.14
+          imagePullPolicy: IfNotPresent
+
+          # 以 root 运行：标准 nginx 镜像 master 进程需 root 才能绑定 80 端口、
+          # 写 PID/缓存目录及 entrypoint 生成 config.js，非 root 会 CrashLoopBackOff。
+          # 固化在此避免被 kubectl apply / CI 重新发布覆盖。
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+
+          # ConfigMap 提供 nginx upstream 配置
+          # docker-entrypoint.sh 默认后端地址（与 ConfigMap 中的 upstream 对应）
+          env:
+            - name: BACKEND_HOST
+              value: "k8soperation.k8soperation.svc"
+            - name: BACKEND_PORT
+              value: "8080"
+
+          # 存活探针
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # 就绪探针
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # 资源限制
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          # 挂载 Nginx 配置（可选，镜像内置了默认配置）
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: k8soperation-web-nginx
+            optional: true           # 如果 ConfigMap 不存在则使用镜像内置配置

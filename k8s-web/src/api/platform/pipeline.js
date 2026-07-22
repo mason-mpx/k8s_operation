@@ -51,6 +51,18 @@ export const createPipeline = (data) => {
 }
 
 /**
+ * 检查应用名称是否可用
+ * @param {string} name - 应用名称
+ * @param {number} [excludeId] - 编辑时排除的流水线 ID
+ * @returns {Promise<{available: boolean}>}
+ */
+export const checkPipelineName = (name, excludeId = 0) => {
+  const params = { name }
+  if (excludeId > 0) params.exclude_id = excludeId
+  return http.get(`${BASE_URL}/check-name`, { params })
+}
+
+/**
  * 更新流水线
  * @param {Object} data - 更新参数，对应后端 PipelineUpdateRequest
  * @param {number} data.id - 流水线ID（必填）
@@ -182,6 +194,14 @@ export const getPipelineById = getPipelineDetail
 export const triggerPipeline = runPipeline
 export const cancelPipeline = stopPipeline
 
+/**
+ * 获取构建统计数据（成功率、平均时长、趋势）
+ * @param {number} days - 趋势天数，默认7
+ */
+export const getBuildStats = (days = 7) => {
+  return http.get(`${BASE_URL}/build-stats`, { params: { days } })
+}
+
 // ==================== 流水线阶段 API ====================
 
 const STAGE_URL = '/api/v1/k8s/cicd/stage'
@@ -251,4 +271,24 @@ export const rollbackDeployStage = (stageId, targetRS) => {
  */
 export const getDeployHistory = (stageId) => {
   return http.get(`${STAGE_URL}/history`, { params: { stage_id: Number(stageId) } })
+}
+
+/**
+ * 获取部署阶段的真实状态与 Pod 列表
+ * 服务端根据部署阶段/流水线配置解析目标集群（无需 X-Cluster-ID），
+ * 返回真实的工作负载 Rollout 状态与 Pod 列表，并修正卡住的部署阶段。
+ * @param {number} stageId - 阶段ID
+ */
+export const getDeployStatus = (stageId) => {
+  return http.get(`${STAGE_URL}/deploy-status`, { params: { stage_id: Number(stageId) } })
+}
+
+// ==================== Jenkins 配置信息 ====================
+
+/**
+ * 获取 Jenkins 配置信息（回调地址、凭证ID 等诊断信息）
+ * @returns {Promise<{configured, url, callback_url, ...}>}
+ */
+export const getJenkinsConfig = () => {
+  return http.get(`${BASE_URL}/jenkins-config`)
 }

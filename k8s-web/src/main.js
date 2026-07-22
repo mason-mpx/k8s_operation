@@ -8,9 +8,6 @@ import '@arco-design/web-vue/dist/arco.css'
 
 // 引入全局主题变量 (v3.0 - 现代化配色)
 import './styles/theme-variables.css'
-// 引入 UI 增强样式
-import './styles/enhancement.css'
-
 import {pinia} from '@/stores'
 
 // 引入权限插件
@@ -52,4 +49,23 @@ setupPermission(app)
 app.use(router)
 app.use(pinia)
 
-app.mount('#app')
+// ================================================================
+// 全局 Vue 错误处理：防止组件渲染错误导致白屏
+// ================================================================
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[Vue Error]', err, 'component:', instance?.$options?.name || instance?.type?.name || 'unknown', 'info:', info)
+
+  // chunk 加载失败：强制刷新（新版部署后旧 chunk 404）
+  if (err?.message?.includes('Failed to fetch dynamically imported module')) {
+    window.location.reload()
+    return
+  }
+
+  // 其他渲染错误：记录但不崩溃（Vue 3 默认会替换掉出错的组件为空）
+  // 保留错误提示，便于排查
+}
+
+// 等待路由初始化完成后再挂载（确保权限等异步数据加载完毕）
+router.isReady().then(() => {
+  app.mount('#app')
+})

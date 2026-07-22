@@ -12,6 +12,7 @@ import (
 	"k8soperation/internal/app/models"
 	"k8soperation/internal/app/services"
 	"k8soperation/internal/app/worker"
+	"k8soperation/internal/errorcode"
 	"k8soperation/pkg/k8s/crd"
 	"k8soperation/pkg/openai"
 )
@@ -21,6 +22,14 @@ var (
 	cicdWorker *worker.CicdWorker
 	// pollWorker 流水线状态轮询 Worker
 	pollWorker *worker.PipelinePollWorker
+	// gitOpsSyncWorker GitOps 同步状态轮询 Worker
+	gitOpsSyncWorker *worker.GitOpsSyncWorker
+	// auditCleanupWorker 审计日志清理 Worker
+	auditCleanupWorker *worker.AuditCleanupWorker
+	// alertEvalWorker 告警规则评估 Worker
+	alertEvalWorker *worker.AlertEvalWorker
+	// aiopsInspectionWorker AIOps 智能巡检 Worker
+	aiopsInspectionWorker *worker.AIOpsInspectionWorker
 )
 
 func InitAll() error {
@@ -28,6 +37,8 @@ func InitAll() error {
 	if err := initialize.SetupSetting(); err != nil {
 		return err
 	}
+	// 注册所有错误码（必须在任何业务逻辑之前调用）
+	errorcode.Register()
 	// 初始校验规则
 	if err := initialize.SetupValidator(); err != nil {
 		return err
@@ -67,7 +78,9 @@ func InitAll() error {
 	}
 	// 初始化K8s（失败不阻塞启动，登录/RBAC/CICD 等功能仍可用）
 	if err := initialize.SetupK8sBootstrap(); err != nil {
-		global.Logger.Warn("K8s 集群初始化失败，集群管理功能暂不可用，其他功能正常", zap.Error(err))
+		if global.LogControlSetting == nil || !global.LogControlSetting.SuppressK8sClusterInitWarn {
+			global.Logger.Warn("K8s 集群初始化失败，集群管理功能暂不可用，其他功能正常", zap.Error(err))
+		}
 	}
 
 	// 初始化 AppConfig CRD 客户端（依赖 K8s，失败不阻塞）
@@ -86,6 +99,25 @@ func InitAll() error {
 
 	// 数据补全：同步历史流水线审批阶段到 cicd_approval 表
 	SyncApprovalData()
+
+	// 启动审计日志清理 Worker
+	auditCleanupWorker = worker.NewAuditCleanupWorker()
+	auditCleanupWorker.Start()
+
+	// 启动告警规则评估 Worker（定期查询 Prometheus 评估规则，产生告警事件）
+	alertEvalWorker = worker.NewAlertEvalWorker()
+	alertEvalWorker.Start()
+
+	// AIOps: 自动建表（如果不存在）
+	if global.DB != nil {
+		global.DB.AutoMigrate(&models.AIOpsAnalysisRecord{}, &models.AIOpsInspectionReport{})
+	}
+
+	// 启动 AIOps 智能巡检 Worker（每 6 小时自动巡检 + AI 分析）
+	if global.AISetting != nil && global.AISetting.Enabled {
+		aiopsInspectionWorker = worker.NewAIOpsInspectionWorker()
+		aiopsInspectionWorker.Start()
+	}
 
 	return nil
 }
@@ -128,6 +160,12 @@ func StartCicdWorker() error {
 		pollWorker.Start(context.Background())
 	}
 
+	// 启动 GitOps 同步状态轮询 Worker（如果 GitOps 已配置）
+	if global.GitOpsSetting != nil && global.GitOpsSetting.ArgoCDURL != "" {
+		gitOpsSyncWorker = worker.NewGitOpsSyncWorker()
+		gitOpsSyncWorker.Start(context.Background())
+	}
+
 	return nil
 }
 
@@ -138,6 +176,18 @@ func StopCicdWorker() {
 	}
 	if pollWorker != nil {
 		pollWorker.Stop()
+	}
+	if gitOpsSyncWorker != nil {
+		gitOpsSyncWorker.Stop()
+	}
+	if auditCleanupWorker != nil {
+		auditCleanupWorker.Stop()
+	}
+	if alertEvalWorker != nil {
+		alertEvalWorker.Stop()
+	}
+	if aiopsInspectionWorker != nil {
+		aiopsInspectionWorker.Stop()
 	}
 }
 

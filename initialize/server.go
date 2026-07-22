@@ -4,11 +4,15 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8soperation/global"
 	"k8soperation/internal/app/services"
 	"k8soperation/internal/health"
 	"k8soperation/middlewares"
 	"time"
+
+	// 引入 metrics 包，触发 promauto 注册
+	_ "k8soperation/pkg/metrics"
 )
 
 type Engine struct {
@@ -41,18 +45,12 @@ func (s *Engine) injectMiddlewares() {
 	s.Engine.MaxMultipartMemory = 128 << 20 // 128MB
 
 	// ====== CORS 跨域配置，必须在路由前统一 Use ======
+	// 使用 AllowOriginFunc 动态判断，支持 Nginx 反代同源部署 + 内网穿透 + 本地开发
 	s.Engine.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			// 新内网穿透域名（花生壳）
-			"http://708iuyd54169.vicp.fun:52005",  // 内网穿透前端地址
-			"http://708iuyd54169.vicp.fun:59979",  // 内网穿透后端地址
-			// 旧内网穿透域名（保留兼容）
-			"http://james521.gnway.cc:8000",
-			"http://james521.gnway.cc:80",
-			"http://james521.gnway.cc:30851",
-			"http://james521.gnway.cc:10537",
+		AllowOriginFunc: func(origin string) bool {
+			// 允许所有来源（前后端通过 Nginx 合一部署时，Origin 与服务地址一致）
+			// 生产环境如需收紧，可改为白名单判断
+			return true
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{
@@ -74,9 +72,12 @@ func (s *Engine) injectMiddlewares() {
 	}
 
 	// 注册中间件
+	s.Use(middlewares.PrometheusMiddleware()) // Prometheus 指标采集（必须在 Logger 之前）
+	s.Use(middlewares.RateLimit())            // IP 级别限流（100 req/s，防止滥用）
 	s.Use(middlewares.Logger())
 	s.Use(middlewares.Recovery())
 	s.Use(middlewares.K8sError())
+	s.Use(middlewares.Audit(nil)) // 审计日志中间件（默认配置）
 
 	// 注册 session 中间件
 	RegisterSession(s.Engine)
@@ -88,6 +89,9 @@ func (s *Engine) injectRouters() {
 
 	// 先注册健康检查（不走 /api 前缀）
 	health.Register(r, health.Checks{DB: global.SQLDB})
+
+	// 注册 Prometheus /metrics 端点（不走 JWT，公开暴露供 Prometheus 抓取）
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// 2. 创建一个根分组
 	//apiRouter 挂的路由，路径就是从根开始，比如 /login、/user。

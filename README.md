@@ -1,5 +1,7 @@
 # 🚀 K8sOperation · 企业级 Kubernetes 多集群管理平台
 
+> 集成 **Jenkins + ArgoCD + Argo Workflows** 双模 CI/CD，支持传统 Push 发布与 GitOps Pull 发布
+
 一个对标 **Rancher/KubeSphere** 的企业级 K8s 管理平台，基于 **Go + Gin + GORM + Vue3 + client-go + AI** 构建。
 
 解决中大型企业 **多集群管理分散、权限隔离困难、运维效率低下** 的核心痛点，并集成 **AI 智能助手** 实现自然语言运维。
@@ -20,6 +22,7 @@
 | 可观测性集成复杂 | 构建探针管理，上传即生效，全自动注入 Agent |
 | 日志分散难检索 | 集成 Loki，LogQL 实时查询，日志量趋势可视化 |
 | 监控工具异构 | 多数据源统一管理（Prometheus/Loki/VictoriaMetrics），视图自动切换 |
+| 告警通知混乱 | 多群路由策略自动分发，按严重级别/团队/标签智能匹配，批量管理 |
 | kubectl 操作不便 | 容器 Web 终端，浏览器内直接进入容器 Shell |
 | 基础组件部署繁琐 | 应用商城一键部署开源组件 |
 | 运维门槛高 | AI 智能助手，自然语言操作平台 |
@@ -27,7 +30,7 @@
 **核心能力**：
 - 🌐 **多集群资源治理** - 统一管理开发/测试/生产环境
 - 🔐 **RBAC 精细化权限** - 细粒度权限隔离，满足审计要求
-- 🔄 **CI/CD 14 阶段闭环** - 集成 Jenkins，14 阶段全链路流水线，支持审批/回滚/批量发布
+- 🔄 **CI/CD 双模驱动** - Jenkins 推模式 + ArgoCD/Argo Workflows GitOps 拉模式，按需切换，并存互补
 - 🔍 **SonarQube 代码质量** - 代码扫描 + 质量门禁，4 语言统一集成（Go/Java/Python/前端）
 - 📦 **制品库管理** - 构建产物全生命周期管理，支持上传/下载/版本追踪/统计
 - 🏗️ **镜像仓库管理** - 支持 Harbor/ACR/Docker Registry
@@ -36,7 +39,9 @@
 - 🏪 **应用商城** - 内置应用市场，一键部署开源组件与自有应用
 - ⚙ **平台运维监控** - 健康检查、ETCD/核心组件监控、审计日志、系统配置
 - 🤖 **AI 智能助手** - 自然语言操作 K8s，多模型支持，高危自动审批
+- 🧠 **AIOps 智能运维** - AI 告警分析 + AI 日志诊断 + 智能巡检，从被动响应到主动预判
 - 📊 **多数据源监控** - Prometheus 指标视图 + Loki 日志探索，统一告警体系
+- 🚨 **告警多群路由** - 通知路由策略自动分发，按 severity/group/labels 智能匹配，多群不漏发
 - 🔍 **Loki 日志探索** - LogQL 专业查询、标签筛选、日志量趋势、健康状态实时检测
 
 ------
@@ -51,7 +56,7 @@
                                 │ RESTful API + JWT
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      后端层 (Go + Gin + GORM)                        │
-│  JWT 认证 · RBAC 鉴权 · AI 服务 · CI/CD 引擎 · 制品管理         │
+│  JWT认证 · RBAC鉴权 · AI服务 · CI/CD引擎(Jenkins+Argo) · 制品管理│
 └─────────────────────────────────────────────────────────────────────┘
       │             │              │              │              │
 ┌────┴────┐  ┌────┴─────┐  ┌─────┴─────┐  ┌────┴─────┐  ┌────┴─────┐
@@ -72,7 +77,7 @@
 | 认证方案 | JWT + Redis | 无状态、可横向扩展、支持主动失效 |
 | K8s 客户端 | client-go | 官方 SDK、功能完整、版本兼容好 |
 | AI 引擎 | OpenAI Function Calling | 多模型提供商支持、工具调用、意图识别 |
-| CI/CD 引擎 | Jenkins + HMAC | 多语言模板 + 阶段回调 + 签名校验 |
+| CI/CD 引擎 | Jenkins + ArgoCD + Argo Workflows | 双模驱动：Push模式(14阶段Jenkins流水线) + GitOps模式(Argo Workflows CI + ArgoCD CD) |
 | 代码质量 | SonarQube | Bug/漏洞/异味/覆盖率/重复率 + 质量门禁 |
 | 制品库 | 内置制品管理 | SHA256 校验、多类型支持、全生命周期管理 |
 | 构建探针 | Build Agent 管理 | 全自动注入可观测性探针（OTEL/SkyWalking/Arthas 等） |
@@ -327,11 +332,34 @@ docker buildx build --platform linux/amd64,linux/arm64 \
   <img src="docs/images/26.png" width="900"/>
 </p>
 <p align="center">
-  <img src="docs/images/26.png" width="900"/>
+  <img src="docs/images/27.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/28.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/29.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/30.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/31.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/32.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/33.png" width="900"/>
 </p>
 
 </details>
-
 
 
 ## ✨ 核心特性
@@ -488,6 +516,116 @@ AI 助手拥有独立的日志系统（`storage/logs/ai.log`），方便排查�
 
 ------
 
+### 🧠 AIOps 智能运维（核心亮点）
+
+平台内置 AIOps 智能运维引擎，基于 **大模型 + 平台健康数据 + Loki 日志 + Prometheus 告警** 构建，实现从"被动响应"到"智能预判"的运维模式转变。
+
+#### 设计思想
+
+```
+传统运维:  告警 → 人工排查 → 人工决策 → 人工处置（MTTR 长，依赖经验）
+AIOps:     告警 → AI 根因分析 → AI 建议方案 → 人工确认执行（MTTR 大幅缩短）
+                    ↑
+         定时巡检 → AI 趋势预测 → 预防性建议（主动运维，问题未发先治）
+```
+
+#### 三大核心能力
+
+| 能力 | 说明 | 巡检内容 |
+|------|------|----------|
+| 🚨 **AI 告警分析** | 告警事件 + PromQL 规则 + 上下文 → AI 自动定位根因、评估影响、给出处置建议 | 告警名/级别/触发值/PromQL/持续时间 |
+| 📜 **AI 日志诊断** | 集成 Loki 自动查询 + 采样错误日志 → AI 分析异常模式并给出修复方案 | namespace/pod 日志、错误模式、堆栈信息 |
+| 🔍 **智能巡检** | 全平台健康数据收集 → AI 生成巡检报告（评分+等级+建议+趋势预测） | 集群连通性/节点就绪/工作负载状态/Pod 异常/活跃告警 |
+
+#### 智能巡检详解 — 巡检什么？
+
+巡检引擎每 **6 小时** 自动执行一次全量巡检（也可手动触发），覆盖以下维度：
+
+```
+┌─────────────────── 巡检数据采集 ────────────────────┐
+│                                                      │
+│  ① 集群连通性    所有 K8s 集群是否可连接              │
+│  ② 节点健康      节点 Ready / NotReady 状态          │
+│  ③ 工作负载      Deployment / StatefulSet / DaemonSet│
+│     └── 运行状态   Running vs Failed vs Pending      │
+│  ④ Pod 异常      CrashLoopBackOff / OOMKilled 等     │
+│  ⑤ 活跃告警      当前 firing 状态的告警数量和详情    │
+│  ⑥ 资源使用率    CPU / Memory / Pod 配额             │
+│                                                      │
+└──────────────────────┬───────────────────────────────┘
+                       ▼
+┌─────────── 健康评分算法 ─────────────┐
+│  满分 100，扣分规则：                 │
+│  - 异常集群:     每个 -20 分          │
+│  - NotReady节点: 每个 -10 分          │
+│  - 异常工作负载: 每个 -2 分           │
+│  - firing 告警:  每条 -3 分           │
+│  - critical 告警: 额外每条 -5 分      │
+└───────────────────┬───────────────────┘
+                    ▼
+┌─── AI 生成巡检报告 ──────────────────┐
+│  📊 整体评估 - 平台健康状态总评        │
+│  🔍 问题发现 - 发现的异常和风险点      │
+│  💡 优化建议 - 具体可执行的改进措施    │
+│  📈 趋势预测 - 基于当前数据预测趋势    │
+│  ✅ 巡检结论 - 一句话总结              │
+└───────────────────────────────────────┘
+```
+
+**健康评分等级映射：**
+
+| 评分 | 等级 | 含义 | 颜色 |
+|------|------|------|------|
+| 80-100 | Healthy | 平台运行正常 | 🟢 绿色 |
+| 60-79 | Warning | 存在风险需关注 | 🟡 黄色 |
+| 0-59 | Critical | 需要立即处理 | 🔴 红色 |
+
+#### AIOps 架构
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   AIOps Service Layer                          │
+│                                                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐ │
+│  │ AlertAnalyze │  │ LogDiagnose  │  │ InspectionWorker   │ │
+│  │ 告警→AI分析  │  │ Loki→AI诊断  │  │ 6h定时→AI巡检报告  │ │
+│  └──────┬───────┘  └──────┬───────┘  └─────────┬──────────┘ │
+│         │                  │                     │            │
+│         └──────────────────┼─────────────────────┘            │
+│                            ▼                                  │
+│  ┌─── Prompt Engineering ────────────────────────────────┐   │
+│  │  3 套专业 System Prompt（告警专家/日志专家/巡检专家）   │   │
+│  └──────────────────────────┬────────────────────────────┘   │
+│                              ▼                                │
+│  ┌──── AI Provider Registry ─────────────────────────────┐   │
+│  │  OpenAI / DeepSeek / 通义千问 / 智谱 / Moonshot        │   │
+│  └────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### API 接口
+
+```
+├── POST /api/v1/ai/ops/alert/analyze    # AI 告警分析（输入告警事件 ID）
+├── POST /api/v1/ai/ops/log/diagnose     # AI 日志诊断（输入 namespace/pod/LogQL）
+├── POST /api/v1/ai/ops/inspection/run   # 手动触发巡检
+├── GET  /api/v1/ai/ops/inspection/list  # 巡检报告列表
+├── GET  /api/v1/ai/ops/inspection/:id   # 巡检报告详情
+├── GET  /api/v1/ai/ops/dashboard        # AIOps 仪表盘统计
+└── GET  /api/v1/ai/ops/records          # AI 分析记录列表
+```
+
+#### 实际运行效果（已验证）
+
+```
+[AIOps-InspectionWorker] 启动智能巡检引擎  {"interval": "6h0m0s"}
+[AIOps-InspectionWorker] 开始定时巡检
+[AI-API] Chat 请求成功  {"model": "qwen-plus", "latency": "13.1s", "total_tokens": 1130}
+[AIOps] 巡检完成  {"report_id": 2, "score": 57, "level": "critical", "findings": 1}
+```
+
+> 📖 **完整架构设计文档**：[docs/AIOps智能运维架构设计与验证指南.md](docs/AIOps智能运维架构设计与验证指南.md)
+
 ### 📊 多数据源监控与 Loki 日志探索（全新能力）
 
 平台构建了 **统一可观测性控制台**，将 Prometheus 指标监控与 Loki 日志探索整合为一体，根据所选数据源类型自动切换视图，打造大厂级监控体验。
@@ -601,14 +739,79 @@ AI 助手拥有独立的日志系统（`storage/logs/ai.log`），方便排查�
 ─ 示例查询：点击示例代码片段自动填入并执行
 ```
 
-#### 🚨 告警体系
+#### 🚨 告警体系（大厂级多群路由）
+
+平台内置 **告警评估引擎**（30s 轮询周期），支持完整的告警生命周期管理与**企业级多群路由分发**。
+
+##### 核心架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    告警评估引擎（30s 周期轮询）                     │
+│  读取所有 enabled 规则 → PromQL 查询 → 状态机流转 → 通知分发      │
+└────────────────────────────────────┬────────────────────────────┘
+                                     │
+                    ┌────────────────┼────────────────┐
+                    │                │                │
+             ┌──────┴──────┐  ┌─────┴─────┐  ┌──────┴──────┐
+             │ 规则手动绑定 │  │ 路由策略  │  │  兜底策略    │
+             │ (直接发送)   │  │ (自动匹配) │  │ (全局默认)   │
+             └─────────────┘  └───────────┘  └─────────────┘
+                    │                │                │
+                    └────────────────┼────────────────┘
+                                     ▼
+              ┌──────────────────────────────────────────┐
+              │  多渠道推送（钉钉/飞书/企微/邮件/Webhook） │
+              └──────────────────────────────────────────┘
+```
+
+##### 功能矩阵
 
 | 模块 | 功能 |
 |------|------|
-| 告警规则 | 支持 CPU/内存/磁盘等阈值告警，自定义 PromQL 规则 |
+| 告警规则 | PromQL 自定义规则 + YAML 批量导入/导出 + 开关/克隆/分组 |
 | 告警事件 | 实时事件列表，支持确认（Ack）和解决（Resolve）|
-| 通知渠道 | 支持邮件/钉钉/企业微信/Webhook 多渠道推送 |
+| 通知渠道 | 支持邮件/钉钉/企业微信/飞书/Webhook 多渠道推送 |
+| **通知路由策略** | 按 severity/group/labels 自动分发到不同群（优先级调度+兜底） |
+| **批量绑定渠道** | 支持 replace（覆盖）/ append（追加）/ remove（移除）三种模式 |
+| **YAML 导入增强** | 导入时自动绑定渠道（default_notify_channels / auto_route） |
 | 告警降噪 | 静默规则（Silence）+ 抑制规则（Inhibit）+ 聚合规则 |
+| 告警评估引擎 | 30s 轮询，pending → firing → resolved 状态机 |
+
+##### 多群路由策略（核心亮点）
+
+解决**告警规则与通知渠道解耦**的业务诉求——规则定义「什么触发」，路由策略定义「发到哪个群」：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    通知路由策略（Notify Route Policy）             │
+├─────────────────────────────────────────────────────────────────┤
+│  优先级 │ 策略名称              │ 匹配条件                 │ 目标群  │
+│    0    │ P0紧急→核心群         │ severity=critical        │ 渠道1  │
+│   10    │ 基础设施→运维群       │ group∈[node,kubernetes] │ 渠道2  │
+│   20    │ 应用告警→开发群       │ team=application         │ 渠道3  │
+│   99    │ 兜底→全量告警群       │ is_default=true          │ 渠道1,2│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- ✅ **优先级调度**：优先匹配高优先级策略，支持 all/any 匹配模式
+- ✅ **多条件组合**：severity + group + 标签 JSON（=、!=、=~、exists）
+- ✅ **兜底策略**：未匹配任何策略的告警走全局默认渠道，确保不漏发
+- ✅ **Worker 自动回退**：规则未绑定渠道时，评估引擎自动查询路由策略分发
+
+##### 告警 API 一览
+
+```
+├── POST /alert-rule/import-yaml        # YAML 批量导入（支持 auto_route + default_notify_channels）
+├── POST /alert-rule/batch-bind-channels # 批量绑定渠道（replace/append/remove）
+├── GET  /notify-route                   # 路由策略列表
+├── POST /notify-route                   # 创建路由策略
+├── PUT  /notify-route/:id               # 更新路由策略
+├── DELETE /notify-route/:id             # 删除路由策略
+├── POST /silence-rule                   # 创建静默规则
+├── POST /inhibit-rule                   # 创建抑制规则
+└── POST /aggregate-rule                 # 创建聚合规则
+```
 
 #### 后端 API（6 个 Loki 接口）
 
@@ -910,6 +1113,7 @@ func (s *AIService) AIChat(msg string) {
 | AI 多模型兼容性 | Provider Registry 抽象层 + 统一 OpenAI 协议适配 |
 | AI 调用问题排查 | 独立 AI 日志 + 全链路追踪 + API 查询接口 |
 | CI/CD 14 阶段闭环 | DefaultStageDefinitions 声明式阶段 + Jenkins 回调协议 + 动态阶段推断 |
+| GitOps 双模并存 | DeployMode 策略分发 + ArgoCD Webhook 回调 + Argo Workflows 轮询 fallback |
 | 代码质量管控 | SonarQube 4 语言统一集成 + 质量门禁自动拦截 + 扫描报告回传 |
 | 制品全生命周期 | SHA256 完整性校验 + 1MB 大缓冲区加速 I/O + 流式下载 |
 | 构建性能优化 | BuildKit 本地层缓存 + nerdctl push --concurrency 8 并发推送 |
@@ -919,6 +1123,8 @@ func (s *AIService) AIChat(msg string) {
 | Loki 多数据源实时切换 | 数据源管理 DB + currentDs.type 计算属性自动切换 Metrics/Logs 视图 |
 | Loki 后端日志接入 | `pkg/loki/client.go` 封装 QueryRange/Labels/Series/Healthy API，层次分明 |
 | LogQL 自动查询 | 进入页面健康检查 → 拉取活跃流 → 自动构建表达式并执行，体验零门槛起步 |
+| 告警多群路由分发 | 路由策略优先级调度 + severity/group/labels 多维匹配 + 兜底策略 + Worker 自动回退 |
+| 告警规则与渠道解耦 | 规则定义触发条件、路由策略定义分发目标，YAML 导入自动绑定 + 批量操作 3 种模式 |
 
 ------
 
@@ -938,6 +1144,7 @@ func (s *AIService) AIChat(msg string) {
 - **制品管理**：构建产物全链路追踪，版本可查、文件可下载、统计可视
 - **探针管理**：构建探针上传即生效，全自动注入到 Docker 镜像，零运维成本
 - **终端体验**：浏览器内直接进入容器 Shell，免去 kubectl 配置
+- **告警治理**：多群路由智能分发，按团队/级别自动推送，告警不漏发不轰炸
 - **应用商城**：一键部署开源组件，降低基础设施搭建成本
 
 ------
@@ -965,22 +1172,26 @@ k8soperation/
 │   ├── loki/                  # Loki HTTP API 客户端（QueryRange/Labels/Series/健康检查）
 │   ├── openai/                # AI 多模型 Provider Registry
 │   ├── jwt/                   # JWT 认证
-│   └── jenkins/               # Jenkins CI 集成（连接池化 + 缓存优化）
+│   ├── jenkins/               # Jenkins CI 集成（连接池化 + 缓存优化）
+│   ├── argocd/                # ArgoCD API 客户端（Application管理/同步状态）
+│   └── argoworkflows/         # Argo Workflows API 客户端（Workflow提交/日志）
 ├── configs/
 │   ├── jenkins-templates/     # 多语言 Jenkins 流水线模板
 │   │   ├── go-pipeline.groovy
 │   │   ├── java-spring-pipeline.groovy
 │   │   ├── python-pipeline.groovy
 │   │   └── frontend-pipeline.groovy
-│   └── dockerfile-templates/  # 多语言 Dockerfile 模板
+│   ├── dockerfile-templates/  # 多语言 Dockerfile 模板
+│   └── argo-workflow-templates/ # Argo Workflow 模板 (go/java/frontend/python)
 ├── k8s-web/                   # Vue3 前端项目
 │   └── src/
 │       ├── views/monitoring/
 │       │   ├── Monitoring.vue      # 监控主页（数据源切换器）
 │       │   ├── LokiView.vue        # Loki 日志探索（LogQL查询/健康检查/趋势图）
 │       │   ├── Datasources.vue     # 数据源管理 CRUD
-│       │   ├── AlertRules.vue      # 告警规则
-│       │   └── AlertEvents.vue     # 告警事件
+│       │   ├── AlertRules.vue      # 告警规则（含 YAML 导入/批量绑定渠道）
+│       │   ├── AlertEvents.vue     # 告警事件
+│       │   └── NotifyRoute.vue     # 通知路由策略管理
 │       └── components/AiAssistant.vue  # AI 助手前端组件
 ├── build/                     # Docker / Containerd 构建
 ├── storage/
@@ -1086,6 +1297,9 @@ make docker-buildx IMAGE=registry.example.com/k8soperation:latest
 
 官方部署说明文档（包括 **后端服务** 与 **前端管理界面** 的部署方式）：
 
+📖 **GitOps 操作指南（ArgoCD + Argo Workflows）**：
+👉 https://gitee.com/jay-kim/k8s_operation/blob/master/docs/GitOps-ArgoCD-ArgoWorkflows-完整操作指南.md
+
 👉 **K8sOperation 后台系统部署文档（后端）**  
 https://gitee.com/jay-kim/k8s_operation/blob/master/docs/📄%20K8sOperation%20后台系统部署文档.md
 
@@ -1125,6 +1339,31 @@ Operator → 管理 AppConfig CRD
 k8soperation → 提供 HTTP API/Web 后台
 
 两者解耦，便于独立演进。
+
+------
+
+## 📋 版本更新日志
+
+### v2.5.0 (2026-07-08)
+
+**🎉 GitOps 双模发布：ArgoCD + Argo Workflows 集成**
+
+- 🚀 **GitOps 部署模式**：新增 `deploy_mode` 字段，支持 Jenkins（推模式）和 GitOps（拉模式）双模并存
+- 🔄 **ArgoCD 集成**：原生 ArgoCD API 客户端，支持 Application 管理、同步状态追踪、Webhook 回调
+- ⚡ **Argo Workflows 集成**：4 语言 WorkflowTemplate（Go/Java/Python/前端），Kaniko 镜像构建 + Git Manifest 自动更新
+- 🔗 **完整 GitOps 链路**：平台触发 → Argo Workflow CI → 更新 Git Manifest → ArgoCD 检测 → Auto Sync → Webhook 回调平台
+- 📊 **同步状态追踪**：`sync_status`/`sync_revision` 实时展示，GitOpsSyncWorker 轮询 fallback
+- 📄 **完整操作文档**：[docs/GitOps-ArgoCD-ArgoWorkflows-完整操作指南.md](docs/GitOps-ArgoCD-ArgoWorkflows-完整操作指南.md)
+- 🗄️ **DB 兼容升级**：幂等补丁自动新增 8 个字段，存量库零停机升级
+
+### v15.0 (2025-06-24)
+
+**前端体验优化 & 部署更新**
+
+- ✨ **构建跳转优化**：点击「发布」或触发构建后，自动跳转到「执行阶段」界面，实时查看各阶段进度
+- 🔧 **统一导航策略**：AppCenter、Pipelines、PipelineDetail、PipelineCreate、Releases 五个组件统一跳转 `?tab=stages`
+- 🐛 **修复审批页白屏**：更新前端部署镜像至 v14.9，修复 `/cicd/approvals` 页面白屏问题
+- 📦 **前端镜像**：`registry.cn-hangzhou.aliyuncs.com/k8s-gos/devops-fe:v14.9`
 
 ------
 

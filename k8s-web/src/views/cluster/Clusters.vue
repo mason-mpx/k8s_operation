@@ -188,8 +188,8 @@
           </thead>
 
           <tbody>
-          <tr v-for="c in paginatedClusters" :key="c.id" :class="{ 'row-selected': selectedIds.includes(c.id) }">
-            <td v-if="canOperate">
+          <tr v-for="c in paginatedClusters" :key="c.id" :class="{ 'row-selected': selectedIds.includes(c.id) }" @click="enterCluster(c)" style="cursor:pointer;">
+            <td v-if="canOperate" @click.stop>
               <input 
                 type="checkbox" 
                 :checked="selectedIds.includes(c.id)" 
@@ -236,7 +236,7 @@
               <span class="time-text">{{ formatCheckAt(c.last_check_at) }}</span>
             </td>
 
-            <td>
+            <td @click.stop>
               <div class="action-group">
                 <button v-if="canOperate" class="action-btn" :disabled="testingId === c.id || loading"
                         @click="openEdit(c)" title="编辑集群">
@@ -627,7 +627,7 @@ const searchQuery = ref('')
 const statusFilter = ref('all') // all | ok | bad | pending
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
-const loading = ref(false)
+const loading = ref(true)
 const testingId = ref(null)
 
 // 筛选按钮配置

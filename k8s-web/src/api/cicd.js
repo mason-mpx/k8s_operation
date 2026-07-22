@@ -3,34 +3,8 @@ import http from './http'
 import { API_BASE } from './paths'
 
 // =======================
-// K8s集群管理（真实后端接口）
-// 对应 Swagger：/api/v1/k8s/cluster/*
+// K8s集群管理 → 统一使用 @/api/cluster 或 @/api/platform/cluster
 // =======================
-
-// 创建 K8s 集群
-export const createK8sCluster = (clusterData) => {
-  return http.post(`${API_BASE}/k8s/cluster/create`, clusterData)
-}
-
-// 更新 K8s 集群
-export const updateK8sCluster = (id, clusterData) => {
-  return http.post(`${API_BASE}/k8s/cluster/update`, { id, ...clusterData })
-}
-
-// 删除 K8s 集群
-export const deleteK8sCluster = (id) => {
-  return http.post(`${API_BASE}/k8s/cluster/delete`, { id })
-}
-
-// 集群列表
-export const getK8sClusters = (params) => {
-  return http.get(`${API_BASE}/k8s/cluster/list`, { params })
-}
-
-// 初始化集群
-export const initK8sCluster = (data) => {
-  return http.post(`${API_BASE}/k8s/cluster/init`, data)
-}
 
 // =======================
 // CI/CD 流水线管理（统一使用 platform/pipeline.js）
@@ -97,6 +71,66 @@ export const deletePipelineTemplate = (id) => {
 
 // 部署到K8s（兼容旧接口）
 export { runPipeline as deployToK8s } from './platform/pipeline'
+
+// =======================
+// 快速接入
+// =======================
+
+/**
+ * 快速接入应用（一键创建 K8s 资源 + 接入流水线 + 可选首次部署）
+ * 支持 5 种工作负载: Deployment / StatefulSet / DaemonSet / CronJob / Job
+ * @param {Object} data - 接入参数
+ */
+export const quickOnboard = (data) => {
+  return http.post(`${API_BASE}/k8s/cicd/quick-onboard`, data)
+}
+
+// =======================
+// CI/CD 镜像晋级 / 环境目标配置（build once, promote everywhere）
+// 对应后端路由: /api/v1/k8s/cicd/promote/*
+// =======================
+
+const PROMOTE_BASE = `${API_BASE}/k8s/cicd/promote`
+
+/**
+ * 获取某条流水线的环境部署目标列表
+ * @param {number} pipelineId - 流水线ID
+ */
+export const getPipelineTargets = (pipelineId) => {
+  return http.get(`${PROMOTE_BASE}/targets`, { params: { pipeline_id: pipelineId } })
+}
+
+/**
+ * 全量保存某条流水线的环境部署目标
+ * @param {Object} data - { pipeline_id, targets: [{ env, cluster_id, namespace, workload_kind, workload_name, container, auto_deploy, require_approval, promote_from, sort_order }] }
+ */
+export const savePipelineTargets = (data) => {
+  return http.post(`${PROMOTE_BASE}/targets/save`, data)
+}
+
+/**
+ * 删除单个环境部署目标
+ * @param {number} id - 目标ID
+ */
+export const deletePipelineTarget = (id) => {
+  return http.post(`${PROMOTE_BASE}/targets/delete`, { id })
+}
+
+/**
+ * 镜像晋级：将已构建的不可变镜像发布到目标环境
+ * @param {Object} data - { pipeline_id, target_env, source_run_id?, source_release_id?, image_repo?, image_tag?, image_digest?, reason? }
+ */
+export const promotePipeline = (data) => {
+  return http.post(`${PROMOTE_BASE}/run`, data)
+}
+
+/**
+ * 获取流水线的晋级链视图（各环境当前部署镜像/状态）
+ * @param {number} pipelineId - 流水线ID
+ */
+export const getPromotionChain = (pipelineId) => {
+  return http.get(`${PROMOTE_BASE}/chain`, { params: { pipeline_id: pipelineId } })
+}
 
 // 获取部署历史（兼容旧接口）
 export { getPipelineHistory as getDeploymentHistory } from './platform/pipeline'
@@ -213,10 +247,40 @@ export const batchRollbackRelease = (ids) => {
 }
 
 /**
+ * 批量取消发布单
+ * @param {number[]} ids - 发布单ID列表
+ */
+export const batchCancelRelease = (ids) => {
+  return http.post(`${RELEASE_BASE}/batch-cancel`, { ids })
+}
+
+/**
  * 同步流水线运行记录到发布管理
  */
 export const syncReleasesFromPipeline = () => {
   return http.post(`${RELEASE_BASE}/sync-from-pipeline`)
+}
+
+/**
+ * 获取发布历史（增强版）
+ * @param {Object} params - 查询参数
+ * @param {number} params.page - 页码
+ * @param {number} params.page_size - 每页数量
+ * @param {string} params.app_name - 应用名称
+ * @param {string} params.namespace - 命名空间
+ * @param {string} params.status - 状态筛选
+ * @param {number} params.start_time - 开始时间戳
+ * @param {number} params.end_time - 结束时间戳
+ */
+export const getReleaseHistory = (params = {}) => {
+  return http.get(`${RELEASE_BASE}/history`, { params })
+}
+
+/**
+ * 获取增强版发布统计
+ */
+export const getReleaseStatsEnhanced = () => {
+  return http.get(`${RELEASE_BASE}/stats-enhanced`)
 }
 
 /**
@@ -830,4 +894,81 @@ export const downloadBuildAgentByName = (name) => {
  */
 export const getBuildAgentsByScope = (scope) => {
   return http.get(`${AGENT_BASE}/by-scope`, { params: { scope } })
+}
+
+// =======================
+// 从K8s自动发现应用信息
+// 对应后端路由: /api/v1/k8s/cicd/pipeline/discover
+// =======================
+
+/**
+ * 从 K8s Deployment 自动发现应用信息
+ * @param {Object} params
+ * @param {number} params.cluster_id - 集群ID
+ * @param {string} params.namespace - 命名空间
+ * @param {string} params.deployment - Deployment名称
+ * @returns {Promise} 返回包含容器、镜像仓库等自动填充信息
+ */
+/**
+ * 获取全量构建记录（跨流水线）
+ * @param {Object} params - 查询参数 {page, page_size, status, keyword, pipeline_id}
+ */
+export const getBuildRecords = (params = {}) => {
+  return http.get(`${PIPELINE_BASE}/build-records`, { params })
+}
+
+/**
+ * 获取构建统计数据
+ * @param {Object} params - {days: 7}
+ */
+export const getBuildStats = (params = {}) => {
+  return http.get(`${PIPELINE_BASE}/build-stats`, { params })
+}
+
+/**
+ * 发现命名空间下所有工作负载（5种类型）
+ * @param {Object} params - { cluster_id, namespace }
+ */
+export const discoverWorkloads = (params) => {
+  return http.get(`${PIPELINE_BASE}/discover-workloads`, { params })
+}
+
+/**
+ * 以应用为中心发现：工作负载 + 关联 ConfigMap/Secret/Service/PVC
+ * @param {Object} params - { cluster_id, namespace }
+ */
+export const discoverApps = (params) => {
+  return http.get(`${PIPELINE_BASE}/discover-apps`, { params })
+}
+
+export const discoverFromK8s = (params) => {
+  return http.get(`${PIPELINE_BASE}/discover`, { params })
+}
+
+// ==================== GitOps APIs ====================
+
+const GITOPS_BASE = `${API_BASE}/k8s/cicd/gitops`
+
+/**
+ * 获取 ArgoCD Application 同步状态
+ * @param {string} appName - ArgoCD Application 名称
+ */
+export const getGitOpsAppStatus = (appName) => {
+  return http.get(`${GITOPS_BASE}/app-status`, { params: { app_name: appName } })
+}
+
+/**
+ * 获取 GitOps 流水线同步历史
+ * @param {number} pipelineId - 流水线ID
+ */
+export const getGitOpsSyncHistory = (pipelineId) => {
+  return http.get(`${GITOPS_BASE}/sync-history`, { params: { id: pipelineId } })
+}
+
+/**
+ * 手动触发 ArgoCD 同步
+ * @param {number} pipelineId - 流水线ID
+ */
+export const triggerGitOpsSync = (pipelineId) => {
+  return http.post(`${GITOPS_BASE}/sync`, { pipeline_id: pipelineId })
 }

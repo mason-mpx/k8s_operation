@@ -753,7 +753,7 @@ import { getK8sClusterList } from '@/api/platform/cluster.js'
 const router = useRouter()
 
 // ====== 状态 ======
-const loading = ref(false)
+const loading = ref(true)
 const apps = ref([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -763,7 +763,7 @@ const activeCategory = ref('')
 const categories = ref([])
 
 // 管理模式（表格视图）
-const viewMode = ref('card') // card | table
+const viewMode = ref('table') // card | table
 const selectedRowKeys = ref([])
 
 // 详情抽屉

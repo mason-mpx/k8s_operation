@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"gorm.io/gorm"
+	"go.uber.org/zap"
+	"k8soperation/global"
 	"k8soperation/internal/app/builder"
 	"k8soperation/internal/app/dao"
 	"k8soperation/internal/app/infra"
@@ -20,6 +22,77 @@ func (s *Services) CicdReleaseCreate(
 	req *requests.CicdReleaseCreateRequest,
 	userID int64,
 ) (int64, error) {
+
+	// 模板化发布：如果传入 pipeline_id，自动继承流水线的部署配置
+	if req.PipelineID > 0 {
+		pipeline, err := s.dao.PipelineGetByID(ctx, req.PipelineID)
+		if err != nil {
+			return 0, fmt.Errorf("关联流水线不存在(id=%d): %w", req.PipelineID, err)
+		}
+		// 自动填充缺失字段（用户显式传入的优先级更高）
+		if req.AppName == "" {
+			req.AppName = pipeline.Name
+		}
+		if req.Namespace == "" {
+			req.Namespace = pipeline.TargetNamespace
+		}
+		if req.WorkloadKind == "" {
+			req.WorkloadKind = pipeline.TargetWorkloadKind
+		}
+		if req.WorkloadName == "" {
+			req.WorkloadName = pipeline.TargetWorkloadName
+		}
+		if req.ContainerName == "" {
+			req.ContainerName = pipeline.TargetContainer
+		}
+		if req.ImageRepo == "" {
+			// 尝试从流水线环境变量中获取 IMAGE_REPO
+			for _, ev := range pipeline.EnvVars {
+				if ev.Name == "IMAGE_REPO" {
+					req.ImageRepo = ev.Value
+					break
+				}
+			}
+		}
+		// 回退策略：从最近部署镜像解析仓库地址
+		if req.ImageRepo == "" && pipeline.LastDeployImage != "" {
+			img := pipeline.LastDeployImage
+			// 去掉 digest 部分（如 repo@sha256:xxx）
+			if atIdx := strings.Index(img, "@"); atIdx > 0 {
+				img = img[:atIdx]
+			}
+			// 去掉 tag 部分（如 repo:v1.0.0）
+			if colonIdx := strings.LastIndex(img, ":"); colonIdx > 0 && !strings.Contains(img[colonIdx:], "/") {
+				img = img[:colonIdx]
+			}
+			if img != "" {
+				req.ImageRepo = img
+			}
+		}
+		if len(req.ClusterIDs) == 0 && pipeline.TargetClusterID > 0 {
+			req.ClusterIDs = []int64{pipeline.TargetClusterID}
+		}
+		// 默认值补充
+		if req.Namespace == "" {
+			req.Namespace = "default"
+		}
+		if req.WorkloadKind == "" {
+			req.WorkloadKind = "Deployment"
+		}
+		// 校验必要字段
+		if req.WorkloadName == "" {
+			return 0, fmt.Errorf("流水线未配置目标工作负载名称，请先编辑流水线补充部署配置")
+		}
+		if req.ContainerName == "" {
+			req.ContainerName = req.WorkloadName // 默认与工作负载同名
+		}
+		if len(req.ClusterIDs) == 0 {
+			return 0, fmt.Errorf("流水线未配置目标集群，请先编辑流水线补充部署配置")
+		}
+		if req.ImageRepo == "" {
+			return 0, fmt.Errorf("流水线未配置镜像仓库(IMAGE_REPO)，且无最近部署记录，请先编辑流水线或补充 IMAGE_REPO 环境变量")
+		}
+	}
 
 	// 幂等：request_id 不为空则复用已创建的 release
 	reqID := strings.TrimSpace(req.RequestID)
@@ -61,46 +134,131 @@ func (s *Services) CicdReleaseCreate(
 		return 0, err
 	}
 
-	// 入队：逐个 task 写入 Redis Stream
+	// ====== 审批判断：根据环境配置决定是否需要审批 ======
+	// 优先按 namespace 查环境，找不到再按 name 查
+	env, envErr := s.dao.EnvironmentGetByNamespace(ctx, req.Namespace)
+	if envErr != nil {
+		env, _ = s.dao.EnvironmentGetByName(ctx, req.Namespace)
+	}
+
+	// 判断是否需要审批：环境配置 RequireApproval=true 时才走审批
+	needApproval := true // 默认需要审批（找不到环境配置时保守处理）
+	if env != nil {
+		needApproval = env.RequireApproval
+	}
+
+	// 不需要审批：直接入队部署
+	if !needApproval {
+		global.Logger.Info("[发布] 环境无需审批，直接入队部署",
+			zap.Int64("release_id", rel.ID),
+			zap.String("namespace", req.Namespace),
+			zap.String("app_name", req.AppName),
+		)
+		_, enqErr := s.releaseEnqueue(ctx, rel.ID, tasks)
+		if enqErr != nil {
+			global.Logger.Error("[发布] 直接入队失败", zap.Error(enqErr))
+			return 0, fmt.Errorf("发布入队失败: %w", enqErr)
+		}
+		return rel.ID, nil
+	}
+
+	// 需要审批：查询多级审批策略
+	totalLevels := 1
+	levelLabel := "发布审批"
+	if env != nil && len(env.ApprovalLevels) > 0 {
+		totalLevels = len(env.ApprovalLevels)
+		levelLabel = env.ApprovalLevels[0].Label
+	}
+
+	// 构造完整镜像地址
+	fullImage := imageRepo
+	if imageTag != "" {
+		fullImage = imageRepo + ":" + imageTag
+	}
+
+	// 创建第一级审批记录
+	approval := &models.CicdApproval{
+		PipelineID:    req.PipelineID,
+		ReleaseID:     rel.ID,
+		EnvName:       req.Namespace, // 用命名空间标识环境
+		Status:        models.ApprovalStatusPending,
+		Image:         fullImage,
+		ImageDigest:   imageDigest,
+		RequestUserID: userID,
+		RequestReason: fmt.Sprintf("手动创建发布: %s → %s/%s", req.AppName, req.Namespace, req.WorkloadName),
+		ExpireTime:    uint64(time.Now().Unix() + 86400*7), // 7天过期
+		ApprovalLevel: 1,
+		TotalLevels:   totalLevels,
+		LevelLabel:    levelLabel,
+		CreatedAt:     uint64(time.Now().Unix()),
+		ModifiedAt:    uint64(time.Now().Unix()),
+	}
+	approvalID, err := s.dao.ApprovalCreate(ctx, approval)
+	if err != nil {
+		global.Logger.Error("[发布] 创建审批记录失败", zap.Error(err))
+		// 审批失败不降级，直接报错阻断（不允许自动发布）
+		_, _ = s.dao.CicdReleaseUpdateStatusCAS(ctx, rel.ID,
+			[]string{models.CicdReleaseStatusPending},
+			models.CicdReleaseStatusFailed,
+			"创建审批记录失败，发布已阻断",
+		)
+		return 0, fmt.Errorf("创建审批记录失败: %w", err)
+	}
+
+	// 更新发布单状态为「等待审批」
+	_, _ = s.dao.CicdReleaseUpdateStatusCAS(
+		ctx,
+		rel.ID,
+		[]string{models.CicdReleaseStatusPending},
+		models.CicdReleaseStatusAwaitingApproval,
+		fmt.Sprintf("等待审批(approval_id=%d, levels=%d)", approvalID, totalLevels),
+	)
+
+	global.Logger.Info("[发布] 已创建发布单，等待多级审批",
+		zap.Int64("release_id", rel.ID),
+		zap.Int64("approval_id", approvalID),
+		zap.Int("total_levels", totalLevels),
+		zap.String("app_name", req.AppName),
+	)
+
+	return rel.ID, nil
+}
+
+// releaseEnqueue 将发布单的 tasks 入队 Redis Stream 执行部署
+func (s *Services) releaseEnqueue(ctx context.Context, releaseID int64, tasks []*models.CicdReleaseTask) (int64, error) {
 	enqueued := 0
 	for _, t := range tasks {
 		if _, err := s.stream.XAdd(ctx, infra.CicdDeployStream, map[string]any{
 			"task_id":    t.ID,
-			"release_id": rel.ID,
+			"release_id": releaseID,
 		}); err != nil {
-
-			// 1) Release 标 Failed（CAS，避免并发覆盖终态）
 			_, _ = s.dao.CicdReleaseUpdateStatusCAS(
 				ctx,
-				rel.ID,
-				[]string{"Pending", "Queued"},
+				releaseID,
+				[]string{"Pending", "Queued", models.CicdReleaseStatusAwaitingApproval},
 				"Failed",
 				fmt.Sprintf("enqueue failed after %d/%d", enqueued, len(tasks)),
 			)
-
-			// 2) 止血：把仍未执行的任务（Pending/Queued）批量标 Failed，避免悬挂
 			_ = s.dao.CicdTasksFailByRelease(
 				ctx,
-				rel.ID,
+				releaseID,
 				fmt.Sprintf("enqueue failed after %d/%d", enqueued, len(tasks)),
 			)
-
 			return 0, err
 		}
-
 		enqueued++
 	}
 
-	// 全部入队成功：Release 标 Queued（CAS）
+	// 全部入队成功：Release 标 Queued
 	_, _ = s.dao.CicdReleaseUpdateStatusCAS(
 		ctx,
-		rel.ID,
-		[]string{"Pending"},
+		releaseID,
+		[]string{"Pending", models.CicdReleaseStatusAwaitingApproval},
 		"Queued",
 		"enqueued",
 	)
 
-	return rel.ID, nil
+	return releaseID, nil
 }
 
 // CicdReleaseDetail 获取发布单详情
@@ -118,14 +276,55 @@ func (s *Services) CicdReleaseDetail(ctx context.Context, releaseID int64) (*mod
 	return rel, tasks, nil
 }
 
-// CicdReleaseList 发布单列表
-func (s *Services) CicdReleaseList(ctx context.Context, req *requests.CicdReleaseListRequest) ([]*models.CicdRelease, int64, error) {
-	return s.dao.CicdReleaseList(ctx, req.Keyword, req.AppName, req.Status, req.Page, req.PageSize)
+// CicdReleaseList 发布单列表（返回带 deploy_mode 的增强数据）
+func (s *Services) CicdReleaseList(ctx context.Context, req *requests.CicdReleaseListRequest) ([]*models.CicdReleaseWithDeployMode, int64, error) {
+	releases, total, err := s.dao.CicdReleaseList(ctx, req.Keyword, req.AppName, req.Status, req.Page, req.PageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 为每条发布记录补充 deploy_mode
+	result := make([]*models.CicdReleaseWithDeployMode, 0, len(releases))
+	for _, rel := range releases {
+		enriched := &models.CicdReleaseWithDeployMode{
+			CicdRelease: *rel,
+			DeployMode:  "jenkins", // 默认值
+		}
+		// 通过 build_id → pipeline_run → pipeline 获取 deploy_mode
+		if rel.BuildID > 0 {
+			run, runErr := s.dao.PipelineRunGetByID(ctx, rel.BuildID)
+			if runErr == nil && run != nil {
+				pipeline, pErr := s.dao.PipelineGetByID(ctx, run.PipelineID)
+				if pErr == nil && pipeline != nil {
+					enriched.DeployMode = pipeline.DeployMode
+				}
+			}
+		}
+		result = append(result, enriched)
+	}
+
+	return result, total, nil
 }
 
 // CicdReleaseStats 发布单统计
 func (s *Services) CicdReleaseStats(ctx context.Context) (map[string]int64, error) {
 	return s.dao.CicdReleaseStats(ctx)
+}
+
+// CicdReleaseHistory 应用发布历史查询（增强版）
+func (s *Services) CicdReleaseHistory(ctx context.Context, appName, namespace, status string, startTime, endTime int64, page, pageSize int) ([]*models.CicdRelease, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	return s.dao.CicdReleaseHistory(ctx, appName, namespace, status, startTime, endTime, page, pageSize)
+}
+
+// CicdReleaseStatsEnhanced 增强版发布统计
+func (s *Services) CicdReleaseStatsEnhanced(ctx context.Context) (*dao.ReleaseStatsEnhanced, error) {
+	return s.dao.CicdReleaseStatsEnhanced(ctx)
 }
 
 // CicdReleaseUpdate 编辑发布单（仅 Pending/Failed/Canceled 状态可编辑）
@@ -136,8 +335,9 @@ func (s *Services) CicdReleaseUpdate(ctx context.Context, req *requests.CicdRele
 		return fmt.Errorf("发布单不存在: %w", err)
 	}
 
-	// 检查状态：仅 Pending/Failed/Canceled 可编辑
+	// 检查状态：仅 Pending/AwaitingApproval/Failed/Canceled 可编辑
 	if rel.Status != models.CicdReleaseStatusPending &&
+		rel.Status != models.CicdReleaseStatusAwaitingApproval &&
 		rel.Status != models.CicdReleaseStatusFailed &&
 		rel.Status != models.CicdReleaseStatusCanceled {
 		return fmt.Errorf("发布单当前状态为 %s，无法编辑", rel.Status)
@@ -235,7 +435,7 @@ func (s *Services) CicdReleaseCancel(ctx context.Context, releaseID int64, userI
 		}, nil
 	}
 
-	// 4. 其他状态（Pending/Queued），直接取消
+	// 4. 其他状态（Pending/Queued/AwaitingApproval），直接取消
 	ok, err := s.dao.CicdReleaseCancel(ctx, releaseID)
 	if err != nil {
 		return nil, fmt.Errorf("取消发布单失败: %w", err)
@@ -260,21 +460,23 @@ func (s *Services) CicdReleaseRollback(ctx context.Context, releaseID int64, use
 		return 0, fmt.Errorf("获取发布单失败: %w", err)
 	}
 
-	// 2. 检查发布单状态（只有成功或运行中的发布单才能回滚）
-	if rel.Status != models.CicdReleaseStatusSucceeded && rel.Status != models.CicdReleaseStatusRunning {
-		return 0, fmt.Errorf("发布单状态不支持回滚: %s，仅支持 Succeeded/Running 状态", rel.Status)
+	// 2. 检查发布单状态（成功/运行中可回滚；失败的发布单也允许回滚到部署前版本）
+	if rel.Status != models.CicdReleaseStatusSucceeded &&
+		rel.Status != models.CicdReleaseStatusRunning &&
+		rel.Status != models.CicdReleaseStatusFailed {
+		return 0, fmt.Errorf("发布单状态不支持回滚: %s，仅支持 Succeeded/Running/Failed 状态", rel.Status)
 	}
 
-	// 3. 获取已执行成功的任务（有 PrevImage 的任务）
+	// 3. 获取任务列表
 	tasks, err := s.dao.CicdTasksByReleaseID(ctx, releaseID)
 	if err != nil {
 		return 0, fmt.Errorf("获取任务列表失败: %w", err)
 	}
 
-	// 4. 筛选有 PrevImage 的任务（说明已经执行过）
+	// 4. 筛选已执行过（有部署前镜像记录）的任务：成功任务可回滚，失败任务也可回滚到部署前版本
 	var rollbackTasks []*models.CicdReleaseTask
 	for _, t := range tasks {
-		if t.PrevImage != "" && t.Status == models.CicdTaskStatusSucceeded {
+		if t.PrevImage != "" {
 			rollbackTasks = append(rollbackTasks, t)
 		}
 	}
@@ -320,12 +522,118 @@ func (s *Services) CicdReleaseRollback(ctx context.Context, releaseID int64, use
 	_, _ = s.dao.CicdReleaseUpdateStatusCAS(
 		ctx,
 		releaseID,
-		[]string{models.CicdReleaseStatusSucceeded, models.CicdReleaseStatusRunning},
+		[]string{models.CicdReleaseStatusSucceeded, models.CicdReleaseStatusRunning, models.CicdReleaseStatusFailed},
 		models.CicdReleaseStatusRollback,
 		fmt.Sprintf("rolled back to release %d", newID),
 	)
 
 	return newID, nil
+}
+
+// maybeAutoRollbackOnFail 发布失败后，若目标环境开启了“失败自动回滚”，则自动将工作负载恢复至部署前版本
+// 由 tryFinalizeRelease 在将发布单置 Failed 后调用（best-effort，任何错误只记日志不中断主流程）
+func (s *Services) maybeAutoRollbackOnFail(ctx context.Context, releaseID int64) {
+	rel, err := s.dao.CicdReleaseGetByID(ctx, releaseID)
+	if err != nil {
+		return
+	}
+	// 回滚单本身失败时不再触发回滚，避免递归
+	if strings.HasSuffix(rel.AppName, "-rollback") {
+		return
+	}
+
+	// 查环境配置：优先按 namespace，找不到再按环境名（rel.Env / namespace）
+	env, envErr := s.dao.EnvironmentGetByNamespace(ctx, rel.Namespace)
+	if envErr != nil || env == nil {
+		if rel.Env != "" {
+			env, _ = s.dao.EnvironmentGetByName(ctx, rel.Env)
+		}
+		if env == nil {
+			env, _ = s.dao.EnvironmentGetByName(ctx, rel.Namespace)
+		}
+	}
+	if env == nil || !env.AutoRollbackOnFail {
+		return
+	}
+
+	s.autoRollbackFailedRelease(ctx, rel)
+}
+
+// autoRollbackFailedRelease 将失败发布单回滚到部署前镜像（紧急恢复：跳过审批直接入队）
+func (s *Services) autoRollbackFailedRelease(ctx context.Context, rel *models.CicdRelease) {
+	tasks, err := s.dao.CicdTasksByReleaseID(ctx, rel.ID)
+	if err != nil {
+		global.Logger.Warn("[自动回滚] 获取任务失败，跳过", zap.Int64("release_id", rel.ID), zap.Error(err))
+		return
+	}
+
+	// 筛选已执行过（有部署前镜像记录）的任务
+	var rollbackTasks []*models.CicdReleaseTask
+	for _, t := range tasks {
+		if t.PrevImage != "" {
+			rollbackTasks = append(rollbackTasks, t)
+		}
+	}
+	if len(rollbackTasks) == 0 {
+		global.Logger.Warn("[自动回滚] 无可回滚任务（缺少部署前镜像记录），跳过", zap.Int64("release_id", rel.ID))
+		return
+	}
+
+	rollbackImage := rollbackTasks[0].PrevImage
+	clusterIDs := make([]int64, 0, len(rollbackTasks))
+	for _, t := range rollbackTasks {
+		clusterIDs = append(clusterIDs, t.ClusterID)
+	}
+	imageRepo, imageTag := parseImage(rollbackImage)
+
+	now := uint64(time.Now().Unix())
+	rollbackReq := &requests.CicdReleaseCreateRequest{
+		AppName:       rel.AppName + "-rollback",
+		Namespace:     rel.Namespace,
+		WorkloadKind:  rel.WorkloadKind,
+		WorkloadName:  rel.WorkloadName,
+		ContainerName: rel.ContainerName,
+		Strategy:      rel.Strategy,
+		TimeoutSec:    rel.TimeoutSec,
+		Concurrency:   rel.Concurrency,
+		ImageRepo:     imageRepo,
+		ImageTag:      imageTag,
+		ClusterIDs:    clusterIDs,
+		Env:           rel.Env,
+		Message:       fmt.Sprintf("自动回滚：发布单 #%d 部署失败，恢复至上一版本", rel.ID),
+	}
+
+	target := builder.BuildTargetImage(imageRepo, imageTag, "")
+	newRel := builder.BuildCicdRelease(rollbackReq, rel.CreatedUserID, now, imageRepo, imageTag, "")
+
+	var newTasks []*models.CicdReleaseTask
+	if err := s.dao.WithTx(ctx, func(tx *dao.Dao) error {
+		if err := tx.CicdReleaseCreate(ctx, newRel); err != nil {
+			return err
+		}
+		newTasks = builder.BuildCicdReleaseTasks(newRel.ID, clusterIDs, target, now)
+		return tx.CicdTasksCreate(ctx, newTasks)
+	}); err != nil {
+		global.Logger.Error("[自动回滚] 创建回滚发布单失败", zap.Int64("release_id", rel.ID), zap.Error(err))
+		return
+	}
+
+	// 紧急恢复：跳过审批，直接入队部署
+	if _, err := s.releaseEnqueue(ctx, newRel.ID, newTasks); err != nil {
+		global.Logger.Error("[自动回滚] 回滚发布单入队失败", zap.Int64("rollback_release_id", newRel.ID), zap.Error(err))
+		return
+	}
+
+	// 标记原失败单：已触发自动回滚（保留 Failed 状态，仅追加说明便于排查）
+	_ = s.dao.CicdReleaseUpdate(ctx, rel.ID, map[string]any{
+		"message": fmt.Sprintf("%s（已自动回滚至发布单 #%d）", rel.Message, newRel.ID),
+	})
+
+	global.Logger.Info("[自动回滚] 已触发失败自动回滚",
+		zap.Int64("failed_release_id", rel.ID),
+		zap.Int64("rollback_release_id", newRel.ID),
+		zap.String("rollback_image", rollbackImage),
+	)
 }
 
 // parseImage 解析镜像地址为 repo 和 tag
@@ -353,6 +661,17 @@ func (s *Services) CicdReleaseRetry(ctx context.Context, releaseID int64, userID
 	clusterIDs := make([]int64, 0, len(tasks))
 	for _, t := range tasks {
 		clusterIDs = append(clusterIDs, t.ClusterID)
+	}
+
+	// 回退策略：如果原发布单没有关联任务（早期同步的数据），通过 BuildID 回查流水线配置获取集群ID
+	if len(clusterIDs) == 0 && rel.BuildID > 0 {
+		run, runErr := s.dao.PipelineRunGetByID(ctx, rel.BuildID)
+		if runErr == nil && run != nil {
+			pipeline, pErr := s.dao.PipelineGetByID(ctx, run.PipelineID)
+			if pErr == nil && pipeline != nil && pipeline.TargetClusterID > 0 {
+				clusterIDs = []int64{pipeline.TargetClusterID}
+			}
+		}
 	}
 
 	// 构建新的发布请求
@@ -526,6 +845,41 @@ func (s *Services) CicdReleaseBatchRollback(ctx context.Context, ids []int64, us
 				NewID:   newID,
 				Success: true,
 				Message: "回滚成功",
+			})
+		}
+	}
+	return results, nil
+}
+
+// BatchCancelResult 批量取消结果
+type BatchCancelResult struct {
+	ID      int64  `json:"id"`
+	Action  string `json:"action"` // "canceled" 或 "rollback"
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// CicdReleaseBatchCancel 批量取消发布单（智能判断：已部署的触发回滚，未部署的直接取消）
+func (s *Services) CicdReleaseBatchCancel(ctx context.Context, ids []int64, userID int64) ([]BatchCancelResult, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("发布单ID列表不能为空")
+	}
+
+	results := make([]BatchCancelResult, 0, len(ids))
+	for _, id := range ids {
+		cancelResult, err := s.CicdReleaseCancel(ctx, id, userID)
+		if err != nil {
+			results = append(results, BatchCancelResult{
+				ID:      id,
+				Success: false,
+				Message: err.Error(),
+			})
+		} else {
+			results = append(results, BatchCancelResult{
+				ID:      id,
+				Action:  cancelResult.Action,
+				Success: true,
+				Message: "取消成功",
 			})
 		}
 	}

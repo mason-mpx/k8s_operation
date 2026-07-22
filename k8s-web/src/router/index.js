@@ -1,74 +1,23 @@
 // src/router/index.js
 import {createRouter, createWebHistory} from 'vue-router'
 import permissionStore from '@/stores/permission'
+import { ROUTE_SCOPES } from '@/stores/permission'
 
 import Login from '@/views/auth/Login.vue'
 import Layout from '@/components/Layout.vue'
 import Dashboard from '@/views/dashboard/Dashboard.vue'
 
 /**
- * 路由权限配置
+ * 路由权限配置 (v2: 基于三域 scope + 权限级别)
+ * 见 stores/permission.js 中的 ROUTE_SCOPES 配置
  * 角色分类:
  *   - super_admin: 超级管理员，全部权限
- *   - platform_admin: 平台管理员，平台级管理
- *   - cluster_admin: 集群管理员，集群级管理
- *   - cicd_admin: CI/CD 管理员
- *   - developer: 开发人员
- *   - viewer: 只读用户
+ *   - platform_admin: 平台管理员
+ *   - devops: 运维工程师
+ *   - developer: 开发工程师
+ *   - tester: 测试工程师
+ *   - viewer: 观察者
  */
-const routePermissions = {
-  // ==================== 平台管理 ====================
-  '/platform/health': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/platform/settings': ['super_admin', 'platform_admin'],
-  '/platform/appstore': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/platform/appstore/records': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/platform/appstore/install': ['super_admin', 'platform_admin', 'cluster_admin'],
-  
-  // ==================== 用户与权限管理（精简后） ====================
-  '/security/users': ['super_admin', 'platform_admin'],
-  '/security/roles': ['super_admin', 'platform_admin'],
-  '/security/authorization': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/security/diagnosis': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
-  
-  // 兼容旧路径
-  '/users': ['super_admin', 'platform_admin'],
-  '/rbac': ['super_admin', 'platform_admin'],
-  '/user-permissions': ['super_admin', 'platform_admin'],
-  
-  // ==================== 安全审计 ====================
-  '/security/audit': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/security/ai-approvals': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
-  '/security/rbac/serviceaccounts': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
-  '/security/rbac/roles': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
-  '/security/rbac/rolebindings': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
-  '/security/rbac/permission-check': ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'viewer'],
-  
-  // ==================== CI/CD 流水线 ====================
-  '/cicd/templates': ['super_admin', 'platform_admin'],
-  '/cicd/pipelines': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
-  '/cicd/pipelines/create': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
-  '/cicd/releases': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer'],
-  '/cicd/approvals': ['super_admin', 'platform_admin', 'cicd_admin'],
-  '/cicd/artifacts': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer', 'viewer'],
-  '/cicd/agents': ['super_admin', 'platform_admin', 'cicd_admin'],
-  
-  // ==================== 镜像管理 ====================
-  '/images/repositories': ['super_admin', 'platform_admin'],
-  '/images/browse': ['super_admin', 'platform_admin', 'cicd_admin', 'cluster_admin', 'developer', 'viewer'],
-  '/images/cleanup': ['super_admin', 'platform_admin'],
-  
-  // ==================== 环境管理 ====================
-  '/environments': ['super_admin', 'platform_admin', 'cluster_admin', 'developer'],
-  
-  // ==================== 监控中心 ====================
-  '/monitoring': ['super_admin', 'platform_admin', 'cluster_admin', 'cicd_admin', 'developer', 'viewer'],
-  '/monitoring/datasources': ['super_admin', 'platform_admin', 'cluster_admin'],
-  '/monitoring/alert-rules': ['super_admin', 'platform_admin', 'cluster_admin', 'cicd_admin'],
-  '/monitoring/alert-events': ['super_admin', 'platform_admin', 'cluster_admin', 'cicd_admin', 'developer', 'viewer'],
-  
-  // ==================== 集群管理 ====================
-  '/clusters': ['super_admin', 'platform_admin', 'cluster_admin', 'cicd_admin', 'developer', 'viewer']
-}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -102,24 +51,35 @@ const router = createRouter({
         // 平台级：集群列表（选集群入口）
         {path: 'clusters', component: () => import('@/views/cluster/Clusters.vue')},
         { path: 'platform/health', component: () => import('@/views/platform/health/PlatformHealth.vue') },
+        { path: 'platform/aiops', component: () => import('@/views/platform/AIOps.vue') },
         { path: 'platform/appstore', component: () => import('@/views/platform/appstore/AppStore.vue') },
         { path: 'platform/appstore/records', component: () => import('@/views/platform/appstore/AppInstallRecords.vue') },
         { path: 'platform/appstore/install/:id', component: () => import('@/views/platform/appstore/AppInstallDetail.vue') },
         { path: 'platform/settings', component: () => import('@/views/platform/settings/PlatformSettings.vue') },
         
-        // 安全和 RBAC（精简后的5个模块）
-        { path: 'security/users', component: () => import('@/views/security/UserManagement.vue') },
-        { path: 'security/roles', component: () => import('@/views/security/RoleManagement.vue') },
-        { path: 'security/authorization', component: () => import('@/views/security/AuthorizationManagement.vue') },
-        { path: 'security/audit', component: () => import('@/views/security/audit/AuditLog.vue') },
-        { path: 'security/ai-approvals', component: () => import('@/views/security/AIApprovals.vue') },
-        { path: 'security/diagnosis', component: () => import('@/views/security/rbac/PermissionCheck.vue') },
+        // 安全和 RBAC（兼容旧路径，已迁移至 /admin/*）
+        { path: 'security/users', redirect: '/admin/users' },
+        { path: 'security/roles', redirect: '/admin/roles' },
+        { path: 'security/authorization', redirect: '/admin/roles' },
+        { path: 'security/audit', redirect: '/admin/audit' },
+        { path: 'security/ai-approvals', redirect: '/admin/approvals' },
+        { path: 'security/diagnosis', redirect: '/admin/roles' },
+        { path: 'security/ldap', redirect: '/admin/identity' },
         
         // 兼容旧路径
-        { path: 'security/rbac/serviceaccounts', component: () => import('@/views/security/rbac/ServiceAccounts.vue') },
+        { path: 'security/rbac/serviceaccounts', redirect: '/admin/service-accounts' },
         { path: 'security/rbac/roles', component: () => import('@/views/security/rbac/Roles.vue') },
         { path: 'security/rbac/rolebindings', component: () => import('@/views/security/rbac/RoleBindings.vue') },
-        { path: 'security/rbac/permission-check', component: () => import('@/views/security/rbac/PermissionCheck.vue') },
+        { path: 'security/rbac/permission-check', redirect: '/admin/roles' },
+
+        // ⭐ 平台管理（IAM 统一收口）
+        { path: 'admin/users', component: () => import('@/views/security/UserManagement.vue') },
+        { path: 'admin/roles', component: () => import('@/views/admin/PermissionRoles.vue') },
+        { path: 'admin/identity', component: () => import('@/views/admin/IdentitySource.vue') },
+        { path: 'admin/approvals', component: () => import('@/views/admin/ApprovalCenter.vue') },
+        { path: 'admin/audit', component: () => import('@/views/admin/AuditCenter.vue') },
+        { path: 'admin/service-accounts', component: () => import('@/views/admin/ServiceAccountCenter.vue') },
+        { path: 'admin/settings', component: () => import('@/views/platform/settings/PlatformSettings.vue') },
 
         // ✅ 集群级：所有 k8s 功能都放这里
         {
@@ -135,6 +95,8 @@ const router = createRouter({
             { path: 'workloads/daemonsets', component: () => import('@/views/workloads/Daemonsets.vue') },
             { path: 'workloads/jobs', component: () => import('@/views/workloads/Jobs.vue') },
             { path: 'workloads/cronjobs', component: () => import('@/views/workloads/Cronjobs.vue') },
+            { path: 'workloads/hpa', component: () => import('@/views/workloads/HPA.vue') },
+            { path: 'workloads/vpa', component: () => import('@/views/workloads/VPA.vue') },
             { path: 'networking/services', component: () => import('@/views/networking/Services.vue') },
             { path: 'networking/ingresses', component: () => import('@/views/networking/Ingress.vue') },
 
@@ -144,6 +106,11 @@ const router = createRouter({
             { path: 'storage/storageclasses', component: () => import('@/views/storage/StorageClasses.vue') },
             { path: 'storage/persistentvolumes', component: () => import('@/views/storage/Persistentvolumes.vue') },
             { path: 'storage/persistentvolumeclaims', component: () => import('@/views/storage/Persistentvolumeclaims.vue') },
+
+            // 扩展资源（CRD/CR 管理）
+            { path: 'extensions/crd', component: () => import('@/views/extensions/Customresourcedefinitions.vue') },
+            { path: 'extensions/cr-instances', component: () => import('@/views/extensions/CrInstances.vue') },
+            { path: 'extensions/yaml-workbench', component: () => import('@/views/extensions/YamlWorkbench.vue') },
           ],
         },
 
@@ -153,20 +120,36 @@ const router = createRouter({
         {path: 'rbac', component: () => import('@/views/platform/RBACPermissions.vue')},
         {path: 'user-permissions', component: () => import('@/views/platform/UserPermissions.vue')},
 
+        // CICD 应用中心（统一应用视图）
+        {path: 'cicd/apps', component: () => import('@/views/cicd/AppCenter.vue')},
         // CICD 流水线
         {path: 'cicd/pipelines', component: () => import('@/views/cicd/Pipelines.vue')},
         {path: 'cicd/pipelines/create', component: () => import('@/views/cicd/PipelineCreate.vue')},
         {path: 'cicd/pipelines/:id', component: () => import('@/views/cicd/PipelineDetail.vue')},
         {path: 'cicd/pipelines/:id/edit', component: () => import('@/views/cicd/PipelineCreate.vue')},
+        // GitOps 流水线（ArgoCD）
+        {path: 'cicd/gitops/create', component: () => import('@/views/cicd/GitOpsCreate.vue')},
+        {path: 'cicd/gitops/:id/edit', component: () => import('@/views/cicd/GitOpsCreate.vue')},
+        {path: 'cicd/gitops/releases', component: () => import('@/views/cicd/GitOpsReleases.vue')},
+        {path: 'cicd/build-records', component: () => import('@/views/cicd/BuildRecords.vue')},
         {path: 'cicd/templates', component: () => import('@/views/cicd/PipelineTemplates.vue')},
         // CICD 发布管理
         {path: 'cicd/releases', component: () => import('@/views/cicd/Releases.vue')},
+        {path: 'cicd/release-history', component: () => import('@/views/cicd/ReleaseHistory.vue')},
         // CICD 审批管理
         {path: 'cicd/approvals', component: () => import('@/views/cicd/Approvals.vue')},
+        // CICD 审批策略设置
+        {path: 'cicd/approval-policy', component: () => import('@/views/cicd/ApprovalPolicy.vue')},
         // CICD 制品库管理
         {path: 'cicd/artifacts', component: () => import('@/views/cicd/Artifacts.vue')},
         // CICD 构建探针管理
         {path: 'cicd/agents', component: () => import('@/views/cicd/BuildAgents.vue')},
+        // CICD 快速接入
+        {path: 'cicd/quick-onboard', component: () => import('@/views/cicd/QuickOnboard.vue')},
+        // CICD 镜像晋级（独立顶层页：选流水线看晋级链，build once promote everywhere）
+        {path: 'cicd/promotion', component: () => import('@/views/cicd/Promotion.vue')},
+        // CICD 环境管理（全局环境 cicd_environment 增删改，统一维护晋级目标环境）
+        {path: 'cicd/environments', component: () => import('@/views/cicd/CicdEnvironments.vue')},
 
         {
           path: 'images/repositories',
@@ -193,6 +176,33 @@ const router = createRouter({
           ],
         },
 
+        // CRD 扩展资源管理（需要通过集群上下文 /c/:clusterId/extensions/ 访问）
+        // 保留顶层路由作为跳转入口 → 使用 localStorage 中缓存的集群 ID
+        { 
+          path: 'extensions/crd', 
+          redirect: () => {
+            const raw = localStorage.getItem('currentCluster')
+            const cid = raw ? JSON.parse(raw)?.id : null
+            return cid ? `/c/${cid}/extensions/crd` : '/clusters'
+          }
+        },
+        { 
+          path: 'extensions/cr-instances', 
+          redirect: () => {
+            const raw = localStorage.getItem('currentCluster')
+            const cid = raw ? JSON.parse(raw)?.id : null
+            return cid ? `/c/${cid}/extensions/cr-instances` : '/clusters'
+          }
+        },
+        { 
+          path: 'extensions/yaml-workbench', 
+          redirect: () => {
+            const raw = localStorage.getItem('currentCluster')
+            const cid = raw ? JSON.parse(raw)?.id : null
+            return cid ? `/c/${cid}/extensions/yaml-workbench` : '/clusters'
+          }
+        },
+
         // // ✅ 旧路径：统一引导去 clusters（让用户先选集群）
         // {path: 'workloads/pods', redirect: '/clusters'},
         // {path: 'clusters/nodes', redirect: '/clusters'},
@@ -215,19 +225,19 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth)
   const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-  
+
   // 未登录时跳转到登录页
   if (requiresAuth && !token) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
-  
+
   // 登录页直接放行
   if (to.path === '/login') {
     next()
     return
   }
-  
+
   // 已登录时，确保加载了权限
   if (token && !permissionStore.state.loaded) {
     try {
@@ -236,54 +246,75 @@ router.beforeEach(async (to, from, next) => {
       console.error('加载权限失败', e)
     }
   }
-  
-  // 检查路由权限
-  const routeRoles = routePermissions[to.path]
-  if (routeRoles) {
-    // 超级管理员可以访问所有页面
-    if (permissionStore.state.isSuperAdmin) {
-      next()
-      return
-    }
-    
-    // 检查用户角色
-    const userRoles = permissionStore.roleTypes.value
-    const hasPermission = routeRoles.some(role => userRoles.includes(role))
-    
-    if (!hasPermission) {
-      // 无权限时跳转到 403 页面
-      next({ 
-        path: '/forbidden', 
-        query: { 
-          type: 'role',
+
+  // 超级管理员跳过所有权限检查
+  if (permissionStore.state.isSuperAdmin) {
+    next()
+    return
+  }
+
+  // ⭐ v2: 基于三域 scope 检查路由权限
+  const routeScope = ROUTE_SCOPES[to.path]
+  if (routeScope) {
+    const hasAccess = permissionStore.hasScopeAccess(routeScope.scope, routeScope.minLevel)
+    if (!hasAccess) {
+      next({
+        path: '/forbidden',
+        query: {
+          type: 'scope',
           path: to.path,
-          role: routeRoles.join(', ')
-        } 
+          scope: routeScope.scope,
+          required: routeScope.minLevel
+        }
       })
       return
     }
   }
-  
+
   // 集群级路由权限检查
   if (to.path.startsWith('/c/') && to.params.clusterId) {
     const clusterId = parseInt(to.params.clusterId)
-    if (clusterId && !permissionStore.state.isSuperAdmin) {
+    if (clusterId) {
       const canAccess = permissionStore.canAccessCluster(clusterId, 'view')
       if (!canAccess) {
-        next({ 
-          path: '/forbidden', 
-          query: { 
+        next({
+          path: '/forbidden',
+          query: {
             type: 'cluster',
             path: to.path,
             clusterId: clusterId
-          } 
+          }
         })
         return
       }
     }
   }
-  
+
   next()
+})
+
+// ================================================================
+// 全局 chunk 加载失败容错：新版部署后旧哈希 chunk 404 时强制全页刷新
+// ================================================================
+// Vite 按路由拆分代码，每次构建文件名带有内容哈希.
+// 部署新版本后，旧浏览器 tab 里的路由懒加载会请求已被删除的旧 chunk,
+// 导致 "Failed to fetch dynamically imported module" 白屏.
+// 拦截此错误并强制刷新，用户无感升级.
+// ================================================================
+router.onError((error, to) => {
+  if (error.message?.includes('Failed to fetch dynamically imported module')) {
+    console.warn('[Router] chunk 加载失败（可能为新版部署）, 强制刷新', to?.fullPath)
+    window.location.href = to?.fullPath || '/dashboard'
+  }
+})
+
+// 兜底：捕获未被路由拦截的异步组件加载错误
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = event.reason?.message || ''
+  if (msg.includes('Failed to fetch dynamically imported module')) {
+    console.warn('[Global] 异步模块加载失败, 刷新页面')
+    window.location.reload()
+  }
 })
 
 export default router

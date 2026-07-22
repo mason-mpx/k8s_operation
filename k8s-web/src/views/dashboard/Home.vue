@@ -95,7 +95,7 @@
         <div 
           v-if="canView('deployments')"
           class="workload-card" 
-          @click="handleNavigate('/c/default/workloads/deployments')"
+          @click="handleClusterNavigate('workloads/deployments')"
         >
           <div class="workload-icon deployment">🚀</div>
           <div class="workload-info">
@@ -107,7 +107,7 @@
         <div 
           v-if="canView('statefulsets')"
           class="workload-card" 
-          @click="handleNavigate('/c/default/workloads/statefulsets')"
+          @click="handleClusterNavigate('workloads/statefulsets')"
         >
           <div class="workload-icon statefulset">📊</div>
           <div class="workload-info">
@@ -119,7 +119,7 @@
         <div 
           v-if="canView('daemonsets')"
           class="workload-card" 
-          @click="handleNavigate('/c/default/workloads/daemonsets')"
+          @click="handleClusterNavigate('workloads/daemonsets')"
         >
           <div class="workload-icon daemonset">🔄</div>
           <div class="workload-info">
@@ -131,7 +131,7 @@
         <div 
           v-if="canView('jobs')"
           class="workload-card" 
-          @click="handleNavigate('/c/default/workloads/jobs')"
+          @click="handleClusterNavigate('workloads/jobs')"
         >
           <div class="workload-icon job">⚙️</div>
           <div class="workload-info">
@@ -143,7 +143,7 @@
         <div 
           v-if="canView('cronjobs')"
           class="workload-card" 
-          @click="handleNavigate('/c/default/workloads/cronjobs')"
+          @click="handleClusterNavigate('workloads/cronjobs')"
         >
           <div class="workload-icon cronjob">⏰</div>
           <div class="workload-info">
@@ -165,7 +165,7 @@
             <div 
               v-if="canView('services')"
               class="resource-item" 
-              @click="handleNavigate('/c/default/networking/services')"
+              @click="handleClusterNavigate('networking/services')"
             >
               <div class="resource-icon">🔌</div>
               <div class="resource-info">
@@ -178,7 +178,7 @@
             <div 
               v-if="canView('ingress')"
               class="resource-item" 
-              @click="handleNavigate('/c/default/networking/ingresses')"
+              @click="handleClusterNavigate('networking/ingresses')"
             >
               <div class="resource-icon">🌍</div>
               <div class="resource-info">
@@ -198,7 +198,7 @@
             <div 
               v-if="canView('pv')"
               class="resource-item" 
-              @click="handleNavigate('/c/default/storage/persistentvolumes')"
+              @click="handleClusterNavigate('storage/persistentvolumes')"
             >
               <div class="resource-icon">💿</div>
               <div class="resource-info">
@@ -211,7 +211,7 @@
             <div 
               v-if="canView('pvc')"
               class="resource-item" 
-              @click="handleNavigate('/c/default/storage/persistentvolumeclaims')"
+              @click="handleClusterNavigate('storage/persistentvolumeclaims')"
             >
               <div class="resource-icon">📝</div>
               <div class="resource-info">
@@ -224,7 +224,7 @@
             <div 
               v-if="canView('storageclasses')"
               class="resource-item" 
-              @click="handleNavigate('/c/default/storage/storageclasses')"
+              @click="handleClusterNavigate('storage/storageclasses')"
             >
               <div class="resource-icon">📦</div>
               <div class="resource-info">
@@ -247,7 +247,7 @@
         <div 
           v-if="canView('configmaps')"
           class="config-card" 
-          @click="handleNavigate('/c/default/config/configmaps')"
+          @click="handleClusterNavigate('config/configmaps')"
         >
           <div class="config-icon">🗂️</div>
           <div class="config-info">
@@ -259,7 +259,7 @@
         <div 
           v-if="canView('secrets')"
           class="config-card" 
-          @click="handleNavigate('/c/default/config/secrets')"
+          @click="handleClusterNavigate('config/secrets')"
         >
           <div class="config-icon">🔐</div>
           <div class="config-info">
@@ -287,7 +287,7 @@
         <a 
           v-if="canView('nodes')"
           class="quick-link" 
-          @click="handleNavigate('/c/default/nodes')"
+          @click="handleClusterNavigate('nodes')"
         >
           <div class="link-icon">💻</div>
           <div class="link-text">节点管理</div>
@@ -295,7 +295,7 @@
         <a 
           v-if="canView('namespaces')"
           class="quick-link" 
-          @click="handleNavigate('/c/default/namespaces')"
+          @click="handleClusterNavigate('namespaces')"
         >
           <div class="link-icon">📁</div>
           <div class="link-text">命名空间</div>
@@ -349,10 +349,10 @@ import serviceApi from '@/api/cluster/networking/service'
 import ingressApi from '@/api/cluster/networking/ingress'
 import pvApi from '@/api/cluster/storage/pv'
 import pvcApi from '@/api/cluster/storage/pvc'
-import storageclassApi from '@/api/cluster/storage/storageclass'
+import storageclassApi from '@/api/cluster/storage/storageclasses'
 import configmapApi from '@/api/cluster/config/configmap'
 import secretApi from '@/api/cluster/config/secret'
-import namespaceApi from '@/api/cluster/config/namespace'
+import namespaceApi from '@/api/cluster/namespaces'
 
 const router = useRouter()
 const clusterStore = useClusterStore()
@@ -569,7 +569,7 @@ const updateTime = () => {
 }
 
 // 加载状态
-const loading = ref(false)
+const loading = ref(true)
 
 // 统计数据
 const clusterStats = ref({
@@ -672,7 +672,7 @@ const loadData = async () => {
     if (!hasCluster) {
       clusterConnectionStatus.value = 'timeout'
       useMockData()
-      Message.warning({ content: '无可用集群或连接超时，显示示例数据', duration: 3000 })
+      Message.warning({ content: '无可用集群或连接超时，暂无数据', duration: 3000 })
       return
     }
     
@@ -708,16 +708,16 @@ const loadData = async () => {
   }
 }
 
-// 使用模拟数据
+// 无数据时显示真实零值（不使用虚假mock数据）
 const useMockData = () => {
-  clusterStats.value = { total: 3, active: 2, inactive: 1 }
-  nodeStats.value = { total: 5, ready: 4, notReady: 1 }
-  podStats.value = { total: 48, running: 42, pending: 3, failed: 3 }
-  namespaceStats.value = { total: 12, system: 4, user: 8 }
-  workloadStats.value = { deployments: 15, statefulsets: 6, daemonsets: 8, jobs: 12, cronjobs: 5 }
-  networkStats.value = { services: 24, ingresses: 8 }
-  storageStats.value = { pvs: 10, pvcs: 18, storageClasses: 3 }
-  configStats.value = { configmaps: 28, secrets: 15 }
+  clusterStats.value = { total: 0, active: 0, inactive: 0 }
+  nodeStats.value = { total: 0, ready: 0, notReady: 0 }
+  podStats.value = { total: 0, running: 0, pending: 0, failed: 0 }
+  namespaceStats.value = { total: 0, system: 0, user: 0 }
+  workloadStats.value = { deployments: 0, statefulsets: 0, daemonsets: 0, jobs: 0, cronjobs: 0 }
+  networkStats.value = { services: 0, ingresses: 0 }
+  storageStats.value = { pvs: 0, pvcs: 0, storageClasses: 0 }
+  configStats.value = { configmaps: 0, secrets: 0 }
 }
 
 // 加载集群统计
@@ -756,7 +756,7 @@ const loadNodeStats = async () => {
     }
   } catch (error) {
     console.error('加载节点数据失败:', error)
-    nodeStats.value = { total: 5, ready: 4, notReady: 1 }
+    nodeStats.value = { total: 0, ready: 0, notReady: 0 }
   }
 }
 
@@ -775,7 +775,7 @@ const loadPodStats = async () => {
     }
   } catch (error) {
     console.error('加载 Pod 数据失败:', error)
-    podStats.value = { total: 48, running: 42, pending: 3, failed: 3 }
+    podStats.value = { total: 0, running: 0, pending: 0, failed: 0 }
   }
 }
 
@@ -808,7 +808,7 @@ const loadNamespaceStats = async () => {
     }
   } catch (error) {
     console.error('加载命名空间数据失败:', error)
-    namespaceStats.value = { total: 12, system: 4, user: 8 }
+    namespaceStats.value = { total: 0, system: 0, user: 0 }
   }
 }
 

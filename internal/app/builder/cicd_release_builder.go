@@ -30,13 +30,19 @@ func BuildCicdRelease(
 		Concurrency: req.Concurrency,
 
 		Status:  models.CicdReleaseStatusPending,
-		Message: "",
+		Message: req.Message,
 
 		CreatedUserID: userID,
 		RequestID:     resolveRequestID(req.RequestID),
 		ImageRepo:     imageRepo,
 		ImageTag:      imageTag,
 		ImageDigest:   utils.NullString(imageDigest),
+
+		// 镜像晋级链追踪
+		PipelineID:  req.PipelineID,
+		Env:         req.Env,
+		SourceEnv:   req.SourceEnv,
+		SourceRunID: req.SourceRunID,
 
 		CreatedAt:  now,
 		ModifiedAt: now,

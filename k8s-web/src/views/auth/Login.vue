@@ -1,11 +1,14 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="login-header">
-        <div class="logo">
-          <!-- Kubernetes Logo -->
-          <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 100 100">
-            <g fill="#326ce5">
+  <div class="login-page">
+    <!-- 左侧品牌展示区 -->
+    <aside class="brand-panel">
+      <div class="brand-glow"></div>
+      <div class="brand-grid"></div>
+
+      <div class="brand-content">
+        <div class="brand-logo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 100 100">
+            <g fill="#ffffff">
               <path
                 d="M39.971 5.05c-3.607-.418-7.152.532-9.957 2.694l-1.315 1.035 1.703 2.17 1.227-1.006c1.946-1.606 4.387-2.537 6.984-2.537 3.97 0 7.513 2.053 9.616 5.298l1.127 1.629 2.012-1.388-1.217-1.772c-2.563-3.722-6.534-6.13-10.984-6.23z"
               />
@@ -14,90 +17,154 @@
               />
             </g>
           </svg>
+          <span>K8sOperation</span>
         </div>
-        <h2>Kubernetes Admin Dashboard</h2>
-        <p>{{ mode === 'login' ? '请登录以继续' : '创建新账号' }}</p>
+
+        <div class="brand-hero">
+          <h1>云原生运维<br />一体化管理平台</h1>
+          <p>多集群纳管 · CI/CD 流水线 · GitOps 发布 · 全链路可观测</p>
+        </div>
+
+        <ul class="brand-features">
+          <li>
+            <span class="feat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span>多集群统一纳管，秒级切换工作负载</span>
+          </li>
+          <li>
+            <span class="feat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span>可视化流水线，一键构建与灰度发布</span>
+          </li>
+          <li>
+            <span class="feat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span>实时监控告警，故障自动回滚保障稳定</span>
+          </li>
+        </ul>
+
+        <div class="brand-footer">© 2026 K8sOperation · 云原生 DevOps 平台</div>
       </div>
+    </aside>
 
-      <form class="login-form" @submit.prevent="handleSubmit">
-        <div class="form-group">
-          <label for="username">用户名</label>
-          <input
-            id="username"
-            v-model="form.username"
-            type="text"
-            placeholder="请输入用户名"
-            autocomplete="username"
-            required
-            aria-label="用户名"
-          />
+    <!-- 右侧登录/注册表单区 -->
+    <main class="form-panel">
+      <div class="form-wrapper">
+        <!-- 移动端顶部 Logo（品牌区收起时展示） -->
+        <div class="mobile-brand">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 100 100">
+            <g fill="#165DFF">
+              <path
+                d="M39.971 5.05c-3.607-.418-7.152.532-9.957 2.694l-1.315 1.035 1.703 2.17 1.227-1.006c1.946-1.606 4.387-2.537 6.984-2.537 3.97 0 7.513 2.053 9.616 5.298l1.127 1.629 2.012-1.388-1.217-1.772c-2.563-3.722-6.534-6.13-10.984-6.23z"
+              />
+              <path
+                d="M42.026 94.796c3.608.418 7.153-.53 9.958-2.693l1.315-1.035-1.702-2.17-1.228 1.006c-1.947 1.606-4.388 2.537-6.985 2.537-3.969 0-7.512-2.053-9.615-5.298l-1.127-1.63-2.012 1.388 1.217 1.772c2.564 3.723 6.535 6.13 10.984 6.23z"
+              />
+            </g>
+          </svg>
+          <span>K8sOperation</span>
         </div>
 
-        <div class="form-group">
-          <label for="password">密码</label>
-          <div class="password-wrapper">
+        <div class="form-header">
+          <h2>{{ mode === 'login' ? '欢迎回来' : '创建新账号' }}</h2>
+          <p>{{ mode === 'login' ? '登录以进入管理控制台' : '注册一个新的平台账号' }}</p>
+          <div v-if="ldapEnabled && mode === 'login'" class="ldap-badge">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>LDAP 认证已启用</span>
+          </div>
+        </div>
+
+        <form class="login-form" @submit.prevent="handleSubmit">
+          <div class="form-group">
+            <label for="username">用户名</label>
             <input
-              id="password"
-              v-model="form.password"
-              :type="showPassword ? 'text' : 'password'"
-              placeholder="请输入密码"
-              :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
+              id="username"
+              v-model="form.username"
+              type="text"
+              placeholder="请输入用户名"
+              autocomplete="username"
               required
-              aria-label="密码"
+              aria-label="用户名"
             />
-            <button type="button" class="toggle-password" @click="showPassword = !showPassword" tabindex="-1">
-              <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
+          </div>
+
+          <div class="form-group">
+            <label for="password">密码</label>
+            <div class="password-wrapper">
+              <input
+                id="password"
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                placeholder="请输入密码"
+                :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
+                required
+                aria-label="密码"
+              />
+              <button type="button" class="toggle-password" @click="showPassword = !showPassword" tabindex="-1">
+                <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group" v-if="mode === 'register'">
+            <label for="password_confirm">确认密码</label>
+            <input
+              id="password_confirm"
+              v-model="form.password_confirm"
+              type="password"
+              placeholder="请再次输入密码"
+              autocomplete="new-password"
+              required
+              aria-label="确认密码"
+            />
+          </div>
+
+          <div class="form-options" v-if="mode === 'login'">
+            <div class="remember-me">
+              <input type="checkbox" id="remember" v-model="form.remember" />
+              <label for="remember">记住我</label>
+            </div>
+
+            <!-- ✅ 修改点：弹出重置密码弹窗 -->
+            <a href="#" class="forgot-password" @click.prevent="openForgot">
+              忘记密码?
+            </a>
+          </div>
+
+          <div class="button-group">
+            <button type="submit" class="login-btn" :disabled="isLoading">
+              <span v-if="!isLoading">{{ mode === 'login' ? '登 录' : '注 册' }}</span>
+              <span v-else>{{ mode === 'login' ? '登录中...' : '注册中...' }}</span>
+            </button>
+
+            <button type="button" class="register-btn" :disabled="isLoading" @click="toggleMode">
+              {{ mode === 'login' ? '注册新账号' : '返回登录' }}
             </button>
           </div>
-        </div>
 
-        <div class="form-group" v-if="mode === 'register'">
-          <label for="password_confirm">确认密码</label>
-          <input
-            id="password_confirm"
-            v-model="form.password_confirm"
-            type="password"
-            placeholder="请再次输入密码"
-            autocomplete="new-password"
-            required
-            aria-label="确认密码"
-          />
-        </div>
-
-        <div class="form-options" v-if="mode === 'login'">
-          <div class="remember-me">
-            <input type="checkbox" id="remember" v-model="form.remember" />
-            <label for="remember">记住我</label>
+          <div class="error-message" v-if="error">{{ error }}</div>
+          <div class="success-message" v-if="success">{{ success }}</div>
+          <div class="ldap-info" v-if="authMethod === 'ldap' && success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            已通过 LDAP 认证
           </div>
-
-          <!-- ✅ 修改点：弹出重置密码弹窗 -->
-          <a href="#" class="forgot-password" @click.prevent="openForgot">
-            忘记密码?
-          </a>
-        </div>
-
-        <div class="button-group">
-          <button type="submit" class="login-btn" :disabled="isLoading">
-            <span v-if="!isLoading">{{ mode === 'login' ? '登录' : '注册' }}</span>
-            <span v-else>{{ mode === 'login' ? '登录中...' : '注册中...' }}</span>
-          </button>
-
-          <button type="button" class="register-btn" :disabled="isLoading" @click="toggleMode">
-            {{ mode === 'login' ? '注册' : '返回登录' }}
-          </button>
-        </div>
-
-        <div class="error-message" v-if="error">{{ error }}</div>
-        <div class="success-message" v-if="success">{{ success }}</div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </main>
 
     <!-- =========================
          ✅ 忘记密码弹窗（遮罩 + 表单）
@@ -165,9 +232,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { login, register, forgotPassword } from '@/api/auth'
+import { getLDAPStatus } from '@/api/ldap'
 import { useClusterStore } from '@/stores/cluster'
 
 const router = useRouter()
@@ -186,6 +254,19 @@ const isLoading = ref(false)
 const error = ref('')
 const success = ref('')
 const showPassword = ref(false)
+const ldapEnabled = ref(false)
+const authMethod = ref('') // 'ldap' | 'local'
+
+// 检查 LDAP 状态
+onMounted(async () => {
+  try {
+    const res = await getLDAPStatus()
+    const data = res?.data ?? res
+    ldapEnabled.value = data?.enabled || false
+  } catch {
+    // LDAP 状态接口不可用时静默失败
+  }
+})
 
 // =====================
 // 忘记密码弹窗状态
@@ -319,6 +400,9 @@ const loginRequest = async (username, password) => {
     return null
   }
 
+  // 记录认证方式
+  authMethod.value = data?.auth_method || 'local'
+
   return { token, user }
 }
 
@@ -376,67 +460,211 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
-:root {
-  --primary-color: #6366f1;
-  --secondary-color: #8b5cf6;
-}
-
-.login-container {
+/* ============================================================
+   大厂风格登录页：左侧品牌展示区 + 右侧浅色表单区
+   ============================================================ */
+.login-page {
   display: flex;
-  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f5f7fb;
+  color: #1d2129;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ==================== 左侧品牌区 ==================== */
+.brand-panel {
+  position: relative;
+  flex: 1.15;
+  overflow: hidden;
+  display: flex;
   align-items: center;
-  height: 100vh;
-  background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, .25), transparent 42%),
-  radial-gradient(circle at 80% 80%, rgba(139, 92, 246, .18), transparent 46%),
-  linear-gradient(135deg, #0f0a1e 0%, #1e1b4b 40%, #0f0a1e 100%);
+  padding: 64px 72px;
+  background: linear-gradient(135deg, #0b122b 0%, #14224f 45%, #1d3faf 100%);
+  isolation: isolate;
 }
 
-.login-box {
-  width: 100%;
-  max-width: 420px;
-  padding: 40px 36px;
-  background: rgba(255, 255, 255, .08);
-  backdrop-filter: blur(16px);
-  border-radius: 20px;
-  border: 1px solid rgba(139, 92, 246, .25);
-  box-shadow: 0 20px 60px rgba(99, 102, 241, .2);
+/* 光晕装饰 */
+.brand-glow {
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(64, 128, 255, 0.55) 0%, rgba(64, 128, 255, 0) 70%);
+  filter: blur(10px);
+  z-index: -1;
 }
 
-.login-header {
-  text-align: center;
-  margin-bottom: 28px;
+/* 网格纹理 */
+.brand-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at 30% 40%, #000 0%, transparent 75%);
+  z-index: -1;
 }
 
-.login-header h2 {
-  color: #f8fafc;
-  font-size: 26px;
-  margin-bottom: 8px;
+.brand-content {
+  position: relative;
+  max-width: 460px;
 }
 
-.login-header p {
-  color: #94a3b8;
-  font-size: 14px;
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
 }
 
-.login-form {
+.brand-hero {
+  margin-top: 56px;
+}
+
+.brand-hero h1 {
+  font-size: 42px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.brand-hero p {
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.brand-features {
+  list-style: none;
+  padding: 0;
+  margin: 48px 0 0;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-.form-group label {
-  color: #e2e8f0;
+.brand-features li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.feat-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7ea8ff;
+  background: rgba(126, 168, 255, 0.16);
+  border: 1px solid rgba(126, 168, 255, 0.28);
+}
+
+.brand-footer {
+  margin-top: 72px;
   font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ==================== 右侧表单区 ==================== */
+.form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.form-wrapper {
+  width: 100%;
+  max-width: 380px;
+}
+
+.mobile-brand {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #165DFF;
+}
+
+.form-header {
+  margin-bottom: 32px;
+}
+
+.form-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1d2129;
+  margin: 0;
+}
+
+.form-header p {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #86909c;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  color: #4e5969;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .form-group input {
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .08);
-  border: 1px solid rgba(255, 255, 255, .18);
-  color: #f8fafc;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #dcdfe6;
+  color: #1d2129;
+  font-size: 14px;
   box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input::placeholder {
+  color: #c0c4cc;
+}
+
+.form-group input:hover {
+  border-color: #c0c4cc;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #165DFF;
+  box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.12);
 }
 
 .password-wrapper {
@@ -451,10 +679,10 @@ const handleSubmit = async () => {
 
 .toggle-password {
   position: absolute;
-  right: 12px;
+  right: 10px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #a8abb2;
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -464,14 +692,14 @@ const handleSubmit = async () => {
 }
 
 .toggle-password:hover {
-  color: #e2e8f0;
+  color: #165DFF;
 }
 
 .form-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  margin-top: -4px;
 }
 
 .remember-me {
@@ -480,108 +708,142 @@ const handleSubmit = async () => {
   gap: 6px;
 }
 
+.remember-me input {
+  width: 15px;
+  height: 15px;
+  accent-color: #165DFF;
+  cursor: pointer;
+}
+
 .remember-me label {
-  color: #94a3b8;
-  font-size: 14px;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .forgot-password {
-  color: #818cf8;
+  color: #165DFF;
   text-decoration: none;
-  font-size: 14px;
-  transition: color 0.3s ease;
+  font-size: 13px;
+  transition: color 0.2s ease;
 }
 
 .forgot-password:hover {
-  color: #a5b4fc;
+  color: #4080FF;
   text-decoration: underline;
 }
 
 .button-group {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 8px;
 }
 
 .login-btn {
-  padding: 14px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  height: 46px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #165DFF, #4080FF);
   color: #fff;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
+  transition: all 0.25s ease;
   font-size: 15px;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  letter-spacing: 2px;
+  box-shadow: 0 6px 16px rgba(22, 93, 255, 0.28);
 }
 
 .login-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--secondary-color), #7c3aed);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(22, 93, 255, 0.38);
+}
+
+.login-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .login-btn:disabled {
-  background: linear-gradient(135deg, #a5b4fc, #818cf8);
+  background: #a3c0ff;
   cursor: not-allowed;
-  transform: none;
   box-shadow: none;
 }
 
 .register-btn {
-  padding: 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .08);
-  color: #a5b4fc;
-  border: 1px solid rgba(165, 180, 252, .35);
+  height: 46px;
+  border-radius: 8px;
+  background: #fff;
+  color: #4e5969;
+  border: 1px solid #dcdfe6;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  font-size: 15px;
+  transition: all 0.25s ease;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .register-btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.15);
-  color: #c4b5fd;
-  border-color: rgba(165, 180, 252, .6);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.2);
+  color: #165DFF;
+  border-color: #165DFF;
+  background: rgba(22, 93, 255, 0.04);
 }
 
 .register-btn:disabled {
-  background: rgba(255, 255, 255, .05);
-  color: #818cf8;
+  color: #c0c4cc;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .error-message {
-  background: rgba(239, 68, 68, .15);
-  color: #fecaca;
-  padding: 12px;
-  border-radius: 10px;
+  background: #fef0f0;
+  color: #f56c6c;
+  padding: 11px 14px;
+  border-radius: 8px;
   text-align: center;
+  font-size: 13px;
+  border: 1px solid #fde2e2;
 }
 
 .success-message {
-  background: rgba(34, 197, 94, .15);
-  color: #bbf7d0;
-  padding: 12px;
-  border-radius: 10px;
+  background: #f0f9eb;
+  color: #67c23a;
+  padding: 11px 14px;
+  border-radius: 8px;
   text-align: center;
+  font-size: 13px;
+  border: 1px solid #e1f3d8;
 }
 
-/* =====================
-   Modal 样式
-   ===================== */
+/* LDAP 标识 */
+.ldap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 5px 12px;
+  background: rgba(103, 194, 58, 0.1);
+  border: 1px solid rgba(103, 194, 58, 0.28);
+  border-radius: 20px;
+  color: #529b2e;
+  font-size: 12px;
+}
+
+.ldap-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(22, 93, 255, 0.06);
+  border: 1px solid rgba(22, 93, 255, 0.18);
+  border-radius: 8px;
+  color: #165DFF;
+  font-size: 13px;
+}
+
+/* ==================== 忘记密码 Modal ==================== */
 .modal-mask {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.65);
-  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -591,49 +853,93 @@ const handleSubmit = async () => {
 
 .modal {
   width: 100%;
-  max-width: 440px;
-  padding: 18px 18px 16px;
-  background: rgba(30, 27, 75, .95);
-  border: 1px solid rgba(139, 92, 246, .25);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(99, 102, 241, .25);
+  max-width: 420px;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .modal-title {
-  color: #f8fafc;
-  font-size: 16px;
+  color: #1d2129;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .modal-close {
   background: transparent;
   border: none;
-  color: #cbd5e1;
-  font-size: 22px;
+  color: #909399;
+  font-size: 24px;
   cursor: pointer;
   line-height: 1;
+  transition: color 0.2s;
 }
 
 .modal-close:hover {
-  color: #ffffff;
+  color: #1d2129;
 }
 
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .modal-actions {
   display: flex;
   gap: 12px;
   margin-top: 6px;
+}
+
+.modal-actions .register-btn,
+.modal-actions .login-btn {
+  flex: 1;
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 900px) {
+  .brand-panel {
+    display: none;
+  }
+
+  .form-panel {
+    flex: 1;
+    background: #f5f7fb;
+  }
+
+  .mobile-brand {
+    display: flex;
+  }
+
+  .form-wrapper {
+    max-width: 400px;
+    padding: 32px 24px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+  }
+}
+
+@media (max-width: 480px) {
+  .form-panel {
+    padding: 20px 16px;
+  }
+
+  .form-header h2 {
+    font-size: 24px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
 }
 </style>

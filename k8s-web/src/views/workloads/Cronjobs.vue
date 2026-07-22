@@ -212,9 +212,13 @@
             </td>
             <td class="action-cell">
               <div class="action-icons">
-                <!-- 日志按钮（直接显示） -->
+                <!-- 详情按钮（直接显示） -->
+                <button class="action-btn primary" @click="viewDetail(cj)" title="查看 CronJob 详情">
+                  📋 详情
+                </button>
+                <!-- Job列表按钮 -->
                 <button class="action-btn primary" @click="viewJobs(cj)" title="查看此 CronJob 创建的所有 Job">
-                  📦 Job 列表
+                  📦 Jobs
                 </button>
                 
                 <!-- 更多按钮 -->
@@ -225,10 +229,6 @@
 
                   <!-- 更多菜单 -->
                   <div v-if="showMoreOptions && selectedCronjob === cj" class="more-menu" :style="menuStyle">
-                    <button class="menu-item" @click="viewDetail(cj)">
-                      <span class="menu-icon">📋</span>
-                      <span>查看详情</span>
-                    </button>
                     <button class="menu-item" @click="viewYaml(cj)">
                       <span class="menu-icon">📝</span>
                       <span>查看/编辑 YAML</span>
@@ -573,90 +573,110 @@
       </div>
     </div>
 
-    <!-- 详情模态框 -->
-    <div v-if="showDetailModal" class="modal-overlay" @click="showDetailModal = false">
-      <div class="modal-content modal-large" @click.stop>
-        <div class="modal-header">
-          <h3>CronJob 详情: {{ selectedCronjob?.name }}</h3>
-          <button @click="showDetailModal = false" class="close-btn">×</button>
-        </div>
-        <div class="modal-body">
-          <div v-if="loadingDetail" style="text-align: center; padding: 40px;">
-            <div class="loading-spinner"></div>
-            <div style="margin-top: 10px;">加载详情中...</div>
-          </div>
-          <div v-else-if="detailData">
-            <div class="detail-section">
-              <h4>基本信息</h4>
-              <table class="detail-table">
-                <tbody>
-                  <tr>
-                    <td class="label">名称:</td>
-                    <td>{{ detailData.cronjob.name }}</td>
-                  </tr>
-                  <tr>
-                    <td class="label">命名空间:</td>
-                    <td>{{ detailData.cronjob.namespace }}</td>
-                  </tr>
-                  <tr>
-                    <td class="label">调度表达式:</td>
-                    <td><code>{{ detailData.cronjob.schedule }}</code></td>
-                  </tr>
-                  <tr>
-                    <td class="label">挂起状态:</td>
-                    <td>{{ detailData.cronjob.suspend ? '是' : '否' }}</td>
-                  </tr>
-                  <tr>
-                    <td class="label">并发策略:</td>
-                    <td>{{ detailData.cronjob.concurrencyPolicy }}</td>
-                  </tr>
-                  <tr>
-                    <td class="label">最后调度时间:</td>
-                    <td>{{ detailData.cronjob.lastScheduleTime || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td class="label">最后成功时间:</td>
-                    <td>{{ detailData.cronjob.lastSuccessfulTime || '-' }}</td>
-                  </tr>
-                </tbody>
-              </table>
+    <!-- ========== DDP Describe 抽屉 ========== -->
+    <Teleport to="body">
+      <div v-if="showDetailModal" class="ddp-overlay" @click="showDetailModal = false">
+        <Transition name="ddp-slide">
+          <div v-if="showDetailModal" class="ddp-panel" @click.stop>
+            <!-- Header -->
+            <div class="ddp-hd">
+              <div class="ddp-hd-top">
+                <span class="ddp-hd-icon">⏰</span>
+                <h2 class="ddp-hd-title">{{ selectedCronjob?.name }}</h2>
+                <span class="ddp-hd-ns">{{ selectedCronjob?.namespace }}</span>
+                <span v-if="detailData" class="ddp-hd-status" :class="ddpStatusClass(detailData)">
+                  <i class="ddp-led"></i>{{ ddpStatusText(detailData) }}
+                </span>
+              </div>
+              <button class="ddp-close" @click="showDetailModal = false">&times;</button>
             </div>
+            <!-- Body -->
+            <div class="ddp-body">
+              <div v-if="loadingDetail" class="ddp-loading">
+                <div class="loading-spinner"></div><span>加载中…</span>
+              </div>
+              <template v-else-if="detailData">
+                <!-- 基本信息 -->
+                <section class="ddp-sec">
+                  <h3 class="ddp-sec-title">基本信息</h3>
+                  <div class="ddp-kv-grid">
+                    <div class="ddp-kv"><span class="ddp-k">名称</span><span class="ddp-v">{{ detailData.metadata?.name || selectedCronjob?.name }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">命名空间</span><span class="ddp-v">{{ detailData.metadata?.namespace || selectedCronjob?.namespace }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">UID</span><span class="ddp-v mono">{{ detailData.metadata?.uid || '-' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">创建时间</span><span class="ddp-v">{{ detailData.metadata?.creationTimestamp || '-' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">Schedule</span><span class="ddp-v mono">{{ detailData.spec?.schedule || '-' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">Suspend</span><span class="ddp-v">{{ detailData.spec?.suspend ? '是' : '否' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">并发策略</span><span class="ddp-v">{{ detailData.spec?.concurrencyPolicy || 'Allow' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">成功历史限制</span><span class="ddp-v">{{ detailData.spec?.successfulJobsHistoryLimit ?? 3 }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">失败历史限制</span><span class="ddp-v">{{ detailData.spec?.failedJobsHistoryLimit ?? 1 }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">最后调度时间</span><span class="ddp-v">{{ detailData.status?.lastScheduleTime || '-' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">最后成功时间</span><span class="ddp-v">{{ detailData.status?.lastSuccessfulTime || '-' }}</span></div>
+                    <div class="ddp-kv"><span class="ddp-k">活跃 Jobs</span><span class="ddp-v">{{ detailData.status?.active?.length || 0 }}</span></div>
+                  </div>
+                </section>
 
-            <div class="detail-section" v-if="detailData.jobs && detailData.jobs.length > 0">
-              <h4>历史任务 ({{ detailData.jobs.length }})</h4>
-              <table class="detail-table">
-                <thead>
-                  <tr>
-                    <th>任务名称</th>
-                    <th>状态</th>
-                    <th>开始时间</th>
-                    <th>完成时间</th>
-                    <th>活跃/成功/失败</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="job in detailData.jobs" :key="job.name">
-                    <td>{{ job.name }}</td>
-                    <td>
-                      <span class="status-badge" :class="job.phase.toLowerCase()">{{ job.phase }}</span>
-                    </td>
-                    <td>{{ formatTime(job.startTime) }}</td>
-                    <td>{{ formatTime(job.completionTime) }}</td>
-                    <td>{{ job.active || 0 }} / {{ job.succeeded || 0 }} / {{ job.failed || 0 }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div v-else class="detail-section">
-              <p style="color: #999; text-align: center; padding: 20px;">暂无历史任务</p>
+                <!-- Labels -->
+                <section class="ddp-sec" v-if="detailData.metadata?.labels && Object.keys(detailData.metadata.labels).length">
+                  <h3 class="ddp-sec-title">Labels</h3>
+                  <div class="ddp-chip-list">
+                    <span class="ddp-chip" v-for="(v, k) in detailData.metadata.labels" :key="k">{{ k }}={{ v }}</span>
+                  </div>
+                </section>
+
+                <!-- Annotations -->
+                <section class="ddp-sec" v-if="detailData.metadata?.annotations && Object.keys(detailData.metadata.annotations).length">
+                  <h3 class="ddp-sec-title ddp-fold-title" @click="ddpShowAnno = !ddpShowAnno">
+                    Annotations ({{ Object.keys(detailData.metadata.annotations).length }})
+                    <span class="ddp-fold-icon">{{ ddpShowAnno ? '▾' : '▸' }}</span>
+                  </h3>
+                  <div v-if="ddpShowAnno" class="ddp-chip-list">
+                    <span class="ddp-chip anno" v-for="(v, k) in detailData.metadata.annotations" :key="k" :title="v">{{ k }}={{ v?.substring?.(0, 60) }}</span>
+                  </div>
+                </section>
+
+                <!-- Job Template 容器 -->
+                <section class="ddp-sec" v-if="ddpContainers(detailData).length">
+                  <h3 class="ddp-sec-title">Job Template 容器</h3>
+                  <div v-for="c in ddpContainers(detailData)" :key="c.name" class="ddp-container-card">
+                    <div class="ddp-container-name">📦 {{ c.name }}</div>
+                    <div class="ddp-kv-grid">
+                      <div class="ddp-kv"><span class="ddp-k">镜像</span><span class="ddp-v mono">{{ c.image }}</span></div>
+                      <div class="ddp-kv" v-if="c.command"><span class="ddp-k">Command</span><span class="ddp-v mono">{{ c.command.join(' ') }}</span></div>
+                      <div class="ddp-kv" v-if="c.args"><span class="ddp-k">Args</span><span class="ddp-v mono">{{ c.args.join(' ') }}</span></div>
+                      <div class="ddp-kv" v-if="c.resources?.requests"><span class="ddp-k">Requests</span><span class="ddp-v">CPU: {{ c.resources.requests.cpu || '-' }} / Mem: {{ c.resources.requests.memory || '-' }}</span></div>
+                      <div class="ddp-kv" v-if="c.resources?.limits"><span class="ddp-k">Limits</span><span class="ddp-v">CPU: {{ c.resources.limits.cpu || '-' }} / Mem: {{ c.resources.limits.memory || '-' }}</span></div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Active Jobs -->
+                <section class="ddp-sec" v-if="detailData.status?.active && detailData.status.active.length">
+                  <h3 class="ddp-sec-title">Active Jobs ({{ detailData.status.active.length }})</h3>
+                  <div class="ddp-chip-list">
+                    <span class="ddp-chip" v-for="(j, idx) in detailData.status.active" :key="idx">{{ j.name }}</span>
+                  </div>
+                </section>
+
+                <!-- Events -->
+                <section class="ddp-sec">
+                  <h3 class="ddp-sec-title">Events</h3>
+                  <div v-if="ddpEventsLoading" class="ddp-loading"><span>加载事件...</span></div>
+                  <div v-else-if="ddpEventsData.length === 0" class="ddp-empty">暂无事件</div>
+                  <div v-else class="ddp-events-list">
+                    <div v-for="(ev, idx) in ddpEventsData" :key="idx" class="ddp-event-row" :class="ev.type === 'Warning' ? 'warn' : ''">
+                      <span class="ddp-ev-type" :class="ev.type === 'Warning' ? 'warn' : 'normal'">{{ ev.type }}</span>
+                      <span class="ddp-ev-reason">{{ ev.reason }}</span>
+                      <span class="ddp-ev-msg">{{ ev.message }}</span>
+                      <span class="ddp-ev-age">{{ ddpEvAge(ev.lastTimestamp || ev.eventTime) }}</span>
+                    </div>
+                  </div>
+                </section>
+              </template>
             </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button @click="showDetailModal = false" class="btn btn-secondary">关闭</button>
-        </div>
+        </Transition>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 删除确认模态框 -->
     <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
@@ -1077,7 +1097,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import Pagination from '@/components/Pagination.vue'
 import KubeTerminal from '@/components/KubeTerminal.vue'
 import cronjobsApi from '@/api/cluster/workloads/cronjobs'
-import namespaceApi from '@/api/cluster/config/namespace'
+import namespaceApi from '@/api/cluster/namespaces'
 import permissionStore from '@/stores/permission'
 import { useResourceWatcher } from '@/composables/useResourceWatcher'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -1096,7 +1116,7 @@ const canOperate = computed(() => {
 })
 
 // ==================== 状态管理 ====================
-const loading = ref(false)
+const loading = ref(true)
 const errorMsg = ref('')
 const cronjobs = ref([])
 const total = ref(0)
@@ -1143,6 +1163,9 @@ const loadingJobs = ref(false)    // 加载 Job 列表
 const selectedCronjob = ref(null)
 const selectedCronjobForJobs = ref(null)  // 用于 Job 列表查看
 const detailData = ref(null)
+const ddpEventsData = ref([])
+const ddpEventsLoading = ref(false)
+const ddpShowAnno = ref(false)
 const cronjobJobs = ref([])  // CronJob 关联的 Job 列表
 
 // Job 操作相关
@@ -1215,16 +1238,19 @@ const startCronJobWatcher = (cj, jobName) => {
             desiredReplicas: completions,
             readyReplicas: succeeded,
             updatedReplicas: succeeded,
+            availableReplicas: succeeded, // Job 无 available 概念，用 succeeded 代替
           }
         }
         // 监听 CronJob 本身状态
         const res = await cronjobsApi.detail({ namespace: cj.namespace, name: cj.name })
         const d = res?.data?.cronjob || res?.data || {}
+        const isActive = !d.suspend
         return {
-          status: d.status || (d.suspend ? 'Suspended' : 'Active'),
+          status: isActive ? 'Running' : 'Suspended',
           desiredReplicas: 1,
-          readyReplicas: d.status === 'Active' ? 1 : 0,
-          updatedReplicas: d.status === 'Active' ? 1 : 0,
+          readyReplicas: isActive ? 1 : 0,
+          updatedReplicas: isActive ? 1 : 0,
+          availableReplicas: isActive ? 1 : 0,
         }
       },
       getEvents: async () => {
@@ -2058,28 +2084,54 @@ const triggerCronJob = async (cj) => {
 // 查看详情
 const viewDetail = async (cj) => {
   showMoreOptions.value = false
-  
   selectedCronjob.value = cj
   showDetailModal.value = true
   loadingDetail.value = true
   detailData.value = null
+  ddpEventsData.value = []
+  ddpShowAnno.value = false
+  ddpEventsLoading.value = true
 
   try {
-    const res = await cronjobsApi.detail({
-      namespace: cj.namespace,
-      name: cj.name
-    })
-
-    if (res.code === 0 && res.data) {
-      detailData.value = res.data
-    }
-  } catch (error) {
-    console.error('获取详情失败:', error)
-    alert(error.kube_message_error || error.message || '获取详情失败')
-    showDetailModal.value = false
+    const [detailRes, eventsRes] = await Promise.all([
+      cronjobsApi.detail({ namespace: cj.namespace, name: cj.name }),
+      cronjobsApi.events({ namespace: cj.namespace, name: cj.name, limit: 50 })
+    ])
+    detailData.value = detailRes.code === 0 ? (detailRes.data?.data || detailRes.data) : cj
+    ddpEventsData.value = eventsRes.code === 0 ? (eventsRes.data?.events || eventsRes.data?.items || eventsRes.data || []) : []
+  } catch (e) {
+    console.error('获取CronJob详情失败:', e)
+    detailData.value = cj
+    ddpEventsData.value = []
   } finally {
     loadingDetail.value = false
+    ddpEventsLoading.value = false
   }
+}
+
+// DDP helpers
+const ddpStatusText = (d) => {
+  if (!d?.spec) return 'UNKNOWN'
+  if (d.spec?.suspend) return 'SUSPENDED'
+  if (d.status?.active?.length > 0) return 'ACTIVE'
+  return 'SCHEDULED'
+}
+const ddpStatusClass = (d) => {
+  const s = ddpStatusText(d)
+  if (s === 'SUSPENDED') return 'status-warn'
+  if (s === 'ACTIVE') return 'status-ok'
+  return 'status-ok'
+}
+const ddpContainers = (d) => {
+  return d?.spec?.jobTemplate?.spec?.template?.spec?.containers || []
+}
+const ddpEvAge = (ts) => {
+  if (!ts) return ''
+  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
+  if (diff < 60) return diff + 's ago'
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago'
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago'
+  return Math.floor(diff / 86400) + 'd ago'
 }
 
 // 确认删除
@@ -2237,9 +2289,9 @@ const executeBatchDelete = async () => {
   deleteConfirmText.value = ''
 
   if (failCount === 0) {
-    alert(`成功删除 ${successCount} 个 CronJob`)
+    Message.success({ content: `成功删除 ${successCount} 个 CronJob`, duration: 2200 })
   } else {
-    alert(`成功 ${successCount} 个，失败 ${failCount} 个`)
+    Message.warning({ content: `成功 ${successCount} 个，失败 ${failCount} 个`, duration: 3000 })
   }
 
   exitBatchMode()
@@ -3594,23 +3646,23 @@ onUnmounted(() => {
 .yaml-editor {
   width: 100%;
   min-height: 500px;
-  padding: 16px;
+  padding: 20px;
   border: 2px solid #334155;
   border-radius: 12px;
-  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
   resize: vertical;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  background: #1e293b;
+  color: #e2e8f0;
+  tab-size: 2;
   transition: all 0.2s;
 }
 
 .yaml-editor:focus {
   outline: none;
-  border-color: #326ce5;
-  background: #1e1e1e;
-  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.3);
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
 .yaml-editor::placeholder {
@@ -3863,63 +3915,82 @@ onUnmounted(() => {
 }
 
 .load-template-btn {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   color: white;
   border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 }
 
 .load-template-btn:hover {
-  background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.5);
-  transform: translateY(-1px);
-}
-
-.load-template-btn:active {
-  background: #020617;
-  transform: translateY(0);
+  background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+  transform: translateY(-2px);
 }
 
 .copy-yaml-btn {
-  background: #10b981;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: white;
   border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
 }
 
 .copy-yaml-btn:hover {
-  background: #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+  transform: translateY(-2px);
 }
 
 .reset-yaml-btn {
-  background: #f1f5f9;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
 }
 
 .reset-yaml-btn:hover {
-  background: #e2e8f0;
-  color: #475569;
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
+  transform: translateY(-2px);
 }
 
 .yaml-editor {
   width: 100%;
-  min-height: 350px;
-  padding: 16px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  min-height: 400px;
+  padding: 20px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
   background: #1e293b;
   color: #e2e8f0;
-  border: 1px solid #334155;
-  border-radius: 8px;
+  border: 2px solid #334155;
+  border-radius: 12px;
   resize: vertical;
+  tab-size: 2;
+  transition: all 0.2s;
 }
 
 .yaml-editor:focus {
   outline: none;
-  border-color: #326ce5;
-  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.2);
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
 .yaml-error {
@@ -3927,8 +3998,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
   border-radius: 8px;
   color: #dc2626;
   font-size: 13px;
@@ -3940,6 +4011,7 @@ onUnmounted(() => {
 
 .yaml-editor-footer {
   background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px;
 }
@@ -3952,7 +4024,7 @@ onUnmounted(() => {
 .yaml-tips strong {
   display: block;
   margin-bottom: 8px;
-  color: #1f2937;
+  color: #2d3748;
 }
 
 .yaml-tips ul {
@@ -4117,4 +4189,52 @@ onUnmounted(() => {
 .event-msg { color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .slide-up-enter-active, .slide-up-leave-active { transition: all .35s cubic-bezier(.4,0,.2,1); }
 .slide-up-enter-from, .slide-up-leave-to { transform: translateY(20px); opacity: 0; }
+
+/* ===== DDP Describe 抽屉 ===== */
+.ddp-overlay{position:fixed;inset:0;z-index:9000;background:rgba(15,23,42,.45);backdrop-filter:blur(2px)}
+.ddp-panel{position:absolute;right:0;top:0;height:100%;width:880px;max-width:92vw;display:flex;flex-direction:column;background:#f8fafc;box-shadow:-4px 0 24px rgba(0,0,0,.18)}
+.ddp-hd{padding:18px 28px;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);display:flex;align-items:center;justify-content:space-between}
+.ddp-hd-top{display:flex;align-items:center;gap:10px;min-width:0}
+.ddp-hd-icon{font-size:22px}
+.ddp-hd-title{color:#fff;font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ddp-hd-ns{background:rgba(255,255,255,.12);color:#93c5fd;padding:2px 10px;border-radius:20px;font-size:12px;white-space:nowrap}
+.ddp-hd-status{display:flex;align-items:center;gap:5px;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;color:#fff}
+.ddp-hd-status.status-ok{background:rgba(34,197,94,.2);color:#4ade80}
+.ddp-hd-status.status-warn{background:rgba(234,179,8,.2);color:#facc15}
+.ddp-hd-status.status-err{background:rgba(239,68,68,.2);color:#f87171}
+.ddp-led{width:7px;height:7px;border-radius:50%;margin-right:4px;display:inline-block}
+.status-ok .ddp-led{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.status-warn .ddp-led{background:#facc15;box-shadow:0 0 6px #facc15}
+.status-err .ddp-led{background:#f87171;box-shadow:0 0 6px #f87171}
+.ddp-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:28px;cursor:pointer;line-height:1;padding:0 4px}
+.ddp-close:hover{color:#fff}
+.ddp-body{flex:1;overflow-y:auto;padding:24px 28px}
+.ddp-loading{display:flex;align-items:center;gap:10px;justify-content:center;padding:40px 0;color:#64748b}
+.ddp-empty{color:#94a3b8;text-align:center;padding:18px 0;font-size:13px}
+.ddp-sec{margin-bottom:22px}
+.ddp-sec-title{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+.ddp-fold-title{cursor:pointer;user-select:none}
+.ddp-fold-icon{float:right;font-size:12px;color:#94a3b8}
+.ddp-kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+.ddp-kv{display:flex;gap:8px;font-size:13px;padding:4px 0;border-bottom:1px dashed #f1f5f9}
+.ddp-k{color:#64748b;min-width:100px;flex-shrink:0}
+.ddp-v{color:#1e293b;word-break:break-all}
+.ddp-v.mono{font-family:monospace;font-size:12px}
+.ddp-chip-list{display:flex;flex-wrap:wrap;gap:6px}
+.ddp-chip{background:#e0e7ff;color:#3730a3;padding:2px 10px;border-radius:12px;font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ddp-chip.anno{background:#fef3c7;color:#92400e}
+.ddp-container-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:10px}
+.ddp-container-name{font-weight:600;font-size:13px;color:#0f172a;margin-bottom:8px}
+.ddp-events-list{max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
+.ddp-event-row{display:grid;grid-template-columns:60px 100px 1fr 70px;align-items:center;gap:8px;padding:7px 12px;font-size:12px;border-bottom:1px solid #f1f5f9}
+.ddp-event-row.warn{background:#fefce8}
+.ddp-ev-type{padding:1px 6px;border-radius:4px;font-weight:600;text-align:center}
+.ddp-ev-type.normal{background:rgba(34,197,94,.1);color:#16a34a}
+.ddp-ev-type.warn{background:rgba(234,179,8,.12);color:#a16207}
+.ddp-ev-reason{font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ddp-ev-msg{color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ddp-ev-age{color:#94a3b8;text-align:right;white-space:nowrap}
+.ddp-slide-enter-active{transition:transform .32s cubic-bezier(.4,0,.2,1)}
+.ddp-slide-leave-active{transition:transform .22s cubic-bezier(.4,0,1,1)}
+.ddp-slide-enter-from,.ddp-slide-leave-to{transform:translateX(100%)}
 </style>

@@ -497,7 +497,7 @@
               </svg>
             </div>
             <div class="about-info">
-              <h3>K8s Operation Platform</h3>
+              <h3>K8sOperation</h3>
               <p class="about-desc">企业级多集群 Kubernetes 管理平台</p>
               <div class="about-version">
                 <span class="version-badge">v2.0.0</span>
@@ -579,7 +579,7 @@ const { confirm: showConfirm } = useConfirmDialog()
 
 const activeSection = ref('basic')
 const showToast = ref(false)
-const loading = ref(false)
+const loading = ref(true)
 const toastMessage = ref('设置已保存')
 const toastType = ref('success') // success, error
 

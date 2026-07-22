@@ -20,71 +20,189 @@ import (
 	"k8soperation/global"
 	"k8soperation/internal/app/models"
 	"k8soperation/internal/app/requests"
+	"k8soperation/pkg/cache"
 	"k8soperation/pkg/jenkins"
 	"k8soperation/pkg/k8s/deployment"
 )
 
 // ==================== 流水线 CRUD ====================
 
+// PipelineCheckName 检查应用名称是否可用
+// excludeID > 0 时排除该 ID（编辑模式下排除自身）
+// 返回: (available bool, conflictName string, err error)
+func (s *Services) PipelineCheckName(ctx context.Context, name string, excludeID int64) (bool, string, error) {
+	if name == "" {
+		return false, "", errors.New("应用名称不能为空")
+	}
+	p, err := s.dao.PipelineGetByName(ctx, name)
+	if err == nil {
+		// 找到同名记录
+		if excludeID > 0 && p.ID == excludeID {
+			// 就是自身，可用
+			return true, "", nil
+		}
+		return false, p.Name, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true, "", nil
+	}
+	return false, "", fmt.Errorf("检查名称失败: %w", err)
+}
+
 // PipelineCreate 创建流水线
-func (s *Services) PipelineCreate(ctx context.Context, req *requests.PipelineCreateRequest, userID int64) (int64, error) {
+func (s *Services) PipelineCreate(ctx context.Context, req *requests.PipelineCreateRequest, userID int64) (int64, []string, error) {
 	// 检查名称是否已存在
 	_, err := s.dao.PipelineGetByName(ctx, req.Name)
 	if err == nil {
-		return 0, errors.New("流水线名称已存在")
+		return 0, nil, errors.New("应用名称已存在，请更换一个名称")
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, fmt.Errorf("检查名称失败: %w", err)
+		return 0, nil, fmt.Errorf("检查名称失败: %w", err)
+	}
+
+	// 收集警告信息（不阻止创建）
+	var warnings []string
+
+	// 警告 1：Git 仓库+分支冲突
+	gitBranchForCheck := req.GitBranch
+	if gitBranchForCheck == "" {
+		gitBranchForCheck = global.DefaultBranch()
+	}
+	conflictPipelines, _ := s.dao.PipelineGetByGitRepoBranch(ctx, req.GitRepo, gitBranchForCheck, 0)
+	if len(conflictPipelines) > 0 {
+		names := make([]string, 0, len(conflictPipelines))
+		for _, cp := range conflictPipelines {
+			names = append(names, cp.Name)
+		}
+		warnings = append(warnings, fmt.Sprintf("该仓库分支已被应用 [%s] 使用，可能导致 Jenkins 构建冲突",
+			strings.Join(names, ", ")))
+	}
+
+	// 警告 2：自动部署工作负载冲突
+	if req.AutoDeploy && req.TargetClusterID > 0 {
+		wlName := req.TargetWorkloadName
+		if wlName == "" {
+			wlName = strings.TrimSuffix(strings.TrimSuffix(req.Name, "-pipeline"), "-prod")
+			wlName = strings.TrimSuffix(strings.TrimSuffix(wlName, "-dev"), "-test")
+		}
+		ns := req.TargetNamespace
+		if ns == "" {
+			ns = "default"
+		}
+		if wlName != "" {
+			conflictDeploys, _ := s.dao.PipelineGetByWorkload(ctx, req.TargetClusterID, ns, wlName, 0)
+			if len(conflictDeploys) > 0 {
+				dnames := make([]string, 0, len(conflictDeploys))
+				for _, cd := range conflictDeploys {
+					dnames = append(dnames, cd.Name)
+				}
+				warnings = append(warnings, fmt.Sprintf("工作负载 [%s/%s] 已被应用 [%s] 的自动部署占用，可能导致部署相互覆盖",
+					ns, wlName, strings.Join(dnames, ", ")))
+			}
+		}
+	}
+
+	// 自动推导 DeployMode（默认 jenkins，兼容已有数据）
+	if req.DeployMode == "" {
+		req.DeployMode = models.DeployModeJenkins
 	}
 
 	// 模板化发布：根据 language_type 自动推导 JenkinsJob
 	languageType := req.LanguageType
 	if languageType == "" {
-		languageType = models.LanguageTypeCustom
+		languageType = models.LanguageTypeGo
 	}
 	jenkinsJob := req.JenkinsJob
-	if jenkinsJob == "" && languageType != models.LanguageTypeCustom {
+	// GitOps 模式不需要 JenkinsJob，Jenkins 模式下自动推导
+	if req.DeployMode == models.DeployModeJenkins && jenkinsJob == ""  {
 		// 从语言类型自动映射到通用构建 Job
 		if job, ok := models.DefaultJenkinsJobMap[languageType]; ok {
 			jenkinsJob = job
 		} else {
-			return 0, fmt.Errorf("不支持的语言类型: %s", languageType)
+			return 0, nil, fmt.Errorf("不支持的语言类型: %s", languageType)
 		}
 	}
-	if jenkinsJob == "" {
-		return 0, errors.New("Jenkins Job 名称不能为空，请指定 jenkins_job 或设置 language_type")
+	if req.DeployMode == models.DeployModeJenkins && jenkinsJob == "" {
+		return 0, nil, errors.New("Jenkins Job 名称不能为空，请指定 jenkins_job 或设置 language_type")
+	}
+	// GitOps 模式：验证 GitOps 配置
+	var gitOpsConfigJSON models.JSONMap
+	if req.DeployMode == models.DeployModeGitOps {
+		if req.GitOpsConfig == nil || req.GitOpsConfig.ArgoCDAppName == "" {
+			return 0, nil, errors.New("GitOps 模式需要配置 ArgoCD 应用名称")
+		}
+		gitOpsConfigJSON = req.GitOpsConfig.ToJSONMap()
+	}
+
+	// ==================== 智能默认值：简化首次创建 ====================
+	// 分支默认从配置读取
+	gitBranch := req.GitBranch
+	if gitBranch == "" {
+		gitBranch = global.DefaultBranch()
+	}
+	// 工作负载类型默认 Deployment
+	workloadKind := req.TargetWorkloadKind
+	if workloadKind == "" {
+		workloadKind = "Deployment"
+	}
+	// 工作负载名称默认取流水线名称（去掉常见后缀）
+	workloadName := req.TargetWorkloadName
+	if workloadName == "" && req.AutoDeploy {
+		workloadName = strings.TrimSuffix(strings.TrimSuffix(req.Name, "-pipeline"), "-prod")
+		workloadName = strings.TrimSuffix(strings.TrimSuffix(workloadName, "-dev"), "-test")
+	}
+	// 容器名称默认取工作负载名称
+	containerName := req.TargetContainer
+	if containerName == "" && workloadName != "" {
+		containerName = workloadName
+	}
+	// 命名空间默认 default
+	targetNamespace := req.TargetNamespace
+	if targetNamespace == "" && req.AutoDeploy {
+		targetNamespace = "default"
+	}
+	// 部署环境默认 dev
+	deployEnv := req.DeployEnv
+	if deployEnv == "" {
+		deployEnv = "dev"
 	}
 
 	pipeline := &models.CicdPipeline{
+		DeployMode:   req.DeployMode,
+		GitOpsConfig: gitOpsConfigJSON,
 		Name:               req.Name,
 		Description:        req.Description,
 		GitRepo:            req.GitRepo,
-		GitBranch:          req.GitBranch,
+		GitBranch:          gitBranch,
 		JenkinsURL:         req.JenkinsURL,
 		JenkinsJob:         jenkinsJob,
 		LanguageType:       languageType,
 		Status:             models.PipelineStatusIdle,
 		EnvVars:            models.EnvVars(req.EnvVars),
 		DeployConfig:       models.JSONMap(req.DeployConfig),
-		// 部署配置
+		// 部署配置（含智能默认值）
 		AutoDeploy:         req.AutoDeploy,
 		TargetClusterID:    req.TargetClusterID,
-		TargetNamespace:    req.TargetNamespace,
-		TargetWorkloadKind: req.TargetWorkloadKind,
-		TargetWorkloadName: req.TargetWorkloadName,
-		TargetContainer:    req.TargetContainer,
-		DeployEnv:          req.DeployEnv,
+		TargetNamespace:    targetNamespace,
+		TargetWorkloadKind: workloadKind,
+		TargetWorkloadName: workloadName,
+		TargetContainer:    containerName,
+		DeployEnv:          deployEnv,
 		RequireApproval:    req.RequireApproval,
 		EnableSonar:        req.EnableSonar,
 		EnableArtifactUpload: req.EnableArtifactUpload,
+		// 发布联动告警静默
+		EnableDeploySilence:  req.EnableDeploySilence,
+		SilenceBufferMinutes: req.SilenceBufferMinutes,
+		SilenceSeverities:    req.SilenceSeverities,
 		CreatedUserID:      userID,
 	}
 
 	if err := s.dao.PipelineCreate(ctx, pipeline); err != nil {
-		return 0, fmt.Errorf("创建流水线失败: %w", err)
+		return 0, nil, fmt.Errorf("创建流水线失败: %w", err)
 	}
 
-	return pipeline.ID, nil
+	return pipeline.ID, warnings, nil
 }
 
 // PipelineDetail 获取流水线详情
@@ -197,10 +315,20 @@ func (s *Services) PipelineUpdate(ctx context.Context, req *requests.PipelineUpd
 	if req.EnableArtifactUpload != nil {
 		updates["enable_artifact_upload"] = *req.EnableArtifactUpload
 	}
+	// 发布联动告警静默
+	if req.EnableDeploySilence != nil {
+		updates["enable_deploy_silence"] = *req.EnableDeploySilence
+	}
+	if req.SilenceBufferMinutes != nil {
+		updates["silence_buffer_minutes"] = *req.SilenceBufferMinutes
+	}
+	if req.SilenceSeverities != nil {
+		updates["silence_severities"] = *req.SilenceSeverities
+	}
 	if req.LanguageType != nil {
 		updates["language_type"] = *req.LanguageType
 		// 如果同时没有指定 jenkins_job，自动映射
-		if req.JenkinsJob == "" && *req.LanguageType != models.LanguageTypeCustom {
+		if req.JenkinsJob == ""  {
 			if job, ok := models.DefaultJenkinsJobMap[*req.LanguageType]; ok {
 				updates["jenkins_job"] = job
 			}
@@ -209,6 +337,32 @@ func (s *Services) PipelineUpdate(ctx context.Context, req *requests.PipelineUpd
 
 	if len(updates) == 0 {
 		return nil
+	}
+
+	// 智能默认值：自动部署启用时，确保容器名称有值
+	autoDeployEnabled := false
+	if req.AutoDeploy != nil {
+		autoDeployEnabled = *req.AutoDeploy
+	} else {
+		autoDeployEnabled = pipeline.AutoDeploy
+	}
+	if autoDeployEnabled {
+		// 如果容器名为空，默认用工作负载名
+		container := ""
+		if req.TargetContainer != nil {
+			container = *req.TargetContainer
+		} else {
+			container = pipeline.TargetContainer
+		}
+		workloadName := ""
+		if req.TargetWorkloadName != nil {
+			workloadName = *req.TargetWorkloadName
+		} else {
+			workloadName = pipeline.TargetWorkloadName
+		}
+		if container == "" && workloadName != "" {
+			updates["target_container"] = workloadName
+		}
 	}
 
 	return s.dao.PipelineUpdate(ctx, req.ID, updates)
@@ -308,10 +462,10 @@ func (s *Services) PipelineBatchCreate(ctx context.Context, req *requests.Pipeli
 		// 模板化推导
 		languageType := item.LanguageType
 		if languageType == "" {
-			languageType = models.LanguageTypeCustom
+			languageType = models.LanguageTypeGo
 		}
 		jenkinsJob := ""
-		if languageType != models.LanguageTypeCustom {
+		if _, ok := models.DefaultJenkinsJobMap[languageType]; ok {
 			if job, ok := models.DefaultJenkinsJobMap[languageType]; ok {
 				jenkinsJob = job
 			} else {
@@ -324,7 +478,7 @@ func (s *Services) PipelineBatchCreate(ctx context.Context, req *requests.Pipeli
 
 		gitBranch := item.GitBranch
 		if gitBranch == "" {
-			gitBranch = "main"
+			gitBranch = global.DefaultBranch()
 		}
 
 		pipeline := &models.CicdPipeline{
@@ -346,6 +500,10 @@ func (s *Services) PipelineBatchCreate(ctx context.Context, req *requests.Pipeli
 			RequireApproval:    item.RequireApproval,
 			EnableSonar:        item.EnableSonar,
 			EnableArtifactUpload: item.EnableArtifactUpload,
+			// 发布联动告警静默
+			EnableDeploySilence:  item.EnableDeploySilence,
+			SilenceBufferMinutes: item.SilenceBufferMinutes,
+			SilenceSeverities:    item.SilenceSeverities,
 			CreatedUserID:      userID,
 		}
 
@@ -446,6 +604,16 @@ func (s *Services) PipelineRun(ctx context.Context, req *requests.PipelineRunReq
 		return nil, fmt.Errorf("更新流水线状态失败: %w", err)
 	}
 
+		// ====== GitOps 模式分发 ======
+		if pipeline.DeployMode == models.DeployModeGitOps {
+			if err := s.gitOpsPipelineRun(ctx, pipeline, run, req); err != nil {
+				_ = s.dao.PipelineUpdateStatus(ctx, pipeline.ID, models.PipelineStatusIdle)
+				_ = s.dao.PipelineRunUpdateStatus(ctx, run.ID, models.PipelineRunStatusFailed)
+				return nil, err
+			}
+			return run, nil
+		}
+
 	// 构建 Jenkins 参数
 	params := make(map[string]string)
 	params["GIT_BRANCH"] = branch
@@ -520,6 +688,16 @@ func (s *Services) triggerJenkinsBuild(ctx context.Context, pipeline *models.Cic
 		zap.Duration("timeout", triggerTimeout),
 	)
 
+	// 首次构建参数预注册："Pipeline script from SCM" 的 parameters{} 块需成功构建一次后才注册，
+	// 否则首次构建时 GIT_REPO 等参数会被 Jenkins 丢弃。此处预注入参数定义（幂等，已参数化则跳过）。
+	// best-effort：失败仅告警不阻断后续触发。
+	if err := client.EnsureJobParameters(ctx, pipeline.JenkinsJob, params, jenkins.PipelineBoolParams); err != nil {
+		global.Logger.Warn("[流水线] 预注册 Job 参数失败（首次构建可能丢参），继续尝试触发构建",
+			zap.String("job_name", pipeline.JenkinsJob),
+			zap.Error(err),
+		)
+	}
+
 	// 触发构建并等待获取构建号
 	result, err := client.TriggerBuildAndWait(ctx, pipeline.JenkinsJob, params, triggerTimeout)
 	if err != nil {
@@ -546,7 +724,7 @@ func (s *Services) triggerJenkinsBuild(ctx context.Context, pipeline *models.Cic
 	_ = s.dao.PipelineRunUpdateBuildNumber(ctx, run.ID, result.BuildNumber)
 	_ = s.dao.PipelineUpdateRunInfo(ctx, pipeline.ID, models.PipelineRunStatusRunning, result.BuildNumber, result.BuildURL)
 
-	// 发送构建开始钉钉通知
+	// 立即发送「发布开始」通知（用户点击发布按钮时即时触发）
 	s.NotifyBuildStarted(ctx, pipeline, run, result.BuildNumber)
 }
 
@@ -709,27 +887,37 @@ func (s *Services) PipelineStatusWithRun(ctx context.Context, id int64) (*models
 	// 如果有构建号，获取 Jenkins 构建状态
 	var buildInfo *jenkins.BuildInfo
 	if pipeline.LastBuildNumber > 0 {
-		client := s.getJenkinsClient(pipeline.JenkinsURL)
-		if client != nil {
-			buildInfo, _ = client.GetBuildInfo(ctx, pipeline.JenkinsJob, pipeline.LastBuildNumber)
+		// 先尝试读缓存
+		var cached jenkins.BuildInfo
+		if err := cache.GetBuildInfo(ctx, pipeline.ID, pipeline.LastBuildNumber, &cached); err == nil && cached.Number > 0 {
+			buildInfo = &cached
+		} else {
+			client := s.getJenkinsClient(pipeline.JenkinsURL)
+			if client != nil {
+				buildInfo, _ = client.GetBuildInfo(ctx, pipeline.JenkinsJob, pipeline.LastBuildNumber)
+				if buildInfo != nil {
+					// 写入缓存：正在构建用短 TTL，已完成用长 TTL
+					cache.SetBuildInfo(ctx, pipeline.ID, pipeline.LastBuildNumber, buildInfo, buildInfo.Building)
+				}
+			}
+		}
 
-			// 如果构建已完成，同步更新本地状态
-			if buildInfo != nil && !buildInfo.Building {
-				runStatus := jenkins.BuildStatusToRunStatus(buildInfo.Building, buildInfo.Result)
-				if runStatus != pipeline.LastRunStatus {
-					_ = s.dao.PipelineUpdateRunComplete(ctx, pipeline.ID, runStatus)
-					pipeline.LastRunStatus = runStatus
-					pipeline.Status = models.PipelineStatusIdle
+		// 如果构建已完成，同步更新本地状态
+		if buildInfo != nil && !buildInfo.Building {
+			runStatus := jenkins.BuildStatusToRunStatus(buildInfo.Building, buildInfo.Result)
+			if runStatus != pipeline.LastRunStatus {
+				_ = s.dao.PipelineUpdateRunComplete(ctx, pipeline.ID, runStatus)
+				pipeline.LastRunStatus = runStatus
+				pipeline.Status = models.PipelineStatusIdle
 
-					// 同步更新运行记录状态
-					if latestRun != nil && latestRun.BuildNumber == pipeline.LastBuildNumber && latestRun.Status == models.PipelineRunStatusRunning {
-						_ = s.dao.PipelineRunUpdateStatus(ctx, latestRun.ID, runStatus)
-						latestRun.Status = runStatus
+				// 同步更新运行记录状态
+				if latestRun != nil && latestRun.BuildNumber == pipeline.LastBuildNumber && latestRun.Status == models.PipelineRunStatusRunning {
+					_ = s.dao.PipelineRunUpdateStatus(ctx, latestRun.ID, runStatus)
+					latestRun.Status = runStatus
 
-						// 重要：同步更新各阶段状态（包括将审批阶段设为 waiting）
-						// 避免回调未触发时，审批阶段状态与流水线状态不一致
-						_ = s.UpdateBuildStagesComplete(ctx, latestRun.ID, runStatus, latestRun.ImageURL, latestRun.ImageDigest, "")
-					}
+					// 重要：同步更新各阶段状态（包括将审批阶段设为 waiting）
+					// 避免回调未触发时，审批阶段状态与流水线状态不一致
+					_ = s.UpdateBuildStagesComplete(ctx, latestRun.ID, runStatus, latestRun.ImageURL, latestRun.ImageDigest, "")
 				}
 			}
 		}
@@ -748,6 +936,76 @@ func (s *Services) PipelineHistory(ctx context.Context, req *requests.PipelineHi
 	}
 
 	return list, total, nil
+}
+
+// BuildRecordList 获取全量构建记录（跨流水线），返回包含流水线名称的富化数据
+func (s *Services) BuildRecordList(ctx context.Context, page, pageSize int, status, keyword string, pipelineID int64) ([]interface{}, int64, error) {
+	list, total, err := s.dao.PipelineRunListAll(ctx, page, pageSize, status, keyword, pipelineID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 批量查询流水线名称缓存
+	pipelineNames := make(map[int64]string)
+	for _, run := range list {
+		if _, ok := pipelineNames[run.PipelineID]; !ok {
+			pipelineNames[run.PipelineID] = ""
+		}
+	}
+	for pid := range pipelineNames {
+		if p, err := s.dao.PipelineGetByID(ctx, pid); err == nil {
+			pipelineNames[pid] = p.Name
+		}
+	}
+
+	// 转换为富化结果
+	result := make([]interface{}, 0, len(list))
+	for _, run := range list {
+		result = append(result, map[string]interface{}{
+			"id":              run.ID,
+			"pipeline_id":     run.PipelineID,
+			"pipeline_name":   pipelineNames[run.PipelineID],
+			"build_number":    run.BuildNumber,
+			"status":          run.Status,
+			"trigger_type":    run.TriggerType,
+			"trigger_user_id": run.TriggerUserID,
+			"git_branch":      run.GitBranch,
+			"image_url":       run.ImageURL,
+			"image_digest":    run.ImageDigest,
+			"duration_sec":    run.DurationSec,
+			"started_at":      run.StartedAt,
+			"finished_at":     run.FinishedAt,
+			"created_at":      run.CreatedAt,
+			"error_message":   run.ErrorMessage,
+		})
+	}
+
+	return result, total, nil
+}
+
+// BuildStats 获取构建统计数据（总数、成功率、平均时长、趋势）
+func (s *Services) BuildStats(ctx context.Context, days int) (map[string]interface{}, error) {
+	if days < 1 {
+		days = 7
+	}
+	if days > 90 {
+		days = 90
+	}
+
+	stats, err := s.dao.PipelineRunBuildStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("查询构建统计失败: %w", err)
+	}
+
+	trend, err := s.dao.PipelineRunBuildTrend(ctx, days)
+	if err != nil {
+		return nil, fmt.Errorf("查询构建趋势失败: %w", err)
+	}
+
+	return map[string]interface{}{
+		"stats": stats,
+		"trend": trend,
+	}, nil
 }
 
 // PipelineCallbackResult 回调处理结果（返回给 Jenkins）
@@ -803,11 +1061,24 @@ func (s *Services) PipelineCallback(ctx context.Context, req *requests.PipelineC
 		}
 	}
 
-	// 根据幂等键查找运行记录
-	run, err := s.dao.PipelineRunGetByBuildNumber(ctx, pipeline.ID, req.BuildNumber)
-	if err != nil {
-		return nil, fmt.Errorf("未找到对应的运行记录: pipeline=%d, build=%d, err=%w", 
-			pipeline.ID, req.BuildNumber, err)
+	// 查找运行记录：优先使用 run_id 精确匹配（避免 build_number 重用导致找到旧记录）
+	var run *models.CicdPipelineRun
+	if req.RunID > 0 {
+		run, err = s.dao.PipelineRunGetByID(ctx, req.RunID)
+		if err != nil {
+			global.Logger.Warn("[回调] 通过 run_id 查找失败，回退到 build_number",
+				zap.Int64("run_id", req.RunID),
+				zap.Error(err),
+			)
+			run = nil
+		}
+	}
+	if run == nil {
+		run, err = s.dao.PipelineRunGetByBuildNumber(ctx, pipeline.ID, req.BuildNumber)
+		if err != nil {
+			return nil, fmt.Errorf("未找到对应的运行记录: pipeline=%d, build=%d, err=%w",
+				pipeline.ID, req.BuildNumber, err)
+		}
 	}
 
 	// 幂等检查：如果已经收到过回调，直接返回成功
@@ -826,7 +1097,12 @@ func (s *Services) PipelineCallback(ctx context.Context, req *requests.PipelineC
 	runStatus := jenkins.BuildStatusToRunStatus(false, req.Status)
 
 	// 更新运行记录（含回调标记、镜像信息）
-	if err := s.dao.PipelineRunUpdateCallback(ctx, run.ID, runStatus, image, req.ImageDigest, req.Message, req.Duration); err != nil {
+	// 仅在构建失败/中止时保存错误信息，避免成功消息污染 error_message 字段
+	errMsg := ""
+	if runStatus != models.PipelineRunStatusSuccess {
+		errMsg = req.Message
+	}
+	if err := s.dao.PipelineRunUpdateCallback(ctx, run.ID, runStatus, image, req.ImageDigest, errMsg, req.Duration); err != nil {
 		return nil, fmt.Errorf("更新运行记录失败: %w", err)
 	}
 
@@ -845,10 +1121,13 @@ func (s *Services) PipelineCallback(ctx context.Context, req *requests.PipelineC
 		zap.String("image", image),
 	)
 
+	// 回调到达，主动清除该构建的 Redis 缓存，避免老缓存延迟展示最终状态
+	cache.InvalidatePipeline(ctx, pipeline.ID, req.BuildNumber)
+
 	// ==================== 更新阶段状态 ====================
 	// 构建完成后，更新各阶段状态（包括将审批阶段设为 waiting）
 	// 失败时，将错误信息保存到失败的阶段
-	if err := s.UpdateBuildStagesComplete(ctx, run.ID, runStatus, image, req.ImageDigest, req.Message); err != nil {
+	if err := s.UpdateBuildStagesComplete(ctx, run.ID, runStatus, image, req.ImageDigest, errMsg); err != nil {
 		global.Logger.Warn("[回调] 更新阶段状态失败",
 			zap.Int64("run_id", run.ID),
 			zap.Error(err),
@@ -860,13 +1139,21 @@ func (s *Services) PipelineCallback(ctx context.Context, req *requests.PipelineC
 	run.ImageURL = image
 	run.ImageDigest = req.ImageDigest
 	run.DurationSec = req.Duration
-	run.ErrorMessage = req.Message
+	run.ErrorMessage = errMsg
 
-	// ==================== 发送钉钉通知 ====================
+	// ==================== 发送通知 ====================
 	// 如果构建成功且需要审批，发送审批提醒（包含构建成功信息）
-	// 否则发送构建结果通知
+	// 如果构建成功且配置了自动部署，暂不发送构建结果通知（等部署完成后发更丰富的通知）
+	// 其他情况发送构建结果通知
+	skipBuildNotify := false
 	if runStatus == models.PipelineRunStatusSuccess && pipeline.RequireApproval {
 		go s.NotifyApprovalRequired(ctx, pipeline, run)
+	} else if runStatus == models.PipelineRunStatusSuccess && pipeline.AutoDeploy {
+		// 自动部署场景：先标记跳过，部署真正启动后才不发；若部署未能启动则补发
+		skipBuildNotify = true
+		global.Logger.Info("[回调] 自动部署已启用，暂缓构建成功通知",
+			zap.Int64("pipeline_id", pipeline.ID),
+		)
 	} else {
 		go s.NotifyBuildResult(ctx, pipeline, run, runStatus == models.PipelineRunStatusSuccess)
 	}
@@ -880,13 +1167,26 @@ func (s *Services) PipelineCallback(ctx context.Context, req *requests.PipelineC
 	// ==================== 构建成功后自动部署到 K8s ====================
 	// 条件：构建成功 + 有镜像地址 + 配置了部署信息
 	if runStatus == models.PipelineRunStatusSuccess && image != "" {
-		deployResult := s.autoDeployToK8sWithResult(ctx, pipeline, image, req.ImageDigest)
+		deployResult := s.autoDeployToK8sWithResult(ctx, pipeline, image, req.ImageDigest, run.ID)
 		result.DeployEnabled = deployResult.DeployEnabled
 		result.DeploySuccess = deployResult.DeploySuccess
 		result.DeployMessage = deployResult.DeployMessage
 		result.Namespace = deployResult.Namespace
 		result.Deployment = deployResult.Deployment
 		result.Image = deployResult.Image
+
+		// 如果自动部署未能实际启动（配置不完整/集群不可达），补发构建结果通知
+		// 避免用户完全收不到通知
+		if skipBuildNotify && !deployResult.DeployEnabled {
+			global.Logger.Info("[回调] 自动部署未启动，补发构建成功通知",
+				zap.Int64("pipeline_id", pipeline.ID),
+				zap.String("reason", deployResult.DeployMessage),
+			)
+			go s.NotifyBuildResult(ctx, pipeline, run, true)
+		}
+	} else if skipBuildNotify {
+		// AutoDeploy=true 但没有镜像地址，也补发通知
+		go s.NotifyBuildResult(ctx, pipeline, run, true)
 	}
 
 	// ==================== 自动同步发布记录 ====================
@@ -982,6 +1282,13 @@ func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int
 		return s.getDefaultStagesForPipeline(pipeline), nil
 	}
 
+	// 先尝试读缓存
+	isRunning := pipeline.Status == models.PipelineStatusRunning
+	var cachedStages []PipelineStageInfo
+	if err := cache.GetStages(ctx, id, buildNumber, &cachedStages); err == nil && len(cachedStages) > 0 {
+		return cachedStages, nil
+	}
+
 	// 从 Jenkins 获取阶段数据
 	pipelineRun, err := client.GetPipelineRun(ctx, pipeline.JenkinsJob, buildNumber)
 	if err != nil {
@@ -1020,6 +1327,9 @@ func (s *Services) PipelineStages(ctx context.Context, id int64, buildNumber int
 
 	// 追加平台特有阶段（审批/部署）—— 使用 DB 真实数据
 	stages = s.appendPlatformStages(ctx, stages, pipeline, pipelineRun.Status, buildNumber)
+
+	// 写入缓存：运行中用短 TTL，已完成用长 TTL
+	cache.SetStages(ctx, id, buildNumber, stages, isRunning)
 
 	return stages, nil
 }
@@ -1312,6 +1622,13 @@ func (s *Services) syncPipelineRunToRelease(ctx context.Context, pipeline *model
 	}
 
 	now := uint64(time.Now().Unix())
+
+	// 构建发布单消息：失败时使用具体错误信息，成功时使用通用描述
+	releaseMessage := fmt.Sprintf("流水线自动同步: %s #%d", pipeline.Name, run.BuildNumber)
+	if runStatus == models.PipelineRunStatusFailed && run.ErrorMessage != "" {
+		releaseMessage = run.ErrorMessage
+	}
+
 	release := &models.CicdRelease{
 		AppName:       pipeline.Name,
 		Namespace:     namespace,
@@ -1321,7 +1638,7 @@ func (s *Services) syncPipelineRunToRelease(ctx context.Context, pipeline *model
 		Strategy:      "rolling",
 		TimeoutSec:    300,
 		Status:        releaseStatus,
-		Message:       fmt.Sprintf("流水线自动同步: %s #%d", pipeline.Name, run.BuildNumber),
+		Message:       releaseMessage,
 		CreatedUserID: run.TriggerUserID,
 		RequestID:     fmt.Sprintf("pipeline-sync-%d", run.ID),
 		BuildID:       run.ID,
@@ -1343,6 +1660,39 @@ func (s *Services) syncPipelineRunToRelease(ctx context.Context, pipeline *model
 		return
 	}
 
+	// 创建关联的部署任务（让批量发布/重试可以获取到集群信息，回查 client-go 部署目标）
+	if pipeline.TargetClusterID > 0 {
+		targetImage := image // 完整镜像地址，如 registry.cn/proj/app:v1.0
+		if imageDigest != "" && targetImage != "" {
+			// 优先使用 digest 确保镜像一致性
+			if idx := strings.LastIndex(targetImage, ":"); idx > 0 && !strings.Contains(targetImage[idx:], "/") {
+				targetImage = targetImage[:idx] + "@" + imageDigest
+			}
+		}
+		// 任务消息：失败时记录具体原因，方便排查
+		taskMessage := "流水线同步"
+		if runStatus == models.PipelineRunStatusFailed && run.ErrorMessage != "" {
+			taskMessage = run.ErrorMessage
+		}
+		task := &models.CicdReleaseTask{
+			ReleaseID:   release.ID,
+			ClusterID:   pipeline.TargetClusterID,
+			Status:      releaseStatus,
+			Message:     taskMessage,
+			TargetImage: targetImage,
+			StartedAt:   now,
+			FinishedAt:  now,
+			CreatedAt:   now,
+			ModifiedAt:  now,
+		}
+		if err := s.dao.CicdTasksCreate(ctx, []*models.CicdReleaseTask{task}); err != nil {
+			global.Logger.Warn("[同步发布] 创建部署任务失败",
+				zap.Int64("release_id", release.ID),
+				zap.Error(err),
+			)
+		}
+	}
+
 	global.Logger.Info("[同步发布] 发布单创建成功",
 		zap.Int64("pipeline_id", pipeline.ID),
 		zap.Int64("run_id", run.ID),
@@ -1358,7 +1708,7 @@ func (s *Services) syncPipelineRunToRelease(ctx context.Context, pipeline *model
 // 支持新的部署配置字段：target_cluster_id, target_namespace, target_workload_name, target_container
 // 支持多集群部署、审批流程
 // 返回部署结果给 Jenkins，让用户在 Jenkins 看到最终状态
-func (s *Services) autoDeployToK8sWithResult(ctx context.Context, pipeline *models.CicdPipeline, image, imageDigest string) *PipelineCallbackResult {
+func (s *Services) autoDeployToK8sWithResult(ctx context.Context, pipeline *models.CicdPipeline, image, imageDigest string, runID int64) *PipelineCallbackResult {
 	result := &PipelineCallbackResult{
 		DeployEnabled: false,
 		DeploySuccess: false,
@@ -1458,7 +1808,11 @@ func (s *Services) autoDeployToK8sWithResult(ctx context.Context, pipeline *mode
 	}
 
 	// 启动异步部署，等待 Rollout 完成后发送钉钉通知
-	go s.executeAutoDeployAsync(context.Background(), pipeline, kubeClient, finalImage, workloadKind)
+	if pipeline.EnableCanary {
+		go s.executeCanaryDeployAsync(context.Background(), pipeline, kubeClient, finalImage, workloadKind, runID)
+	} else {
+		go s.executeAutoDeployAsync(context.Background(), pipeline, kubeClient, finalImage, workloadKind, runID)
+	}
 
 	result.DeploySuccess = true
 	result.DeployMessage = fmt.Sprintf("部署已启动: %s/%s 正在更新...", pipeline.TargetNamespace, pipeline.TargetWorkloadName)
@@ -1466,103 +1820,280 @@ func (s *Services) autoDeployToK8sWithResult(ctx context.Context, pipeline *mode
 }
 
 // executeAutoDeployAsync 异步执行自动部署（等待 Rollout 完成后发钉钉通知）
-func (s *Services) executeAutoDeployAsync(ctx context.Context, pipeline *models.CicdPipeline, kubeClient kubernetes.Interface, image, workloadKind string) {
+// 优化：同步更新 deploy stage 状态，让前端实时展示部署进度
+func (s *Services) executeAutoDeployAsync(ctx context.Context, pipeline *models.CicdPipeline, kubeClient kubernetes.Interface, image, workloadKind string, runID int64) {
 	var err error
 	var logs strings.Builder
-	
+	var rolloutResult *RolloutResult
+	startTime := time.Now()
+
 	logs.WriteString(fmt.Sprintf("[自动部署] 开始更新 %s/%s\n", pipeline.TargetNamespace, pipeline.TargetWorkloadName))
 	logs.WriteString(fmt.Sprintf("工作负载类型: %s\n", workloadKind))
 	logs.WriteString(fmt.Sprintf("镜像: %s\n\n", image))
 
-	switch workloadKind {
-	case "Deployment":
-		// Patch 更新镜像
-		patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}`, 
-			pipeline.TargetContainer, image)
-		_, err = kubeClient.AppsV1().Deployments(pipeline.TargetNamespace).Patch(
-			ctx, pipeline.TargetWorkloadName, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
-		if err == nil {
-			logs.WriteString("[INFO] 镜像更新已提交，等待 Rollout 完成...\n")
-			err = s.waitAutoDeployRollout(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, &logs)
-		}
-	case "StatefulSet":
-		patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}`, 
-			pipeline.TargetContainer, image)
-		_, err = kubeClient.AppsV1().StatefulSets(pipeline.TargetNamespace).Patch(
-			ctx, pipeline.TargetWorkloadName, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
-	case "DaemonSet":
-		patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}`, 
-			pipeline.TargetContainer, image)
-		_, err = kubeClient.AppsV1().DaemonSets(pipeline.TargetNamespace).Patch(
-			ctx, pipeline.TargetWorkloadName, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
-	default:
-		err = fmt.Errorf("不支持的工作负载类型: %s", workloadKind)
+	// 获取流水线运行记录（用于通知中的分支、Commit、发布人等信息）
+	var run *models.CicdPipelineRun
+	if runID > 0 {
+		run, _ = s.dao.PipelineRunGetByID(ctx, runID)
 	}
+
+	// 获取集群名称和用户名
+	clusterName := s.getClusterName(pipeline.TargetClusterID)
+	var username string
+	if run != nil && run.TriggerUserID > 0 {
+		username = s.getUsernameByID(run.TriggerUserID)
+	}
+
+	// 记录部署前的旧镜像（用于回滚通知）
+	oldImage := pipeline.LastDeployImage
+
+	// 获取 deploy stage 并设为 running
+	var deployStageID int64
+	if runID > 0 {
+		deployStage, stgErr := s.dao.StageGetByRunIDAndType(ctx, runID, models.StageTypeDeploy)
+		if stgErr == nil && deployStage != nil {
+			deployStageID = deployStage.ID
+			_ = s.dao.StageUpdate(ctx, deployStageID, map[string]interface{}{
+				"status":     models.StageStatusRunning,
+				"started_at": startTime.Unix(),
+			})
+		}
+	}
+
+	// 「发布开始」通知已在触发时发送（triggerJenkinsBuild），此处不再重复发送
+
+	// 使用统一的 Patch + Rollout 逻辑（与 release flow 完全一致）
+		timeout := 5 * time.Minute // 统一默认 5 分钟（WaitDeploymentRollout 内部也有兜底）
+		switch workloadKind {
+		case "Deployment":
+			if patchErr := PatchDeploymentImageFn(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, pipeline.TargetContainer, image); patchErr != nil {
+				err = patchErr
+			} else {
+				logs.WriteString("[INFO] 镜像更新已提交，等待 Deployment Rollout 完成...\n")
+				rolloutResult, err = WaitDeploymentRollout(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, timeout, &logs)
+			}
+		case "StatefulSet":
+			if patchErr := PatchStatefulSetImageFn(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, pipeline.TargetContainer, image); patchErr != nil {
+				err = patchErr
+			} else {
+				logs.WriteString("[INFO] 镜像更新已提交，等待 StatefulSet Rollout 完成...\n")
+				rolloutResult, err = WaitStatefulSetRollout(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, timeout, &logs)
+			}
+		case "DaemonSet":
+			if patchErr := PatchDaemonSetImageFn(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, pipeline.TargetContainer, image); patchErr != nil {
+				err = patchErr
+			} else {
+				logs.WriteString("[INFO] 镜像更新已提交，等待 DaemonSet Rollout 完成...\n")
+				rolloutResult, err = WaitDaemonSetRollout(ctx, kubeClient, pipeline.TargetNamespace, pipeline.TargetWorkloadName, timeout, &logs)
+			}
+		default:
+			err = fmt.Errorf("不支持的工作负载类型: %s", workloadKind)
+		}
 
 	// 更新流水线部署状态
 	now := uint64(time.Now().Unix())
+	duration := int(time.Since(startTime).Seconds())
+
+	// 构建通知信息
+	notifyInfo := &AutoDeployNotifyInfo{
+		Pipeline:    pipeline,
+		Run:         run,
+		Image:       image,
+		OldImage:    oldImage,
+		Duration:    duration,
+		ClusterName: clusterName,
+		Username:    username,
+		Rollout:     rolloutResult,
+	}
+
 	if err != nil {
 		global.Logger.Error("[自动部署] Rollout 失败",
 			zap.Int64("pipeline_id", pipeline.ID),
 			zap.Error(err),
 		)
-		_ = s.dao.PipelineUpdateDeployInfo(ctx, pipeline.ID, image, "", now, "failed")
-		// Rollout 失败后发送钉钉通知
-		s.notifyAutoDeployResult(ctx, pipeline, image, false, err.Error())
+		_ = s.dao.PipelineUpdateDeployInfo(ctx, pipeline.ID, image, "", now, "failed", "")
+		// 更新 deploy stage 为失败
+		if deployStageID > 0 {
+			_ = s.dao.StageUpdate(ctx, deployStageID, map[string]interface{}{
+				"status":        models.StageStatusFailed,
+				"finished_at":   now,
+				"duration_sec":  duration,
+				"logs":          logs.String(),
+				"error_message": err.Error(),
+			})
+		}
+		// 同步流水线运行记录与最新运行状态为失败
+		// 说明：last_run_status 此前只被 Jenkins 构建结果写为 success，若不在此处回写，
+		// 部署失败后流水线仍显示「发布中」，与阶段的「部署失败」不一致。
+		if runID > 0 {
+			_ = s.dao.PipelineRunUpdateError(ctx, runID, models.PipelineRunStatusFailed, err.Error())
+			_ = s.dao.PipelineUpdateRunComplete(ctx, pipeline.ID, models.PipelineRunStatusFailed)
+		}
+		// Rollout 失败后发送通知
+		notifyInfo.Success = false
+		notifyInfo.ErrMsg = err.Error()
+		s.notifyAutoDeployResult(ctx, notifyInfo)
 	} else {
 		global.Logger.Info("[自动部署] Rollout 完成",
 			zap.Int64("pipeline_id", pipeline.ID),
 			zap.String("image", image),
 		)
-		_ = s.dao.PipelineUpdateDeployInfo(ctx, pipeline.ID, image, "", now, "success")
-		// Rollout 完成后发送钉钉通知
-		s.notifyAutoDeployResult(ctx, pipeline, image, true, "")
+		version := s.getCurrentWorkloadRevision(ctx, kubeClient, workloadKind, pipeline.TargetNamespace, pipeline.TargetWorkloadName)
+		_ = s.dao.PipelineUpdateDeployInfo(ctx, pipeline.ID, image, "", now, "success", version)
+		// 更新 deploy stage 为成功
+		if deployStageID > 0 {
+			_ = s.dao.StageUpdate(ctx, deployStageID, map[string]interface{}{
+				"status":       models.StageStatusSuccess,
+				"finished_at":  now,
+				"duration_sec": duration,
+				"logs":         logs.String(),
+				"deploy_image": image,
+			})
+		}
+		// 更新流水线运行记录为成功
+		if runID > 0 {
+			_ = s.dao.PipelineRunUpdateStatus(ctx, runID, models.PipelineRunStatusSuccess)
+			_ = s.dao.PipelineUpdateRunComplete(ctx, pipeline.ID, models.PipelineRunStatusSuccess)
+		}
+		// Rollout 完成后发送通知
+		notifyInfo.Success = true
+		s.notifyAutoDeployResult(ctx, notifyInfo)
 	}
 }
 
-// waitAutoDeployRollout 等待自动部署的 Rollout 完成
-func (s *Services) waitAutoDeployRollout(ctx context.Context, client kubernetes.Interface, namespace, name string, logs *strings.Builder) error {
-	timeout := 5 * time.Minute
-	interval := 5 * time.Second
-	endTime := time.Now().Add(timeout)
+// getCurrentWorkloadRevision 获取工作负载在 K8s 集群中的当前版本号
+// executeCanaryDeployAsync 异步执行金丝雀部署
+func (s *Services) executeCanaryDeployAsync(ctx context.Context, pipeline *models.CicdPipeline, kubeClient kubernetes.Interface, image, workloadKind string, runID int64) {
+	if workloadKind != "" && workloadKind != "Deployment" {
+		global.Logger.Warn("[Canary] 当前仅支持 Deployment，回退到普通部署", zap.String("kind", workloadKind))
+		s.executeAutoDeployAsync(ctx, pipeline, kubeClient, image, workloadKind, runID)
+		return
+	}
+	containerName := pipeline.TargetContainer
+	result := s.CanaryCreateAndMonitor(ctx, kubeClient, pipeline, image, containerName, runID)
+	if !result.Success {
+		global.Logger.Error("[Canary] 创建失败，回退到普通部署", zap.String("error", result.Message))
+		s.executeAutoDeployAsync(ctx, pipeline, kubeClient, image, workloadKind, runID)
+		return
+	}
+	go s.monitorCanaryAndDecide(kubeClient, pipeline, image, runID)
+}
+// Deployment: 返回最新 ReplicaSet 的 revision（如 "5"）
+// StatefulSet/DaemonSet: 返回最新 ControllerRevision 的 revision（如 "3"）
+func (s *Services) getCurrentWorkloadRevision(ctx context.Context, client kubernetes.Interface, workloadKind, namespace, workloadName string) string {
+	switch workloadKind {
+	case "Deployment", "":
+		return s.getDeploymentCurrentRevision(ctx, client, namespace, workloadName)
+	case "StatefulSet":
+		return s.getStatefulSetCurrentRevision(ctx, client, namespace, workloadName)
+	case "DaemonSet":
+		return s.getDaemonSetCurrentRevision(ctx, client, namespace, workloadName)
+	default:
+		return ""
+	}
+}
 
-	for time.Now().Before(endTime) {
-		dp, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("获取 Deployment 失败: %v", err)
-		}
-
-		replicas := int32(1)
-		if dp.Spec.Replicas != nil {
-			replicas = *dp.Spec.Replicas
-		}
-
-		logs.WriteString(fmt.Sprintf("[ROLLOUT] 期望: %d | 更新: %d | 就绪: %d | 可用: %d | Gen: %d/%d\n",
-			replicas,
-			dp.Status.UpdatedReplicas,
-			dp.Status.ReadyReplicas,
-			dp.Status.AvailableReplicas,
-			dp.Status.ObservedGeneration, dp.Generation))
-
-		// 检查 Rollout 是否失败
-		for _, cond := range dp.Status.Conditions {
-			if cond.Type == "Progressing" && cond.Reason == "ProgressDeadlineExceeded" {
-				return fmt.Errorf("Rollout 超时: %s", cond.Message)
+// getDeploymentCurrentRevision 获取 Deployment 当前版本号（最新 ReplicaSet 的 revision）
+func (s *Services) getDeploymentCurrentRevision(ctx context.Context, client kubernetes.Interface, namespace, workloadName string) string {
+	deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+	if err != nil {
+		return ""
+	}
+	selector := metav1.FormatLabelSelector(deploy.Spec.Selector)
+	rsList, err := client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return ""
+	}
+	var maxRevision int64
+	for _, rs := range rsList.Items {
+		isOwned := false
+		for _, owner := range rs.OwnerReferences {
+			if owner.UID == deploy.UID {
+				isOwned = true
+				break
 			}
 		}
-
-		// Rollout 完成条件（不检查 Replicas，因为滚动更新期间旧 Pod 可能还在终止中）
-		if dp.Status.ObservedGeneration >= dp.Generation &&
-			dp.Status.UpdatedReplicas == replicas &&
-			dp.Status.AvailableReplicas == replicas {
-			logs.WriteString(fmt.Sprintf("[SUCCESS] 所有 %d 个副本已就绪\n", replicas))
-			return nil
+		if !isOwned {
+			continue
 		}
-
-		time.Sleep(interval)
+		rev := int64(0)
+		if revStr, ok := rs.Annotations["deployment.kubernetes.io/revision"]; ok {
+			fmt.Sscanf(revStr, "%d", &rev)
+		}
+		if rev > maxRevision {
+			maxRevision = rev
+		}
 	}
+	if maxRevision > 0 {
+		return fmt.Sprintf("%d", maxRevision)
+	}
+	return ""
+}
 
-	return fmt.Errorf("Rollout 超时（%v）", timeout)
+// getStatefulSetCurrentRevision 获取 StatefulSet 当前版本号（最新 ControllerRevision 的 revision）
+func (s *Services) getStatefulSetCurrentRevision(ctx context.Context, client kubernetes.Interface, namespace, workloadName string) string {
+	sts, err := client.AppsV1().StatefulSets(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+	if err != nil {
+		return ""
+	}
+	selector := metav1.FormatLabelSelector(sts.Spec.Selector)
+	crList, err := client.AppsV1().ControllerRevisions(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return ""
+	}
+	var maxRevision int64
+	for _, cr := range crList.Items {
+		isOwned := false
+		for _, owner := range cr.OwnerReferences {
+			if owner.UID == sts.UID {
+				isOwned = true
+				break
+			}
+		}
+		if !isOwned {
+			continue
+		}
+		if cr.Revision > maxRevision {
+			maxRevision = cr.Revision
+		}
+	}
+	if maxRevision > 0 {
+		return fmt.Sprintf("%d", maxRevision)
+	}
+	return ""
+}
+
+// getDaemonSetCurrentRevision 获取 DaemonSet 当前版本号（最新 ControllerRevision 的 revision）
+func (s *Services) getDaemonSetCurrentRevision(ctx context.Context, client kubernetes.Interface, namespace, workloadName string) string {
+	ds, err := client.AppsV1().DaemonSets(namespace).Get(ctx, workloadName, metav1.GetOptions{})
+	if err != nil {
+		return ""
+	}
+	selector := metav1.FormatLabelSelector(ds.Spec.Selector)
+	crList, err := client.AppsV1().ControllerRevisions(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return ""
+	}
+	var maxRevision int64
+	for _, cr := range crList.Items {
+		isOwned := false
+		for _, owner := range cr.OwnerReferences {
+			if owner.UID == ds.UID {
+				isOwned = true
+				break
+			}
+		}
+		if !isOwned {
+			continue
+		}
+		if cr.Revision > maxRevision {
+			maxRevision = cr.Revision
+		}
+	}
+	if maxRevision > 0 {
+		return fmt.Sprintf("%d", maxRevision)
+	}
+	return ""
 }
 
 // autoDeployWithLegacyConfig 兼容旧的 DeployConfig JSON 配置
@@ -1613,10 +2144,23 @@ func (s *Services) executeLegacyDeployAsync(ctx context.Context, pipeline *model
 	var logs strings.Builder
 	logs.WriteString(fmt.Sprintf("[旧配置部署] 开始更新 %s/%s\n", namespace, deploymentName))
 
+	// ===== 发布联动告警静默 =====
+	var silenceRuleID int64
+	if pipeline.EnableDeploySilence {
+		silenceInfo, silenceErr := s.CreateDeploySilence(ctx, pipeline, namespace, deploymentName)
+		if silenceErr != nil {
+			global.Logger.Warn("[旧配置部署] 创建发布静默失败（不影响部署）", zap.Error(silenceErr))
+		} else if silenceInfo != nil {
+			silenceRuleID = silenceInfo.SilenceRuleID
+			logs.WriteString(fmt.Sprintf("[INFO] 发布静默已生效，规则ID: %d\n", silenceRuleID))
+		}
+	}
+
 	// 1. 更新镜像
 	_, err := deployment.PatchDeploymentImage(ctx, global.ManagementKubeClient, namespace, deploymentName, containerName, image)
 	if err != nil {
 		global.Logger.Error("[旧配置部署] 更新镜像失败", zap.Error(err))
+		s.ReleaseDeploySilence(ctx, silenceRuleID, false)
 		s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, image, false, err.Error())
 		return
 	}
@@ -1624,13 +2168,16 @@ func (s *Services) executeLegacyDeployAsync(ctx context.Context, pipeline *model
 	logs.WriteString("[INFO] 镜像更新已提交，等待 Rollout 完成...\n")
 
 	// 2. 等待 Rollout 完成
-	err = s.waitAutoDeployRollout(ctx, global.ManagementKubeClient, namespace, deploymentName, &logs)
+	_, err = WaitDeploymentRollout(ctx, global.ManagementKubeClient, namespace, deploymentName, 5*time.Minute, &logs)
 	if err != nil {
 		global.Logger.Error("[旧配置部署] Rollout 失败", zap.Error(err))
+		s.ReleaseDeploySilence(ctx, silenceRuleID, false)
 		s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, image, false, err.Error())
 		return
 	}
 
+	// 部署成功，释放静默
+	s.ReleaseDeploySilence(ctx, silenceRuleID, true)
 	global.Logger.Info("[旧配置部署] Rollout 完成")
 	s.notifyLegacyDeployResult(ctx, pipeline, namespace, deploymentName, image, true, "")
 }
@@ -1664,16 +2211,25 @@ func (s *Services) injectLanguageParams(pipeline *models.CicdPipeline, params ma
 	case models.LanguageTypeGo:
 		setDefault(params, "GO_VERSION", "1.24")
 		setDefault(params, "SKIP_TESTS", "false")
+		// 通用扩展参数（支持私有依赖库、自定义构建）
+		setDefault(params, "EXTRA_REPOS", "")              // 额外依赖仓库（格式: url|path;url|path）
+		setDefault(params, "BINARY_NAME", "")              // 自定义二进制名（空=自动检测）
+		setDefault(params, "USE_PROJECT_DOCKERFILE", "false") // 使用项目自带 Dockerfile
 	case models.LanguageTypeJava:
 		setDefault(params, "JAVA_VERSION", "17")
 		setDefault(params, "MAVEN_GOALS", "clean package -DskipTests -B")
+		setDefault(params, "MAVEN_THREADS", "1C")
 		setDefault(params, "SKIP_TESTS", "false")
+		setDefault(params, "BUILD_DIR", "") // 空=自动检测 pom.xml 位置
+		// 私有 Maven 仓库（用于拉取公司内部依赖包，如 Nexus/GitLab Maven Registry）
+		setDefault(params, "MAVEN_PRIVATE_REPO_URL", "")           // 空=仅使用阿里云公共仓库
+		setDefault(params, "MAVEN_PRIVATE_REPO_CREDENTIAL_ID", "") // 空=使用默认 'maven-private-repo'
 		// Java 特有 SonarQube 参数
 		setDefault(params, "SONAR_SOURCES", "src/main/java")
 		setDefault(params, "SONAR_JAVA_BINARIES", "target/classes")
 		setDefault(params, "SONAR_EXCLUSIONS", "**/test/**,**/generated/**")
 	case models.LanguageTypeFrontend:
-		setDefault(params, "NODE_VERSION", "18")
+		setDefault(params, "NODE_VERSION", "22")
 		setDefault(params, "BUILD_COMMAND", "npm run build")
 		setDefault(params, "BUILD_OUTPUT_DIR", "dist")
 		setDefault(params, "SKIP_TESTS", "false")
@@ -1688,16 +2244,36 @@ func (s *Services) injectLanguageParams(pipeline *models.CicdPipeline, params ma
 
 	// ==================== 通用参数（全语言） ====================
 	setDefault(params, "DOCKERFILE_PATH", "")
-	setDefault(params, "GIT_CREDENTIAL_ID", "gitee-id")
 
-	// SonarQube 代码质量扫描（根据流水线配置注入，所有语言统一）
-	if pipeline.EnableSonar {
-		setDefault(params, "ENABLE_SONAR", "true")
-		setDefault(params, "SONAR_QUALITY_GATE", "true")
-	} else {
-		setDefault(params, "ENABLE_SONAR", "false")
-		setDefault(params, "SONAR_QUALITY_GATE", "false")
+	// 凭证 ID：优先从 config.yaml 读取，否则用默认值
+	gitCredID := "gitee-id"
+	registryCredID := "harbor-registry"
+	hmacCredID := "hmac-secret"
+	if global.JenkinsSetting != nil {
+		if global.JenkinsSetting.GitCredentialID != "" {
+			gitCredID = global.JenkinsSetting.GitCredentialID
+		}
+		if global.JenkinsSetting.RegistryCredentialID != "" {
+			registryCredID = global.JenkinsSetting.RegistryCredentialID
+		}
+		if global.JenkinsSetting.HMACCredentialID != "" {
+			hmacCredID = global.JenkinsSetting.HMACCredentialID
+		}
 	}
+	setDefault(params, "GIT_CREDENTIAL_ID", gitCredID)
+	setDefault(params, "REGISTRY_CREDENTIAL_ID", registryCredID)
+	setDefault(params, "HMAC_CREDENTIAL_ID", hmacCredID)
+
+	// SonarQube 代码质量扫描（暂时强制关闭，待 SonarQube 服务部署后再启用）
+	setDefault(params, "ENABLE_SONAR", "false")
+	setDefault(params, "SONAR_QUALITY_GATE", "false")
+
+	// 并发构建限制：从 config.yaml 读取，传入 Jenkins 模板动态设置 throttleJobProperty
+	maxConcurrent := 10 // 默认值
+	if global.JenkinsSetting != nil && global.JenkinsSetting.MaxConcurrentBuilds > 0 {
+		maxConcurrent = global.JenkinsSetting.MaxConcurrentBuilds
+	}
+	setDefault(params, "MAX_CONCURRENT_BUILDS", fmt.Sprintf("%d", maxConcurrent))
 
 	// 制品上传（根据流水线配置注入，所有语言统一）
 	if pipeline.EnableArtifactUpload {
@@ -1748,6 +2324,7 @@ func (s *Services) TemplateVerifyAll(ctx context.Context) ([]TemplateVerifyInfo,
 			DefaultParams: map[string]string{
 				"JAVA_VERSION":    "17",
 				"MAVEN_GOALS":     "clean package -DskipTests -B",
+				"MAVEN_THREADS":   "1C",
 			},
 			Description: "Java/Spring Boot 通用构建模板，支持 Maven + SonarQube + 质量门禁 + 制品上传",
 		},
@@ -1757,7 +2334,7 @@ func (s *Services) TemplateVerifyAll(ctx context.Context) ([]TemplateVerifyInfo,
 			TemplateFile: "configs/jenkins-templates/frontend-pipeline.groovy",
 			Stages:       []string{"checkout", "dependencies", "test", "compile", "sonar", "quality_gate", "build_binary", "upload_artifact", "build", "push"},
 			DefaultParams: map[string]string{
-				"NODE_VERSION":    "18",
+				"NODE_VERSION":    "22",
 				"BUILD_COMMAND":   "npm run build",
 				"BUILD_OUTPUT_DIR": "dist",
 			},

@@ -19,13 +19,25 @@
           </svg>
           {{ loading ? '加载中...' : '刷新' }}
         </button>
-        <button v-if="canOperate" class="btn btn-primary" @click="createPipeline">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          创建流水线
-        </button>
+        <div v-if="canOperate" class="header-create-group">
+          <button class="btn btn-primary" @click="createPipeline">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Jenkins
+          </button>
+          <button class="btn btn-gitops" @click="createGitOpsPipeline">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 3 21 3 21 8"/>
+              <line x1="4" y1="20" x2="21" y2="3"/>
+              <polyline points="21 16 21 21 16 21"/>
+              <line x1="15" y1="15" x2="21" y2="21"/>
+              <line x1="4" y1="4" x2="9" y2="9"/>
+            </svg>
+            GitOps
+          </button>
+        </div>
       </div>
     </div>
 
@@ -83,6 +95,71 @@
       </div>
     </div>
 
+    <!-- Jenkins 配置信息（可折叠） -->
+    <div class="jenkins-config-panel" v-if="jenkinsConfig.configured">
+      <div class="config-panel-header" @click="jenkinsConfigExpanded = !jenkinsConfigExpanded">
+        <div class="config-panel-title">
+          <svg class="config-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span>Jenkins 连接配置</span>
+          <span class="config-status connected">已连接</span>
+        </div>
+        <svg :class="['expand-icon', { expanded: jenkinsConfigExpanded }]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      <transition name="collapse">
+        <div v-show="jenkinsConfigExpanded" class="config-panel-body">
+          <div class="config-grid">
+            <div class="config-item">
+              <span class="config-label">Jenkins 地址</span>
+              <span class="config-value">{{ jenkinsConfig.url || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">用户名</span>
+              <span class="config-value">{{ jenkinsConfig.username || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">回调地址 (CallbackURL)</span>
+              <span class="config-value highlight">{{ jenkinsConfig.full_callback_url || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">阶段回调地址</span>
+              <span class="config-value">{{ jenkinsConfig.full_stage_callback_url || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">平台前端地址</span>
+              <span class="config-value">{{ jenkinsConfig.platform_url || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">默认分支</span>
+              <span class="config-value">{{ jenkinsConfig.default_branch || 'main' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">Git 凭证ID</span>
+              <span class="config-value mono">{{ jenkinsConfig.git_credential_id || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">镜像仓库凭证ID</span>
+              <span class="config-value mono">{{ jenkinsConfig.registry_credential_id || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">触发超时(s)</span>
+              <span class="config-value">{{ jenkinsConfig.trigger_timeout || '-' }}</span>
+            </div>
+            <div class="config-item">
+              <span class="config-label">最大构建时间(s)</span>
+              <span class="config-value">{{ jenkinsConfig.max_build_time || '-' }}</span>
+            </div>
+          </div>
+          <p class="config-tip">以上配置来自 config.yaml，修改后重启后端生效。切换集群时请更新 CallbackURL 为目标集群可访问的后端地址。</p>
+        </div>
+      </transition>
+    </div>
+
     <!-- 搜索和筛选 -->
     <div class="filter-bar">
       <div class="search-wrapper">
@@ -99,25 +176,47 @@
       </div>
       <div class="filter-right">
         <div class="filter-tabs">
-          <button 
+          <button
             :class="['filter-tab', { active: statusFilter === '' }]"
             @click="statusFilter = ''"
           >
             全部
           </button>
-          <button 
+          <button
             :class="['filter-tab', { active: statusFilter === 'running' }]"
             @click="statusFilter = 'running'"
           >
             <span class="status-dot running"></span>
             运行中
           </button>
-          <button 
+          <button
             :class="['filter-tab', { active: statusFilter === 'idle' }]"
             @click="statusFilter = 'idle'"
           >
             <span class="status-dot idle"></span>
             空闲
+          </button>
+        </div>
+        <div class="filter-tabs deploy-mode-tabs">
+          <button
+            :class="['filter-tab', { active: deployModeFilter === '' }]"
+            @click="deployModeFilter = ''"
+          >
+            全部模式
+          </button>
+          <button
+            :class="['filter-tab', { active: deployModeFilter === 'jenkins' }]"
+            @click="deployModeFilter = 'jenkins'"
+          >
+            <span class="mode-icon">⚙️</span>
+            Jenkins
+          </button>
+          <button
+            :class="['filter-tab', { active: deployModeFilter === 'gitops' }]"
+            @click="deployModeFilter = 'gitops'"
+          >
+            <span class="mode-icon">🔄</span>
+            GitOps
           </button>
         </div>
         <div class="view-switch">
@@ -245,8 +344,13 @@
               </span>
             </td>
             <td>
-              <span :class="['run-status-tag', `status-${pipeline.lastRunStatus}`]">
-                {{ runStatusText(pipeline.lastRunStatus) }}
+              <span :class="['deploy-mode-tag', pipeline.deployMode === 'gitops' ? 'mode-gitops' : 'mode-jenkins']">
+                {{ pipeline.deployMode === 'gitops' ? 'GitOps' : 'Jenkins' }}
+              </span>
+            </td>
+            <td>
+              <span :class="['run-status-tag', `status-${getEffectiveRunStatus(pipeline)}`]">
+                {{ runStatusText(getEffectiveRunStatus(pipeline)) }}
               </span>
             </td>
             <td>
@@ -264,9 +368,9 @@
                   v-if="canOperate && pipeline.status !== 'running'"
                   class="action-btn-sm run"
                   @click="handleRunPipeline(pipeline)"
-                  title="运行"
+                  title="发布"
                 >
-                  ▶ 运行
+                  ▶ 发布
                 </button>
                 <button 
                   v-if="canOperate && (pipeline.status === 'running' || pipeline.lastRunStatus === 'pending')"
@@ -339,7 +443,7 @@
               class="action-btn run" 
               @click="handleRunPipeline(pipeline)"
               :disabled="pipeline.status === 'running'"
-              title="运行"
+              title="发布"
             >
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="5 3 19 12 5 21 5 3"/>
@@ -394,9 +498,15 @@
         <div class="run-status">
           <div class="status-info">
             <div class="status-row">
+              <span class="label">部署模式</span>
+              <span :class="['deploy-mode-tag', pipeline.deployMode === 'gitops' ? 'mode-gitops' : 'mode-jenkins']">
+                {{ pipeline.deployMode === 'gitops' ? 'GitOps' : 'Jenkins' }}
+              </span>
+            </div>
+            <div class="status-row">
               <span class="label">上次运行</span>
-              <span :class="['run-status-tag', `status-${pipeline.lastRunStatus}`]">
-                {{ runStatusText(pipeline.lastRunStatus) }}
+              <span :class="['run-status-tag', `status-${getEffectiveRunStatus(pipeline)}`]">
+                {{ runStatusText(getEffectiveRunStatus(pipeline)) }}
               </span>
             </div>
             <div class="status-row">
@@ -526,7 +636,10 @@ import {
   getPipelines as fetchPipelines,
   runPipeline as triggerPipeline,
   stopPipeline as cancelPipeline,
-  deletePipeline as removePipeline
+  deletePipeline as removePipeline,
+  batchRunPipelines as batchRunPipelinesApi,
+  batchStopPipelines as batchStopPipelinesApi,
+  getJenkinsConfig
 } from '@/api/platform/pipeline'
 import permissionStore from '@/stores/permission'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -539,15 +652,30 @@ export default {
     const pipelines = ref([])
     const searchQuery = ref('')
     const statusFilter = ref('')
-    const viewMode = ref('card')
+    const deployModeFilter = ref('')
+    const viewMode = ref('table')
     const currentPage = ref(1)
     const pageSize = ref(12)
     const total = ref(0)
-    const loading = ref(false)
+    const loading = ref(true)
     const errorMsg = ref('')
     const activeMenu = ref(null)
     const jumpPage = ref(1)
     const selectedIds = ref([])
+
+    // ===== Jenkins 配置面板 =====
+    const jenkinsConfig = ref({ configured: false })
+    const jenkinsConfigExpanded = ref(false)
+    const loadJenkinsConfig = async () => {
+      try {
+        const res = await getJenkinsConfig()
+        if (res.code === 0 && res.data) {
+          jenkinsConfig.value = res.data
+        }
+      } catch (e) {
+        console.warn('获取 Jenkins 配置失败:', e)
+      }
+    }
 
     // ===== 多选功能 =====
     const isAllSelected = computed(() => {
@@ -586,20 +714,20 @@ export default {
     }
     const clearSelection = () => { selectedIds.value = [] }
 
-    // ===== 操作权限控制 =====
-    // viewer 角色只能查看，不能执行任何修改操作
+    // ===== 操作权限控制（v3: 细粒度权限） =====
     const canOperate = computed(() => {
       if (permissionStore.state.isSuperAdmin) return true
-      const roleTypes = permissionStore.roleTypes.value
-      console.log('[Pipelines] 当前用户角色类型:', roleTypes)
-      // viewer 角色无操作权限
-      if (roleTypes.length === 1 && roleTypes.includes('viewer')) return false
-      // 需要 developer 或更高权限才能操作流水线
-      return roleTypes.some(r => ['super_admin', 'platform_admin', 'cluster_admin', 'developer', 'cicd_admin'].includes(r))
+      // 检查是否有任何 CICD 写权限
+      return permissionStore.hasAnyCICDPermission([
+        'cicd:pipeline:create', 'cicd:pipeline:edit', 'cicd:pipeline:run', 'cicd:pipeline:delete'
+      ])
     })
-    
-    // TODO: 调试用 - 临时允许所有操作（上线前需删除）
-    // const canOperate = ref(true)
+
+    // 细粒度权限检查
+    const canCreatePipeline = computed(() => permissionStore.hasCICDPermission('cicd:pipeline:create'))
+    const canRunPipeline = computed(() => permissionStore.hasCICDPermission('cicd:pipeline:run'))
+    const canDeletePipeline = computed(() => permissionStore.hasCICDPermission('cicd:pipeline:delete'))
+    const canEditPipeline = computed(() => permissionStore.hasCICDPermission('cicd:pipeline:edit'))
 
     // 统计数据
     const runningCount = computed(() => 
@@ -640,6 +768,9 @@ export default {
       if (statusFilter.value) {
         result = result.filter(p => p.status === statusFilter.value)
       }
+      if (deployModeFilter.value) {
+        result = result.filter(p => p.deployMode === deployModeFilter.value)
+      }
       return result
     })
 
@@ -671,7 +802,11 @@ export default {
             lastRunTime: item.last_run_time ? new Date(item.last_run_time * 1000).toISOString() : null,
             gitRepo: item.git_repo,
             branch: item.git_branch,
-            jenkinsJob: item.jenkins_job
+            jenkinsJob: item.jenkins_job,
+            deployMode: item.deploy_mode || 'jenkins',
+            autoDeploy: item.auto_deploy || false,
+            requireApproval: item.require_approval || false,
+            lastDeployStatus: item.last_deploy_status || ''
           }))
           total.value = response.data?.total || 0
         } else {
@@ -697,8 +832,9 @@ export default {
         Message.info({ content: `正在启动流水线 "${pipeline.name}"...` })
         const response = await triggerPipeline(pipeline.id)
         if (response.code === 0) {
-          Message.success({ content: '流水线启动成功' })
-          loadPipelines()
+          Message.success({ content: '流水线启动成功，构建完成后将自动创建发布记录' })
+          // 发布成功后跳转到详情页执行阶段 Tab，实时查看构建进度
+          router.push(`/cicd/pipelines/${pipeline.id}?tab=stages`)
         } else {
           throw new Error(response.msg || '启动失败')
         }
@@ -780,7 +916,7 @@ export default {
       Message.info({ content: `正在启动 ${toRun.length} 条流水线...` })
       
       try {
-        const response = await batchRunPipelines(selectedIds.value)
+        const response = await batchRunPipelinesApi(toRun.map(p => p.id))
         if (response.code === 0) {
           const successCount = response.data?.success_count || 0
           const failCount = response.data?.fail_count || 0
@@ -819,7 +955,7 @@ export default {
       Message.info({ content: `正在停止 ${toStop.length} 条流水线...` })
       
       try {
-        const response = await batchStopPipelines(selectedIds.value)
+        const response = await batchStopPipelinesApi(toStop.map(p => p.id))
         if (response.code === 0) {
           const successCount = response.data?.success_count || 0
           const failCount = response.data?.fail_count || 0
@@ -875,8 +1011,16 @@ export default {
 
     // 导航
     const createPipeline = () => router.push('/cicd/pipelines/create')
+    const createGitOpsPipeline = () => router.push('/cicd/gitops/create')
     const viewPipeline = (id) => router.push(`/cicd/pipelines/${id}`)
-    const editPipeline = (id) => router.push(`/cicd/pipelines/${id}/edit`)
+    const editPipeline = (id) => {
+      const pipeline = pipelines.value.find(p => p.id === id)
+      if (pipeline && pipeline.deployMode === 'gitops') {
+        router.push(`/cicd/gitops/${id}/edit`)
+      } else {
+        router.push(`/cicd/pipelines/${id}/edit`)
+      }
+    }
     const viewHistory = (id) => router.push(`/cicd/pipelines/${id}?tab=history`)
     const viewLogs = (id) => router.push(`/cicd/pipelines/${id}?tab=logs`)
 
@@ -914,13 +1058,29 @@ export default {
         running: '运行中',
         pending: '等待中',
         aborted: '已中止',
+        publishing: '发布中',
         '': '未运行'
       }
       return map[status] || status
     }
 
+    // 有效运行状态：构建成功但部署未完成时显示「发布中」
+    const getEffectiveRunStatus = (pipeline) => {
+      const rawStatus = pipeline.lastRunStatus
+      if (rawStatus !== 'success') return rawStatus
+      // 有部署/审批阶段，根据部署结果修正整体状态
+      if (pipeline.autoDeploy || pipeline.requireApproval) {
+        // 部署失败 → 整体失败（避免一直卡在「发布中」，与详情页阶段状态一致）
+        if (pipeline.lastDeployStatus === 'failed') return 'failed'
+        if (pipeline.lastDeployStatus !== 'success') {
+          return 'publishing'
+        }
+      }
+      return rawStatus
+    }
+
     // 监听
-    watch([searchQuery, statusFilter], () => {
+    watch([searchQuery, statusFilter, deployModeFilter], () => {
       currentPage.value = 1
       loadPipelines()
     })
@@ -929,6 +1089,7 @@ export default {
 
     onMounted(() => {
       loadPipelines()
+      loadJenkinsConfig()
       document.addEventListener('click', closeMenu)
     })
 
@@ -940,6 +1101,7 @@ export default {
       pipelines,
       searchQuery,
       statusFilter,
+      deployModeFilter,
       viewMode,
       currentPage,
       pageSize,
@@ -962,6 +1124,12 @@ export default {
       filteredPipelines,
       paginatedPipelines,
       canOperate,
+      canCreatePipeline,
+      canRunPipeline,
+      canDeletePipeline,
+      canEditPipeline,
+      jenkinsConfig,
+      jenkinsConfigExpanded,
       loadPipelines,
       handleRunPipeline,
       handleStopPipeline,
@@ -974,6 +1142,7 @@ export default {
       clearSelection,
       toggleMenu,
       createPipeline,
+      createGitOpsPipeline,
       viewPipeline,
       editPipeline,
       viewHistory,
@@ -981,7 +1150,8 @@ export default {
       goToPage,
       formatDate,
       formatRepoUrl,
-      runStatusText
+      runStatusText,
+      getEffectiveRunStatus
     }
   }
 }
@@ -1028,6 +1198,11 @@ export default {
 .header-right {
   display: flex;
   gap: 12px;
+}
+
+.header-create-group {
+  display: flex;
+  gap: 8px;
 }
 
 /* 统计卡片 */
@@ -1218,6 +1393,16 @@ export default {
 
 .status-dot.idle {
   background: #3182ce;
+}
+
+/* 部署模式筛选标签 */
+.deploy-mode-tabs {
+  margin-left: 8px;
+}
+
+.mode-icon {
+  font-size: 13px;
+  line-height: 1;
 }
 
 @keyframes pulse {
@@ -1605,6 +1790,26 @@ export default {
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
+}
+
+/* ==================== 部署模式标签 ==================== */
+.deploy-mode-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.deploy-mode-tag.mode-jenkins {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+.deploy-mode-tag.mode-gitops {
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
 }
 
 .status-tag.status-running {
@@ -1998,7 +2203,13 @@ export default {
 .run-status-tag.status-running { background: #fef3c7; color: #d97706; }
 .run-status-tag.status-pending { background: #f1f5f9; color: #64748b; }
 .run-status-tag.status-aborted { background: #f1f5f9; color: #64748b; }
+.run-status-tag.status-publishing { background: #dbeafe; color: #2563eb; animation: pulse-publishing 1.5s infinite; }
 .run-status-tag.status- { background: #f1f5f9; color: #94a3b8; }
+
+@keyframes pulse-publishing {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
 
 /* 阶段进度 */
 .stages-progress {
@@ -2235,6 +2446,17 @@ export default {
   box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
 }
 
+.btn-gitops {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: white;
+  border-color: #0f766e;
+}
+
+.btn-gitops:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.4);
+}
+
 .btn-outline {
   background: white;
   color: #4a5568;
@@ -2250,6 +2472,132 @@ export default {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none !important;
+}
+
+/* Jenkins 配置面板 */
+.jenkins-config-panel {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.config-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.config-panel-header:hover {
+  background: #fafafa;
+}
+
+.config-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.config-icon {
+  width: 18px;
+  height: 18px;
+  color: #666;
+}
+
+.config-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 400;
+}
+
+.config-status.connected {
+  background: #e6f7e6;
+  color: #52c41a;
+}
+
+.expand-icon {
+  width: 18px;
+  height: 18px;
+  color: #999;
+  transition: transform 0.3s ease;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.config-panel-body {
+  padding: 0 20px 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.config-value {
+  font-size: 13px;
+  color: #333;
+  word-break: break-all;
+}
+
+.config-value.highlight {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.config-value.mono {
+  font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.config-tip {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #ad6800;
+  line-height: 1.5;
+}
+
+/* collapse transition */
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.3s ease;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
 }
 
 /* 响应式 */
@@ -2275,6 +2623,10 @@ export default {
   
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .config-grid {
+    grid-template-columns: 1fr;
   }
   
   .filter-bar {

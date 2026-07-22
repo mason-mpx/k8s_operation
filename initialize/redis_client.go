@@ -13,31 +13,62 @@ func SetupRedis() error {
 	if global.CacheSetting == nil {
 		return fmt.Errorf("CacheSetting is nil")
 	}
-	if global.CacheSetting.Address == "" {
-		return fmt.Errorf("redis address is empty")
+
+	// 判断是否为 Cluster 模式（Addresses 非空则使用 Cluster）
+	if len(global.CacheSetting.Addresses) > 0 {
+		// Redis Cluster 模式
+		clusterCli := redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:    global.CacheSetting.Addresses,
+			Password: global.CacheSetting.Password,
+			Username: global.CacheSetting.Username,
+
+			PoolSize:     global.CacheSetting.MaxConnect,
+			MinIdleConns: 2,
+
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		if pingErr := clusterCli.Ping(ctx).Err(); pingErr != nil {
+			return fmt.Errorf("redis cluster ping failed: %w", pingErr)
+		}
+
+		// Cluster 模式直接使用 ClusterClient，支持自动 MOVED/ASK 重定向
+		global.RedisCli = clusterCli
+		fmt.Printf("[Redis] Cluster mode enabled, nodes: %v\n", global.CacheSetting.Addresses)
+	} else {
+		// 单节点模式
+		if global.CacheSetting.Address == "" {
+			return fmt.Errorf("redis address is empty")
+		}
+
+		rdb := redis.NewClient(&redis.Options{
+			Addr:     global.CacheSetting.Address,
+			Username: global.CacheSetting.Username,
+			Password: global.CacheSetting.Password,
+			DB:       0,
+
+			PoolSize:     global.CacheSetting.MaxConnect,
+			MinIdleConns: 2,
+
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		if pingErr := rdb.Ping(ctx).Err(); pingErr != nil {
+			return fmt.Errorf("redis ping failed: %w", pingErr)
+		}
+
+		global.RedisCli = rdb
 	}
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     global.CacheSetting.Address,  // "host:port"
-		Username: global.CacheSetting.Username, // ACL 用，不需要可空
-		Password: global.CacheSetting.Password,
-		DB:       0,
-
-		PoolSize:     global.CacheSetting.MaxConnect, // 连接池大小
-		MinIdleConns: 2,
-
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		return fmt.Errorf("redis ping failed: %w", err)
-	}
-
-	global.RedisCli = rdb
 	return nil
 }

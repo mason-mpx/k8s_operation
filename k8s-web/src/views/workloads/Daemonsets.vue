@@ -117,6 +117,7 @@
             <td style="white-space: nowrap;">{{ ds.createdAt }}</td>
             <td>
               <div class="action-icons">
+                <button class="action-btn" @click="viewDaemonset(ds)" title="DaemonSet 详情 (describe)">📋 详情</button>
                 <button class="action-btn terminal" @click="openTerminalForDaemonSet(ds)" title="打开容器终端">>_ 终端</button>
                 <button class="action-btn primary" @click="viewPods(ds)" title="查看 Pod">📦 Pod</button>
                 <div class="more-btn">
@@ -127,9 +128,9 @@
                     <div v-if="canOperate" class="menu-divider"></div>
                     <button v-if="canOperate" class="menu-item" @click="restartDaemonset(ds)"><span class="menu-icon">🔄</span><span>重启</span></button>
                     <button v-if="canOperate" class="menu-item" @click="openUpdateImage(ds)"><span class="menu-icon">🔧</span><span>更新镜像</span></button>
+                    <button v-if="canOperate" class="menu-item" @click="openResourceModal(ds)"><span class="menu-icon">⚡</span><span>资源配置</span></button>
                     <button v-if="canOperate" class="menu-item" @click="openRollback(ds)"><span class="menu-icon">⏪</span><span>回滚</span></button>
                     <div class="menu-divider"></div>
-                    <button class="menu-item" @click="viewDaemonset(ds)"><span class="menu-icon">📋</span><span>查看详情</span></button>
                     <button class="menu-item" @click="openEvents(ds)"><span class="menu-icon">📡</span><span>查看事件</span></button>
                     <button class="menu-item" @click="openYamlPreview(ds)"><span class="menu-icon">📝</span><span>查看/编辑 YAML</span></button>
                     <div v-if="canOperate" class="menu-divider"></div>
@@ -209,6 +210,7 @@
             <button class="card-action-btn primary" @click="viewPods(ds)" title="查看 Pod">📦 Pod</button>
             <button class="card-action-btn" @click="viewDaemonsetLogs(ds)" title="查看日志">📄 日志</button>
             <button class="card-action-btn" @click="viewHistory(ds)" title="版本记录">📜 版本</button>
+            <button class="card-action-btn warning" @click="openResourceModal(ds)" title="快速调整 CPU/Memory（防 OOM）">⚡ 资源</button>
             <button class="card-action-btn" @click="openYamlPreview(ds)" title="查看/编辑 YAML">📝 YAML</button>
             <button v-if="canOperate" class="card-action-btn danger" @click="deleteDaemonset(ds)" title="删除">🗑️ 删除</button>
           </div>
@@ -385,19 +387,103 @@
       </div>
     </div>
 
-    <!-- 详情弹窗 -->
-    <div v-if="showViewModal" class="modal-overlay" @click.self="showViewModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>📋 DaemonSet 详情</h3>
-          <button class="close-btn" @click="showViewModal = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div v-if="loadingDetail" class="loading-state">加载中...</div>
-          <pre v-else class="detail-json">{{ JSON.stringify(detailData, null, 2) }}</pre>
+    <!-- Describe 抽屉 (DDP Style) -->
+    <transition name="ddp-slide">
+      <div v-if="showViewModal" class="ddp-overlay" @click.self="showViewModal = false">
+        <div class="ddp-panel">
+          <div class="ddp-hd">
+            <div class="ddp-hd-body">
+              <div class="ddp-hd-row1">
+                <span class="ddp-status-pill" :class="ddpStatusClass(detailData)"><span class="ddp-status-led"></span>{{ ddpStatusText(detailData) }}</span>
+                <span class="ddp-ns-pill">{{ detailData?.metadata?.namespace || '-' }}</span>
+              </div>
+              <h2 class="ddp-name">{{ detailData?.metadata?.name || '-' }}</h2>
+              <div class="ddp-hd-meta" v-if="detailData?.status">
+                <span>就绪 {{ detailData.status?.numberReady || 0 }}/{{ detailData.status?.desiredNumberScheduled || 0 }}</span>
+                <span class="ddp-dot">·</span>
+                <span>策略 {{ detailData.spec?.updateStrategy?.type || '-' }}</span>
+                <span class="ddp-dot">·</span>
+                <span>{{ fmtTime(detailData.metadata?.creationTimestamp) }}</span>
+              </div>
+            </div>
+            <button class="ddp-close-btn" @click="showViewModal = false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          </div>
+          <div v-if="loadingDetail" class="ddp-loading"><div class="ddp-spin"></div><span>正在获取 DaemonSet 详情...</span></div>
+          <div v-else-if="detailData" class="ddp-body">
+            <div class="ddp-sec">
+              <div class="ddp-sec-title"><span class="ddp-si ddp-si-blue">⚡</span>基本信息</div>
+              <div class="ddp-kv-grid">
+                <div class="ddp-kv"><span class="ddp-k">名称</span><span class="ddp-v mono">{{ detailData.metadata?.name }}</span></div>
+                <div class="ddp-kv"><span class="ddp-k">命名空间</span><span class="ddp-v">{{ detailData.metadata?.namespace }}</span></div>
+                <div class="ddp-kv"><span class="ddp-k">创建时间</span><span class="ddp-v">{{ fmtTime(detailData.metadata?.creationTimestamp) }}</span></div>
+                <div class="ddp-kv"><span class="ddp-k">UID</span><span class="ddp-v mono" style="font-size:11px">{{ detailData.metadata?.uid || '-' }}</span></div>
+                <div class="ddp-kv"><span class="ddp-k">节点数</span><span class="ddp-v">期望 {{ detailData.status?.desiredNumberScheduled || 0 }} | 就绪 {{ detailData.status?.numberReady || 0 }} | 可用 {{ detailData.status?.numberAvailable || 0 }} | 已更新 {{ detailData.status?.updatedNumberScheduled || 0 }}</span></div>
+                <div class="ddp-kv"><span class="ddp-k">更新策略</span><span class="ddp-v">{{ detailData.spec?.updateStrategy?.type || '-' }}<span v-if="detailData.spec?.updateStrategy?.rollingUpdate"> (maxUnavailable: {{ detailData.spec.updateStrategy.rollingUpdate.maxUnavailable || 1 }})</span></span></div>
+                <div class="ddp-kv"><span class="ddp-k">历史版本数</span><span class="ddp-v">{{ detailData.spec?.revisionHistoryLimit ?? 10 }}</span></div>
+              </div>
+            </div>
+            <div class="ddp-sec" v-if="(detailData.status?.conditions || []).length">
+              <div class="ddp-sec-title"><span class="ddp-si ddp-si-green">✅</span>状态条件 Conditions</div>
+              <div class="ddp-conds">
+                <div v-for="c in detailData.status.conditions" :key="c.type" class="ddp-cond-chip" :class="c.status === 'True' ? 'cond-ok' : 'cond-fail'">
+                  <span class="cond-led"></span><span class="cond-name">{{ c.type }}</span><span class="cond-reason" v-if="c.reason">{{ c.reason }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="ddp-sec" v-if="detailData.spec?.selector?.matchLabels">
+              <div class="ddp-sec-title"><span class="ddp-si ddp-si-purple">🎯</span>选择器 Selector</div>
+              <div class="ddp-tags ddp-tags-pad">
+                <span v-for="(v, k) in detailData.spec.selector.matchLabels" :key="k" class="ddp-label-tag"><b>{{ k }}</b>=<span>{{ v }}</span></span>
+              </div>
+            </div>
+            <div class="ddp-sec" v-if="Object.keys(detailData.metadata?.labels || {}).length">
+              <div class="ddp-sec-title"><span class="ddp-si ddp-si-teal">🏷</span>标签 Labels</div>
+              <div class="ddp-tags ddp-tags-pad">
+                <span v-for="(v, k) in detailData.metadata.labels" :key="k" class="ddp-label-tag"><b>{{ k }}</b>=<span>{{ v }}</span></span>
+              </div>
+            </div>
+            <div class="ddp-sec" v-if="Object.keys(detailData.metadata?.annotations || {}).length">
+              <div class="ddp-sec-title ddp-sec-title-clickable" @click="ddpShowAnno = !ddpShowAnno">
+                <span class="ddp-si ddp-si-orange">📝</span>注解 Annotations
+                <span class="ddp-cnt-badge">{{ Object.keys(detailData.metadata.annotations).length }}</span>
+                <span class="ddp-fold-arrow">{{ ddpShowAnno ? '▲' : '▼' }}</span>
+              </div>
+              <div v-if="ddpShowAnno" class="ddp-anno-list">
+                <div v-for="(v, k) in detailData.metadata.annotations" :key="k" class="ddp-anno-row"><span class="ddp-anno-k">{{ k }}</span><span class="ddp-anno-v">{{ v }}</span></div>
+              </div>
+            </div>
+            <div class="ddp-sec" v-if="(detailData.spec?.template?.spec?.containers || []).length">
+              <div class="ddp-sec-title"><span class="ddp-si ddp-si-blue">📦</span>Pod 模板容器<span class="ddp-cnt-badge">{{ detailData.spec.template.spec.containers.length }}</span></div>
+              <div class="ddp-ctr-list">
+                <div v-for="c in detailData.spec.template.spec.containers" :key="c.name" class="ddp-ctr-card">
+                  <div class="ddp-ctr-hd"><span class="ddp-ctr-name">{{ c.name }}</span></div>
+                  <div class="ddp-ctr-img">{{ c.image }}</div>
+                  <div class="ddp-ctr-detail">
+                    <div class="ddp-ctr-row" v-if="(c.command||[]).length||(c.args||[]).length"><span class="ddp-rk">命令</span><div class="pdp-cmd-blk"><div v-if="(c.command||[]).length" class="pdp-cmd-line"><span class="pdp-cmd-label">command</span>{{ c.command.join(' ') }}</div><div v-if="(c.args||[]).length" class="pdp-cmd-line"><span class="pdp-cmd-label">args</span>{{ c.args.join(' ') }}</div></div></div>
+                    <div class="ddp-ctr-row" v-if="(c.ports||[]).length"><span class="ddp-rk">端口</span><span v-for="p in c.ports" :key="p.containerPort" class="ddp-port-chip">{{ p.containerPort }}/{{ p.protocol||'TCP' }}</span></div>
+                    <div class="ddp-ctr-row" v-if="c.resources?.requests||c.resources?.limits"><span class="ddp-rk">资源</span><div class="pdp-res-lines"><div v-if="c.resources?.requests" class="pdp-res-line"><span class="pdp-res-lbl req">requests</span><span v-for="(v,k) in c.resources.requests" :key="k" class="pdp-res-tag">{{ k }}:{{ v }}</span></div><div v-if="c.resources?.limits" class="pdp-res-line"><span class="pdp-res-lbl lim">limits</span><span v-for="(v,k) in c.resources.limits" :key="k" class="pdp-res-tag">{{ k }}:{{ v }}</span></div></div></div>
+                    <div class="ddp-ctr-row" v-if="(c.volumeMounts||[]).length"><span class="ddp-rk">挂载</span><div class="pdp-mnt-tbl"><div v-for="m in c.volumeMounts" :key="m.name" class="pdp-mnt-row"><span class="pdp-mn">{{ m.name }}</span><span class="pdp-mp">{{ m.mountPath }}</span><span v-if="m.readOnly" class="pdp-mro">ro</span></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ddp-sec ddp-sec-events">
+              <div class="ddp-sec-title"><span class="ddp-si ddp-si-orange">⚡</span>事件 Events<span v-if="ddpEventsData.length" class="ddp-cnt-badge">{{ ddpEventsData.length }}</span><button class="pdp-ev-refresh-btn" @click="ddpRefreshEvents" :disabled="ddpEventsLoading" title="刷新事件"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></button></div>
+              <div v-if="ddpEventsLoading" class="pdp-ev-empty"><div class="pdp-ev-spin"></div>加载事件中...</div>
+              <div v-else-if="!ddpEventsData.length" class="pdp-ev-empty">暂无事件记录</div>
+              <div v-else class="pdp-ev-list">
+                <div v-for="(ev, i) in ddpEventsData" :key="i" class="pdp-ev-item" :class="ev.type === 'Warning' ? 'ev-warn' : 'ev-norm'">
+                  <div class="pdp-ev-hd"><span class="pdp-ev-type-dot" :class="ev.type === 'Warning' ? 'ev-dot-warn' : 'ev-dot-norm'"></span><span class="pdp-ev-reason">{{ ev.reason }}</span><span class="pdp-ev-count" v-if="ev.count > 1">×{{ ev.count }}</span><span class="pdp-ev-age">{{ ddpFmtEvTime(ev.lastTimestamp || ev.last_timestamp || ev.event_time) }}</span></div>
+                  <div class="pdp-ev-msg">{{ ev.message }}</div>
+                  <div class="pdp-ev-src" v-if="ev.source?.component || ev.reporting_component">来源: {{ ev.source?.component || ev.reporting_component }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="ddp-empty"><div style="font-size:48px;margin-bottom:12px">📭</div><p>暂无 DaemonSet 数据</p></div>
         </div>
       </div>
-    </div>
+    </transition>
 
     <!-- 更新镜像弹窗 -->
     <div v-if="showUpdateImageModal" class="modal-overlay" @click.self="showUpdateImageModal = false">
@@ -441,6 +527,92 @@
           <button class="btn btn-secondary" @click="showUpdateImageModal = false">取消</button>
           <button class="btn btn-primary" @click="submitUpdateImage" :disabled="updatingImage || !updateImageForm.image">
             {{ updatingImage ? '更新中...' : '确认更新' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速资源调整弹窗（防 OOM） -->
+    <div v-if="showResourceModal" class="modal-overlay" @click.self="showResourceModal = false">
+      <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+          <h3>⚡ 快速调整资源配置</h3>
+          <button class="close-btn" @click="showResourceModal = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="info-box">
+            <div><strong>DaemonSet:</strong> {{ resourceForm.name }}</div>
+            <div><strong>命名空间:</strong> {{ resourceForm.namespace }}</div>
+          </div>
+
+          <!-- 容器选择 -->
+          <div class="form-group" v-if="resourceContainerList.length > 1">
+            <label>选择容器</label>
+            <select v-model="resourceForm.container" class="form-select" @change="onResourceContainerChange">
+              <option value="" disabled>请选择容器</option>
+              <option v-for="c in resourceContainerList" :key="c" :value="c">{{ c }}</option>
+            </select>
+          </div>
+          <div class="form-group" v-else-if="resourceContainerList.length === 1">
+            <label>容器</label>
+            <div class="form-static">{{ resourceContainerList[0] }}</div>
+          </div>
+
+          <!-- 当前资源配置展示 -->
+          <div v-if="currentResources" class="resource-current-info">
+            <div class="section-label" style="margin-bottom: 8px;">📊 当前配置</div>
+            <div class="resource-grid-display">
+              <div class="resource-item-display">
+                <span class="resource-key">CPU Request:</span>
+                <span class="resource-val">{{ currentResources.cpu_request || '未设置' }}</span>
+              </div>
+              <div class="resource-item-display">
+                <span class="resource-key">CPU Limit:</span>
+                <span class="resource-val">{{ currentResources.cpu_limit || '未设置' }}</span>
+              </div>
+              <div class="resource-item-display">
+                <span class="resource-key">Memory Request:</span>
+                <span class="resource-val">{{ currentResources.memory_request || '未设置' }}</span>
+              </div>
+              <div class="resource-item-display">
+                <span class="resource-key">Memory Limit:</span>
+                <span class="resource-val" :class="{ 'text-danger': !currentResources.memory_limit }">{{ currentResources.memory_limit || '⚠️ 未设置' }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="resource-current-info">
+            <div class="form-hint">⚠️ 当前容器未设置资源配置，建议设置以防 OOM</div>
+          </div>
+
+          <!-- 资源编辑表单 -->
+          <div class="resource-edit-section">
+            <div class="section-label" style="margin-bottom: 8px;">✏️ 新配置</div>
+            <div class="resource-form-grid">
+              <div class="form-group">
+                <label>Memory Limit <span class="required">*</span></label>
+                <input v-model="resourceForm.memory_limit" type="text" class="form-input" placeholder="例: 512Mi, 1Gi, 2Gi" />
+                <div class="form-hint">必填，防止 OOM 必须设置内存上限</div>
+              </div>
+              <div class="form-group">
+                <label>Memory Request</label>
+                <input v-model="resourceForm.memory_request" type="text" class="form-input" placeholder="例: 256Mi, 512Mi" />
+                <div class="form-hint">建议设置为 Limit 的 50%-80%</div>
+              </div>
+              <div class="form-group">
+                <label>CPU Limit</label>
+                <input v-model="resourceForm.cpu_limit" type="text" class="form-input" placeholder="例: 500m, 1000m, 2" />
+              </div>
+              <div class="form-group">
+                <label>CPU Request</label>
+                <input v-model="resourceForm.cpu_request" type="text" class="form-input" placeholder="例: 100m, 250m" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showResourceModal = false">取消</button>
+          <button class="btn btn-primary" @click="submitUpdateResources" :disabled="updatingResources || !resourceForm.memory_limit">
+            {{ updatingResources ? '更新中...' : '确认修改' }}
           </button>
         </div>
       </div>
@@ -883,7 +1055,7 @@ import Pagination from '@/components/Pagination.vue'
 import KubeTerminal from '@/components/KubeTerminal.vue'
 import daemonsetsApi from '@/api/cluster/workloads/daemonsets'
 import podsApi from '@/api/cluster/workloads/pods'
-import namespaceApi from '@/api/cluster/config/namespace'
+import namespaceApi from '@/api/cluster/namespaces'
 import { useClusterStore } from '@/stores/cluster'
 import { useResourceWatcher } from '@/composables/useResourceWatcher'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -951,19 +1123,22 @@ const startDaemonSetWatcher = (ds) => {
       getStatus: async () => {
         try {
           const res = await daemonsetsApi.detail({ namespace: ds.namespace, name: ds.name })
-          const d = res?.data || res || {}
+          const statusStr = res?.data?.status || 'Unknown'
+          const raw = res?.data?.data || {}
+          const s = raw.status || {}
           return {
-            status: d.status || 'Unknown',
-            desiredReplicas: d.desired_number_scheduled || d.desiredNumberScheduled || 0,
-            readyReplicas: d.number_ready || d.numberReady || 0,
-            updatedReplicas: d.updated_number_scheduled || d.number_ready || 0,
+            status: statusStr,
+            desiredReplicas: s.desiredNumberScheduled || 0,
+            readyReplicas: s.numberReady || 0,
+            updatedReplicas: s.updatedNumberScheduled || 0,
+            availableReplicas: s.numberAvailable || 0,
           }
         } catch { return null }
       },
       getEvents: async () => {
         try {
           const res = await daemonsetsApi.events({ namespace: ds.namespace, name: ds.name, limit: 20, since_seconds: 300 })
-          return res?.data?.items || res?.data || []
+          return res?.data?.events || res?.data?.items || []
         } catch { return [] }
       },
       onComplete: ({ success, elapsed }) => {
@@ -1012,7 +1187,7 @@ const getAuthHeaders = () => {
 // =========================
 // 状态变量
 // =========================
-const loading = ref(false)
+const loading = ref(true)
 const errorMsg = ref('')
 const searchQuery = ref('')
 const statusFilter = ref('all')
@@ -1185,11 +1360,15 @@ const loadingEvents = ref(false)
 const loadingHistory = ref(false)
 const loadingPods = ref(false)
 const updatingImage = ref(false)
+const updatingResources = ref(false)  // 资源调整中
 const rollingBack = ref(false)
 const creating = ref(false)
 
 // 数据
 const detailData = ref(null)
+const ddpEventsData = ref([])
+const ddpEventsLoading = ref(false)
+const ddpShowAnno = ref(false)
 const eventsData = ref([])
 const historyList = ref([])
 const historyDaemonset = ref(null)
@@ -1236,6 +1415,20 @@ const rollbackForm = ref({ namespace: '', name: '', revision_name: '' })
 const updateImageForm = ref({ namespace: '', name: '', container: '', image: '', currentImage: '' })
 const containerList = ref([])
 const imagesList = ref([])
+
+// 资源快速修改表单
+const showResourceModal = ref(false)
+const resourceForm = ref({
+  namespace: '',
+  name: '',
+  container: '',
+  cpu_request: '',
+  cpu_limit: '',
+  memory_request: '',
+  memory_limit: '',
+})
+const resourceContainerList = ref([])  // 资源弹窗的容器列表
+const currentResources = ref(null)     // 当前容器的资源配置
 
 // 创建表单
 const daemonsetForm = ref({
@@ -1636,12 +1829,57 @@ const createDaemonSetFromYaml = async () => {
 const viewDaemonset = async (ds) => {
   showMoreOptions.value = false
   loadingDetail.value = true
+  detailData.value = null
+  ddpEventsData.value = []
+  ddpShowAnno.value = false
   showViewModal.value = true
+  ddpEventsLoading.value = true
   try {
-    const res = await daemonsetsApi.detail({ namespace: ds.namespace, name: ds.name })
-    detailData.value = res.code === 0 ? res.data : ds
-  } catch { detailData.value = ds }
-  finally { loadingDetail.value = false }
+    const [detailRes, eventsRes] = await Promise.all([
+      daemonsetsApi.detail({ namespace: ds.namespace, name: ds.name }),
+      daemonsetsApi.events({ namespace: ds.namespace, name: ds.name })
+    ])
+    detailData.value = detailRes.code === 0 ? (detailRes.data?.data || detailRes.data) : ds
+    ddpEventsData.value = eventsRes.code === 0 ? (eventsRes.data?.events || eventsRes.data?.items || eventsRes.data || []) : []
+  } catch (e) {
+    detailData.value = ds
+    ddpEventsData.value = []
+  } finally {
+    loadingDetail.value = false
+    ddpEventsLoading.value = false
+  }
+}
+const ddpStatusText = (d) => {
+  if (!d?.status) return 'UNKNOWN'
+  const ready = d.status?.numberReady || 0
+  const desired = d.status?.desiredNumberScheduled || 0
+  if (ready >= desired && desired > 0) return 'READY'
+  if (ready > 0) return 'PROGRESSING'
+  return 'NOT READY'
+}
+const ddpStatusClass = (d) => {
+  const t = ddpStatusText(d)
+  if (t === 'READY') return 'ddp-st-ok'
+  if (t === 'PROGRESSING') return 'ddp-st-prog'
+  return 'ddp-st-err'
+}
+const ddpRefreshEvents = async () => {
+  if (!detailData.value?.metadata) return
+  ddpEventsLoading.value = true
+  try {
+    const res = await daemonsetsApi.events({ namespace: detailData.value.metadata.namespace, name: detailData.value.metadata.name })
+    ddpEventsData.value = res.code === 0 ? (res.data?.events || res.data?.items || res.data || []) : []
+  } catch { ddpEventsData.value = [] }
+  finally { ddpEventsLoading.value = false }
+}
+const ddpFmtEvTime = (ts) => {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000)
+  if (diff < 60) return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
 }
 
 // =========================
@@ -1729,6 +1967,109 @@ const submitUpdateImage = async () => {
     Message.error({ content: e?.msg || '更新失败' })
   } finally {
     updatingImage.value = false
+  }
+}
+
+// =========================
+// 资源快速调整
+// =========================
+const openResourceModal = async (ds) => {
+  showMoreOptions.value = false
+  resourceContainerList.value = ds.containers || []
+  const firstContainer = resourceContainerList.value[0] || ''
+  resourceForm.value = {
+    namespace: ds.namespace,
+    name: ds.name,
+    container: firstContainer,
+    cpu_request: '',
+    cpu_limit: '',
+    memory_request: '',
+    memory_limit: '',
+  }
+  currentResources.value = null
+
+  // 获取当前容器的资源配置
+  if (firstContainer) {
+    await loadContainerResources(ds, firstContainer)
+  }
+  showResourceModal.value = true
+}
+
+const loadContainerResources = async (ds, containerName) => {
+  try {
+    const res = await daemonsetsApi.detail({
+      namespace: ds.namespace,
+      name: ds.name
+    })
+    if (res.code === 0 && res.data) {
+      const d = res.data?.data || res.data
+      const containers = d.spec?.template?.spec?.containers || []
+      const target = containers.find(c => c.name === containerName)
+      if (target && target.resources) {
+        const r = target.resources
+        currentResources.value = {
+          cpu_request: r.requests?.cpu || '',
+          cpu_limit: r.limits?.cpu || '',
+          memory_request: r.requests?.memory || '',
+          memory_limit: r.limits?.memory || '',
+        }
+        resourceForm.value.cpu_request = currentResources.value.cpu_request
+        resourceForm.value.cpu_limit = currentResources.value.cpu_limit
+        resourceForm.value.memory_request = currentResources.value.memory_request
+        resourceForm.value.memory_limit = currentResources.value.memory_limit
+      } else {
+        currentResources.value = null
+      }
+    }
+  } catch (e) {
+    console.warn('获取容器资源配置失败:', e)
+  }
+}
+
+const onResourceContainerChange = async () => {
+  const ds = { namespace: resourceForm.value.namespace, name: resourceForm.value.name }
+  await loadContainerResources(ds, resourceForm.value.container)
+}
+
+const submitUpdateResources = async () => {
+  if (!resourceForm.value.memory_limit) {
+    Message.error({ content: '内存上限（Memory Limit）必须设置，防止 OOM' })
+    return
+  }
+
+  const ok = await confirm({
+    title: '确认修改资源配置',
+    content: '此操作将触发滚动更新，修改容器的 CPU/Memory 配置。',
+    type: 'warning',
+    details: [
+      { label: 'DaemonSet', value: `${resourceForm.value.namespace}/${resourceForm.value.name}` },
+      { label: '容器', value: resourceForm.value.container },
+      { label: 'Memory Limit', value: resourceForm.value.memory_limit, highlight: true },
+      { label: 'Memory Request', value: resourceForm.value.memory_request || '未设置' },
+      { label: 'CPU Limit', value: resourceForm.value.cpu_limit || '未设置' },
+      { label: 'CPU Request', value: resourceForm.value.cpu_request || '未设置' },
+    ],
+    tip: '资源修改会触发滚动更新，期间服务保持可用',
+    confirmText: '确认修改',
+  })
+  if (!ok) return
+
+  updatingResources.value = true
+  try {
+    const res = await daemonsetsApi.updateResources(resourceForm.value)
+    if (res.code === 0) {
+      Message.success({ content: '资源配置更新成功' })
+      showResourceModal.value = false
+      autoRefresh.value = true
+      setTimeout(() => { autoRefresh.value = false }, 15000)
+      refreshList()
+    } else {
+      Message.error({ content: res.msg || '资源配置更新失败' })
+    }
+  } catch (e) {
+    Message.error({ content: e?.msg || e?.message || '资源配置更新失败' })
+  } finally {
+    updatingResources.value = false
   }
 }
 
@@ -3882,7 +4223,7 @@ const downloadYaml = () => {
 
 .load-template-btn {
   padding: 10px 20px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -3890,24 +4231,18 @@ const downloadYaml = () => {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 }
 
 .load-template-btn:hover {
-  background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+  background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.5);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
 }
 
-.load-template-btn:active {
-  background: #020617;
-  transform: translateY(0);
-}
-
-.clear-yaml-btn,
-.copy-yaml-btn,
-.reset-yaml-btn {
+.copy-yaml-btn {
   padding: 10px 20px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -3915,27 +4250,32 @@ const downloadYaml = () => {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.3s ease;
-}
-
-.copy-yaml-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
 }
 
 .copy-yaml-btn:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
 }
 
 .clear-yaml-btn,
 .reset-yaml-btn {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
 }
 
 .clear-yaml-btn:hover,
 .reset-yaml-btn:hover {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
 }
@@ -3943,23 +4283,23 @@ const downloadYaml = () => {
 .yaml-editor {
   width: 100%;
   min-height: 400px;
-  max-height: 500px;
-  padding: 16px;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  padding: 20px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
+  border: 2px solid #334155;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #e2e8f0;
   resize: vertical;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  tab-size: 2;
+  transition: all 0.2s;
 }
 
 .yaml-editor:focus {
   outline: none;
-  border-color: #326ce5;
-  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.3);
-  background: #1e1e1e;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
 .yaml-error {
@@ -3967,8 +4307,8 @@ const downloadYaml = () => {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
   border-radius: 8px;
   color: #dc2626;
   font-size: 14px;
@@ -3979,7 +4319,8 @@ const downloadYaml = () => {
 }
 
 .yaml-editor-footer {
-  background: #f7fafc;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   padding: 16px;
   border-radius: 8px;
 }
@@ -4067,4 +4408,66 @@ const downloadYaml = () => {
   line-height: 1.5;
 }
 .current-image-text { opacity: 0.85; }
+/* ===== DDP Describe Drawer ===== */
+.ddp-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(15,23,42,.45); backdrop-filter: blur(2px); }
+.ddp-panel { position: absolute; right: 0; top: 0; height: 100%; width: 880px; max-width: 92vw; display: flex; flex-direction: column; background: #fff; box-shadow: -8px 0 40px rgba(0,0,0,.18); }
+.ddp-hd { display: flex; align-items: flex-start; justify-content: space-between; padding: 24px 28px 18px; background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%); color: #fff; flex-shrink: 0; }
+.ddp-hd-body { flex: 1; min-width: 0; } .ddp-hd-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ddp-status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; }
+.ddp-st-ok { background: rgba(16,185,129,.2); color: #6ee7b7; } .ddp-st-prog { background: rgba(250,204,21,.2); color: #fde68a; } .ddp-st-err { background: rgba(239,68,68,.2); color: #fca5a5; }
+.ddp-status-led { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ddp-ns-pill { background: rgba(255,255,255,.12); padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.ddp-name { font-size: 20px; font-weight: 800; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ddp-hd-meta { margin-top: 6px; font-size: 12px; color: rgba(255,255,255,.7); display: flex; gap: 6px; align-items: center; }
+.ddp-dot { color: rgba(255,255,255,.35); }
+.ddp-close-btn { background: rgba(255,255,255,.1); border: none; color: #fff; cursor: pointer; border-radius: 8px; padding: 8px; }
+.ddp-loading { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; color: #64748b; font-size: 14px; }
+.ddp-spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid #e2e8f0; border-top-color: #6366f1; animation: ddp-spin .7s linear infinite; }
+@keyframes ddp-spin { to { transform: rotate(360deg); } }
+.ddp-body { flex: 1; overflow-y: auto; } .ddp-sec { border-bottom: 1px solid #f1f5f9; }
+.ddp-sec-title { display: flex; align-items: center; gap: 8px; padding: 12px 20px; font-size: 13px; font-weight: 700; color: #1e293b; }
+.ddp-sec-title-clickable { cursor: pointer; user-select: none; } .ddp-sec-title-clickable:hover { background: rgba(99,102,241,.04); }
+.ddp-si { font-size: 14px; } .ddp-si-blue { color: #3b82f6; } .ddp-si-green { color: #10b981; } .ddp-si-purple { color: #8b5cf6; } .ddp-si-orange { color: #f59e0b; } .ddp-si-teal { color: #06b6d4; }
+.ddp-cnt-badge { font-size: 11px; background: #e0e7ff; color: #4338ca; border-radius: 8px; padding: 1px 7px; font-weight: 700; }
+.ddp-fold-arrow { margin-left: auto; color: #94a3b8; font-size: 11px; }
+.ddp-kv-grid { display: grid; grid-template-columns: 1fr 1fr; padding: 4px 0; }
+.ddp-kv { display: flex; align-items: baseline; gap: 8px; padding: 6px 20px; border-bottom: 1px solid #fafafa; }
+.ddp-k { font-size: 12px; color: #64748b; min-width: 85px; flex-shrink: 0; } .ddp-v { font-size: 12px; color: #1e293b; word-break: break-all; } .ddp-v.mono { font-family: monospace; }
+.ddp-conds { padding: 8px 20px 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.ddp-cond-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.ddp-cond-chip.cond-ok { background: #ecfdf5; color: #065f46; } .ddp-cond-chip.cond-fail { background: #fef2f2; color: #991b1b; }
+.ddp-cond-chip .cond-led { width: 6px; height: 6px; border-radius: 50%; } .ddp-cond-chip.cond-ok .cond-led { background: #10b981; } .ddp-cond-chip.cond-fail .cond-led { background: #ef4444; }
+.ddp-cond-chip .cond-name { font-weight: 700; } .ddp-cond-chip .cond-reason { font-weight: 400; color: #64748b; font-size: 11px; }
+.ddp-tags { display: flex; flex-wrap: wrap; gap: 6px; } .ddp-tags-pad { padding: 8px 20px 12px; }
+.ddp-label-tag { display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; border-radius: 4px; padding: 3px 8px; font-size: 11px; font-family: monospace; color: #334155; } .ddp-label-tag b { color: #4338ca; }
+.ddp-anno-list { padding: 0 20px 12px; display: flex; flex-direction: column; }
+.ddp-anno-row { display: grid; grid-template-columns: 260px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f8fafc; font-size: 12px; }
+.ddp-anno-k { font-family: monospace; color: #4338ca; font-weight: 600; word-break: break-all; } .ddp-anno-v { font-family: monospace; color: #475569; word-break: break-all; white-space: pre-wrap; max-height: 80px; overflow-y: auto; }
+.ddp-ctr-list { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ddp-ctr-card { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; border-left: 3px solid #6366f1; }
+.ddp-ctr-hd { padding: 10px 14px 4px; } .ddp-ctr-name { font-size: 13px; font-weight: 700; color: #1e293b; }
+.ddp-ctr-img { padding: 0 14px 8px; font-size: 12px; font-family: monospace; color: #6366f1; }
+.ddp-ctr-detail { padding: 0 14px 10px; display: flex; flex-direction: column; gap: 6px; }
+.ddp-ctr-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; font-size: 12px; }
+.ddp-rk { flex-shrink: 0; font-weight: 600; color: #475569; min-width: 60px; }
+.ddp-port-chip { background: #ede9fe; color: #5b21b6; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+.ddp-sec-events { border-bottom: none; } .ddp-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; }
+.ddp-slide-enter-active { transition: transform 0.32s cubic-bezier(0.4,0,0.2,1); } .ddp-slide-leave-active { transition: transform 0.22s cubic-bezier(0.4,0,1,1); }
+.ddp-slide-enter-from, .ddp-slide-leave-to { transform: translateX(100%); }
+.pdp-ev-refresh-btn { margin-left: auto; background: none; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; cursor: pointer; color: #64748b; display: flex; align-items: center; } .pdp-ev-refresh-btn:hover { background: #f1f5f9; color: #4338ca; }
+.pdp-ev-empty { padding: 20px; text-align: center; color: #94a3b8; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pdp-ev-spin { width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: ddp-spin .7s linear infinite; }
+.pdp-ev-list { padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 6px; }
+.pdp-ev-item { padding: 8px 12px; border-radius: 8px; border-left: 3px solid #10b981; background: #f8fafc; } .pdp-ev-item.ev-warn { border-left-color: #f59e0b; background: #fffbeb; }
+.pdp-ev-hd { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.pdp-ev-type-dot { width: 7px; height: 7px; border-radius: 50%; } .pdp-ev-type-dot.ev-dot-norm { background: #10b981; } .pdp-ev-type-dot.ev-dot-warn { background: #f59e0b; }
+.pdp-ev-reason { font-weight: 700; color: #1e293b; } .pdp-ev-count { font-size: 11px; color: #64748b; } .pdp-ev-age { margin-left: auto; font-size: 11px; color: #94a3b8; }
+.pdp-ev-msg { font-size: 12px; color: #475569; margin-top: 4px; } .pdp-ev-src { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.pdp-cmd-blk { background: #1e293b; border-radius: 6px; padding: 6px 10px; font-family: monospace; font-size: 11px; color: #e2e8f0; flex: 1; min-width: 0; }
+.pdp-cmd-line { white-space: pre-wrap; word-break: break-all; } .pdp-cmd-label { color: #94a3b8; margin-right: 8px; }
+.pdp-res-lines { display: flex; flex-direction: column; gap: 3px; } .pdp-res-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pdp-res-lbl { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600; } .pdp-res-lbl.req { background: #dbeafe; color: #1d4ed8; } .pdp-res-lbl.lim { background: #fef3c7; color: #92400e; }
+.pdp-res-tag { font-size: 11px; color: #334155; font-family: monospace; }
+.pdp-mnt-tbl { display: flex; flex-direction: column; gap: 2px; flex: 1; } .pdp-mnt-row { display: flex; gap: 8px; font-size: 11px; font-family: monospace; }
+.pdp-mn { color: #4338ca; font-weight: 600; } .pdp-mp { color: #475569; } .pdp-mro { color: #dc2626; font-size: 10px; font-weight: 700; }
 </style>

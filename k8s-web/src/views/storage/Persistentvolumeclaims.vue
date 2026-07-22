@@ -51,6 +51,22 @@
           ✖️ 退出批量
         </button>
 
+        <!-- 视图切换 -->
+        <div class="view-toggle">
+          <button
+            class="btn btn-view"
+            :class="{ active: viewMode === 'table' }"
+            @click="viewMode = 'table'"
+            title="表格视图"
+          >📋</button>
+          <button
+            class="btn btn-view"
+            :class="{ active: viewMode === 'card' }"
+            @click="viewMode = 'card'"
+            title="卡片视图"
+          >🗂️</button>
+        </div>
+
         <label class="auto-refresh-toggle">
           <input type="checkbox" v-model="autoRefresh" />
           <span>自动刷新</span>
@@ -79,7 +95,7 @@
     </div>
 
     <!-- 表格容器 -->
-    <div class="table-container">
+    <div v-if="viewMode === 'table'" class="table-container">
       <table class="resource-table">
         <thead>
           <tr>
@@ -139,24 +155,27 @@
             <td>{{ pvc.createdAt }}</td>
             <td>
               <div class="action-icons">
-                <button v-if="canOperate" class="icon-btn primary" @click="editYaml(pvc)" title="编辑">
-                  ✏️
+                <button class="action-btn primary" @click="openPVCDetail(pvc)" title="查看详情">
+                  📋 详情
                 </button>
-                <button v-if="canOperate" class="icon-btn expand" @click="openExpandModal(pvc)" title="扩容">
-                  🔼
+                <button v-if="canOperate" class="action-btn" @click="editYaml(pvc)" title="编辑">
+                  ✏️ 编辑
                 </button>
-                <button v-if="canOperate" class="icon-btn danger" @click="deleteSinglePVC(pvc)" title="删除">
-                  🗑️
+                <button v-if="canOperate" class="action-btn expand" @click="openExpandModal(pvc)" title="扩容">
+                  🔼 扩容
+                </button>
+                <button v-if="canOperate" class="action-btn danger" @click="deleteSinglePVC(pvc)" title="删除">
+                  🗑️ 删除
                 </button>
                 
                 <!-- 更多菜单 -->
                 <div class="more-actions-wrapper">
                   <button 
-                    class="icon-btn more-btn" 
+                    class="action-btn more-btn" 
                     @click="toggleMoreMenu(pvc)"
                     title="更多操作"
                   >
-                    ⋮
+                    ⋮ 更多
                   </button>
                   <div 
                     v-if="activeMoreMenu === pvc.name" 
@@ -182,7 +201,7 @@
 
     <!-- 分页组件 -->
     <Pagination 
-      v-if="totalFromServer > 0"
+      v-if="viewMode === 'table' && totalFromServer > 0"
       v-model:currentPage="currentPage"
       v-model:itemsPerPage="itemsPerPage"
       :totalItems="totalFromServer"
@@ -191,6 +210,41 @@
     <div v-if="!loading && pvcs.length === 0" class="empty-state">
       <div class="empty-icon">📦</div>
       <div class="empty-text">暂无 PVC 数据</div>
+    </div>
+
+    <!-- 卡片视图 -->
+    <div v-if="viewMode === 'card'" class="cards-container">
+      <div class="cards-grid">
+        <div v-for="pvc in pvcs" :key="pvc.name + pvc.namespace" class="pvc-card">
+          <div class="card-header">
+            <div class="card-title-row">
+              <span class="icon">💾</span>
+              <span class="card-name">{{ pvc.name }}</span>
+              <span class="status-indicator" :class="pvc.status.toLowerCase()">{{ pvc.status }}</span>
+            </div>
+            <span class="namespace-badge">{{ pvc.namespace }}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-info-grid">
+              <div class="info-row"><span class="info-label">容量</span><span class="info-value highlight">{{ pvc.capacity || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">访问模式</span><span class="info-value">{{ (pvc.accessModes || []).join(', ') }}</span></div>
+              <div class="info-row"><span class="info-label">存储类</span><span class="info-value">{{ pvc.storageClassName || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">绑定 PV</span><span class="info-value">{{ pvc.volumeName || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">创建时间</span><span class="info-value">{{ pvc.createdAt }}</span></div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="card-action-btn primary" @click="openPVCDetail(pvc)">📋 详情</button>
+            <button v-if="canOperate" class="card-action-btn" @click="editYaml(pvc)">✏️ 编辑</button>
+            <button v-if="canOperate" class="card-action-btn" @click="openExpandModal(pvc)">🔼 扩容</button>
+            <button v-if="canOperate" class="card-action-btn danger" @click="deleteSinglePVC(pvc)">🗑️ 删除</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="!loading && pvcs.length === 0" class="empty-state">
+        <div class="empty-icon">📦</div>
+        <div class="empty-text">暂无 PVC 数据</div>
+      </div>
     </div>
 
     <!-- 创建 PVC 模态框 -->
@@ -656,7 +710,33 @@
       </div>
     </div>
 
-    <!-- 批量删除预览（待补充）-->
+    <!-- 批量删除预览 -->
+    <div v-if="showBatchDelPreview" class="modal-mask" @click.self="showBatchDelPreview = false">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>批量删除确认</h2>
+          <button class="close" @click="showBatchDelPreview = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom:12px">即将删除以下 <b>{{ selectedPVCs.length }}</b> 个 PVC：</p>
+          <div class="batch-del-list">
+            <div v-for="pvc in selectedPVCs" :key="pvc.namespace + '/' + pvc.name" class="batch-del-item">
+              {{ pvc.namespace }} / {{ pvc.name }}
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:12px;color:#dc2626;cursor:pointer">
+            <input type="checkbox" v-model="forceDeleteMode" />
+            <span>强制删除（清除 finalizers，用于卡 Terminating 的资源）</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" @click="showBatchDelPreview = false">取消</button>
+          <button class="btn danger" @click="confirmBatchDelete" :disabled="batchDeleting">
+            {{ batchDeleting ? '删除中...' : (forceDeleteMode ? '确认强制删除' : '确认批量删除') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -665,7 +745,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import Pagination from '@/components/Pagination.vue'
 import pvcApi from '@/api/cluster/storage/pvc'
-import namespaceApi from '@/api/cluster/config/namespace'
+import namespaceApi from '@/api/cluster/namespaces'
 import { useClusterStore } from '@/stores/cluster'
 import { useResizableModal } from '@/composables/useResizableModal'
 import permissionStore from '@/stores/permission'
@@ -706,7 +786,7 @@ const getAuthHeaders = () => {
 }
 
 // 状态变量
-const loading = ref(false)
+const loading = ref(true)
 const errorMsg = ref('')
 const searchQuery = ref('')
 const statusFilter = ref('all')
@@ -761,6 +841,7 @@ const expandForm = ref({
 
 // 自动刷新
 const autoRefresh = ref(false)
+const viewMode = ref('table') // 'table' | 'card'
 let autoRefreshTimer = null
 const AUTO_REFRESH_INTERVAL = 90000 // 90秒
 
@@ -914,13 +995,42 @@ const deleteSinglePVC = async (pvc) => {
   }
 }
 
+const showBatchDelPreview = ref(false)
+const batchDeleting = ref(false)
+const forceDeleteMode = ref(false)
+
 // 批量删除预览
 const openBatchDeletePreview = () => {
   if (selectedPVCs.value.length === 0) {
     Message.warning({ content: '请先选择要删除的 PVC', duration: 2200 })
     return
   }
-  showBatchDeleteModal.value = true
+  forceDeleteMode.value = false
+  showBatchDelPreview.value = true
+}
+
+const confirmBatchDelete = async () => {
+  batchDeleting.value = true
+  try {
+    if (forceDeleteMode.value) {
+      for (const p of selectedPVCs.value) {
+        try { await pvcApi.graceDelete({ namespace: p.namespace, name: p.name }) } catch {}
+      }
+      Message.success({ content: `已对 ${selectedPVCs.value.length} 个 PVC 执行强制删除`, duration: 2200 })
+    } else {
+      const items = selectedPVCs.value.map(p => ({ namespace: p.namespace, name: p.name }))
+      await pvcApi.batchDelete(items)
+      Message.success({ content: `成功删除 ${items.length} 个 PVC`, duration: 2200 })
+    }
+    showBatchDelPreview.value = false
+    selectedPVCs.value = []
+    batchMode.value = false
+    loadList()
+  } catch (e) {
+    Message.error({ content: '删除失败: ' + (e?.message || e), duration: 4000 })
+  } finally {
+    batchDeleting.value = false
+  }
 }
 
 // ==========================
@@ -1415,7 +1525,22 @@ onUnmounted(() => {
 }
 
 .view-header {
-  margin-bottom: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: -24px -24px 20px -24px;
+  padding: 28px 32px;
+  color: #fff;
+  border-radius: 0;
+}
+.view-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+}
+.view-header p {
+  color: rgba(255,255,255,0.82);
+  font-size: 13px;
+  margin: 0;
 }
 
 .view-header h1 {
@@ -1454,14 +1579,24 @@ onUnmounted(() => {
 }
 
 .btn-filter {
-  padding: 8px 16px;
+  padding: 6px 14px;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  color: #4a5568;
+  border-radius: 8px;
+  background: #fff;
   font-size: 13px;
+  color: #475569;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+.btn-filter:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.btn-filter.active {
+  background: #6366f1;
+  color: #fff;
+  border-color: #6366f1;
 }
 
 .btn-filter:hover {
@@ -1651,25 +1786,45 @@ onUnmounted(() => {
 .status-indicator {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
 }
 
+.status-indicator::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
 .status-indicator.bound {
-  background-color: rgba(52, 211, 153, 0.1);
-  color: #34d399;
+  background-color: #dcfce7;
+  color: #166534;
 }
 
 .status-indicator.pending {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background-color: #fef3c7;
+  color: #92400e;
 }
 
 .status-indicator.lost {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-indicator.available {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-indicator.failed {
+  background-color: #fee2e2;
+  color: #991b1b;
 }
 
 .pvc-name {
@@ -2157,48 +2312,76 @@ onUnmounted(() => {
 .load-template-btn,
 .copy-yaml-btn,
 .reset-yaml-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  background: #e2e8f0;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  color: #fff;
 }
 
-.load-template-btn:hover,
-.copy-yaml-btn:hover,
+.load-template-btn {
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+}
+
+.copy-yaml-btn {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.reset-yaml-btn {
+  background: linear-gradient(135deg, #64748b, #475569);
+}
+
+.load-template-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.copy-yaml-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+}
+
 .reset-yaml-btn:hover {
-  background: #cbd5e0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
 }
 
 .yaml-editor {
   width: 100%;
   min-height: 400px;
-  padding: 16px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  padding: 20px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
-  border: 1px solid #cbd5e0;
-  border-radius: 8px;
-  background-color: #f7fafc;
-  color: #2d3748;
+  line-height: 1.6;
+  border: 2px solid #334155;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #e2e8f0;
   resize: vertical;
+  tab-size: 2;
+  transition: all 0.2s;
 }
 
 .yaml-editor:focus {
   outline: none;
-  border-color: #326ce5;
-  box-shadow: 0 0 0 3px rgba(50, 108, 229, 0.1);
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.yaml-editor::placeholder {
+  color: #94a3b8;
 }
 
 .yaml-error {
   margin-top: 12px;
-  padding: 12px;
-  background: #fff5f5;
-  border: 1px solid #feb2b2;
-  border-radius: 6px;
-  color: #c53030;
+  padding: 12px 16px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #dc2626;
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -2210,21 +2393,22 @@ onUnmounted(() => {
 }
 
 .yaml-editor-footer {
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 .yaml-tips {
-  padding: 12px;
-  background: #ebf8ff;
-  border-left: 4px solid #4299e1;
-  border-radius: 6px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 13px;
-  color: #2c5282;
+  color: #475569;
 }
 
 .yaml-tips strong {
   display: block;
   margin-bottom: 8px;
+  color: #1f2937;
 }
 
 .yaml-tips ul {
@@ -2234,6 +2418,7 @@ onUnmounted(() => {
 
 .yaml-tips li {
   margin-bottom: 4px;
+  line-height: 1.6;
 }
 
 /* ==========================
@@ -2786,4 +2971,240 @@ onUnmounted(() => {
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
+/* ==========================
+   视图切换（action-bar）
+   ========================== */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #edf2f7;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.btn-view {
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s;
+  color: #718096;
+}
+
+.btn-view:hover {
+  background: white;
+  color: #326ce5;
+}
+
+.btn-view.active {
+  background: white;
+  color: #326ce5;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+
+/* ==========================
+   操作按钮（文字+图标样式）
+   ========================== */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+  color: #2d3748;
+}
+
+.action-btn.primary {
+  background: #ebf8ff;
+  border-color: #90cdf4;
+  color: #2b6cb0;
+}
+
+.action-btn.primary:hover {
+  background: #bee3f8;
+  border-color: #63b3ed;
+}
+
+.action-btn.expand {
+  background: #f0fff4;
+  border-color: #9ae6b4;
+  color: #276749;
+}
+
+.action-btn.expand:hover {
+  background: #c6f6d5;
+  border-color: #68d391;
+}
+
+.action-btn.danger {
+  background: #fff5f5;
+  border-color: #feb2b2;
+  color: #c53030;
+}
+
+.action-btn.danger:hover {
+  background: #fed7d7;
+  border-color: #fc8181;
+}
+
+.action-btn.more-btn {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ==========================
+   PVC 卡片视图
+   ========================== */
+.cards-container {
+  padding: 16px 0;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 0 4px;
+}
+
+.pvc-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s, transform 0.2s;
+  overflow: hidden;
+}
+
+.pvc-card:hover {
+  box-shadow: 0 4px 16px rgba(50, 108, 229, 0.12);
+  transform: translateY(-2px);
+}
+
+.pvc-card .card-header {
+  padding: 14px 16px 12px;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pvc-card .card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pvc-card .card-name {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pvc-card .card-body {
+  padding: 14px 16px;
+}
+
+.card-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.info-label {
+  flex: 0 0 70px;
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.info-value {
+  color: #4a5568;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info-value.highlight {
+  font-weight: 600;
+  color: #326ce5;
+}
+
+.pvc-card .card-footer {
+  padding: 10px 16px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.card-action-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.card-action-btn.primary {
+  background: #ebf8ff;
+  border-color: #90cdf4;
+  color: #2b6cb0;
+}
+
+.card-action-btn.primary:hover {
+  background: #bee3f8;
+}
+
+.card-action-btn.danger {
+  background: #fff5f5;
+  border-color: #feb2b2;
+  color: #c53030;
+}
+
+.card-action-btn.danger:hover {
+  background: #fed7d7;
+}
+
+/* ======== Premium UI Overrides ======== */.resource-view {  max-width: 1400px;  margin: 0 auto;}.view-header {  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);  margin: -24px -24px 24px -24px;  padding: 32px 36px;  border-radius: 0;}.view-header h1 {  font-size: 24px;  font-weight: 700;  color: #f1f5f9;  margin: 0 0 8px 0;}.view-header p {  color: #94a3b8;  font-size: 14px;  margin: 0;}/* Stats bar */.stats-bar {  display: flex;  gap: 8px;  margin-bottom: 16px;  flex-wrap: wrap;}.stats-bar .stat-item {  background: #fff;  border: 1px solid #e2e8f0;  border-radius: 10px;  padding: 12px 20px;  flex: 1;  min-width: 100px;  text-align: center;}.stats-item .stat-value {  font-size: 24px;  font-weight: 700;  color: #1e293b;}.stats-item .stat-label {  font-size: 12px;  color: #64748b;  margin-top: 2px;}/* Action bar */.action-bar {  display: flex;  gap: 10px;  align-items: center;  flex-wrap: wrap;  margin-bottom: 16px;  padding: 12px 16px;  background: #f8fafc;  border: 1px solid #e2e8f0;  border-radius: 12px;}.action-bar .search-box input {  border: 1px solid #e2e8f0;  border-radius: 8px;  padding: 8px 14px;  font-size: 13px;  outline: none;  transition: border-color 0.15s;  width: 200px;}.action-bar .search-box input:focus {  border-color: #6366f1;  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);}.action-bar .filter-buttons {  display: flex;  gap: 4px;}.btn-filter {  padding: 6px 14px;  border: 1px solid #e2e8f0;  border-radius: 20px;  background: #fff;  font-size: 12px;  font-weight: 500;  color: #64748b;  cursor: pointer;  transition: all 0.15s;}.btn-filter:hover {  background: #f1f5f9;}.btn-filter.active {  background: #6366f1;  color: #fff;  border-color: #6366f1;  font-weight: 600;}/* Table */.resource-table {  width: 100%;  border-collapse: separate;  border-spacing: 0;  background: #fff;  border: 1px solid #e2e8f0;  border-radius: 12px;  overflow: hidden;}.resource-table thead th {  background: #f8fafc;  color: #475569;  font-size: 12px;  font-weight: 600;  text-transform: uppercase;  letter-spacing: 0.5px;  padding: 12px 16px;  border-bottom: 1px solid #e2e8f0;}.resource-table tbody tr {  transition: background 0.1s;}.resource-table tbody tr:hover {  background: #f1f5f9;}.resource-table tbody td {  padding: 12px 16px;  border-bottom: 1px solid #f1f5f9;  font-size: 13px;  color: #334155;}.row-selected {  background: #eff6ff !important;}/* Status badges */.status-badge {  display: inline-flex;  align-items: center;  gap: 5px;  padding: 4px 12px;  border-radius: 20px;  font-size: 12px;  font-weight: 600;}.status-badge.available { background: #dcfce7; color: #166534; }.status-badge.bound { background: #dbeafe; color: #1e40af; }.status-badge.released { background: #fef3c7; color: #92400e; }.status-badge.failed { background: #fee2e2; color: #991b1b; }.status-badge.pending { background: #fef3c7; color: #92400e; }.status-badge.lost { background: #fee2e2; color: #991b1b; }/* Buttons */.btn-primary {  padding: 8px 18px;  background: #6366f1;  color: #fff;  border: none;  border-radius: 8px;  font-size: 13px;  font-weight: 600;  cursor: pointer;  transition: background 0.15s;}.btn-primary:hover { background: #4f46e5; }.btn-secondary {  padding: 8px 18px;  background: #fff;  color: #475569;  border: 1px solid #e2e8f0;  border-radius: 8px;  font-size: 13px;  font-weight: 500;  cursor: pointer;}.btn-secondary:hover { background: #f1f5f9; }/* Pagination center */.pagination-wrapper {  display: flex;  justify-content: center;  margin-top: 20px;}/* Empty & Loading */.empty-state, .loading-indicator {  text-align: center;  padding: 60px 0;  color: #94a3b8;}.loading-spinner {  width: 40px;  height: 40px;  margin: 0 auto 16px;  border: 4px solid #e2e8f0;  border-top-color: #6366f1;  border-radius: 50%;  animation: spin 0.8s linear infinite;}@keyframes spin { to { transform: rotate(360deg); } }
 </style>

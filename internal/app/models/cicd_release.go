@@ -1,13 +1,14 @@
 package models
 
 const (
-	CicdReleaseStatusPending   = "Pending"
-	CicdReleaseStatusQueued    = "Queued"
-	CicdReleaseStatusRunning   = "Running"
-	CicdReleaseStatusSucceeded = "Succeeded"
-	CicdReleaseStatusFailed    = "Failed"
-	CicdReleaseStatusCanceled  = "Canceled"
-	CicdReleaseStatusRollback  = "Rollback" // 已回滚
+	CicdReleaseStatusPending          = "Pending"
+	CicdReleaseStatusAwaitingApproval = "AwaitingApproval" // 等待审批
+	CicdReleaseStatusQueued           = "Queued"
+	CicdReleaseStatusRunning          = "Running"
+	CicdReleaseStatusSucceeded        = "Succeeded"
+	CicdReleaseStatusFailed           = "Failed"
+	CicdReleaseStatusCanceled         = "Canceled"
+	CicdReleaseStatusRollback         = "Rollback" // 已回滚
 )
 
 // CicdRelease 对应表：cicd_release
@@ -34,6 +35,12 @@ type CicdRelease struct {
 	ImageTag    string  `gorm:"column:image_tag" json:"image_tag"`
 	ImageDigest *string `gorm:"column:image_digest" json:"image_digest"` // nullable
 
+	// ===== 镜像晋级链追踪（build once, promote everywhere）=====
+	PipelineID  int64  `gorm:"column:pipeline_id" json:"pipeline_id"`       // 关联流水线ID（晋级发布必填）
+	Env         string `gorm:"column:env;size:32" json:"env"`               // 目标环境(dev/test/staging/prod)
+	SourceEnv   string `gorm:"column:source_env;size:32" json:"source_env"` // 晋级来源环境（首次部署为空）
+	SourceRunID int64  `gorm:"column:source_run_id" json:"source_run_id"`   // 构建该镜像的流水线运行记录ID
+
 	CreatedAt  uint64 `gorm:"column:created_at" json:"created_at"`
 	ModifiedAt uint64 `gorm:"column:modified_at" json:"modified_at"`
 	DeletedAt  uint64 `gorm:"column:deleted_at" json:"deleted_at"`
@@ -41,3 +48,9 @@ type CicdRelease struct {
 }
 
 func (CicdRelease) TableName() string { return "cicd_release" }
+
+// CicdReleaseWithDeployMode 带部署模式的发布单（前端列表用）
+type CicdReleaseWithDeployMode struct {
+	CicdRelease
+	DeployMode string `json:"deploy_mode"`
+}

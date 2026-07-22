@@ -1,4 +1,4 @@
-﻿package job
+package job
 
 import (
 	"fmt"
@@ -160,11 +160,36 @@ func (c *KubeJobController) Detail(ctx *gin.Context) {
 		return
 	}
 
-	// 格式化输出（使用 BuildJobListResponse 中的同一逻辑）
+	// 格式化输出
 	detailData := job.BuildJobDetailResponse(jobObj)
+	status := "Running"
+	statusReason := ""
+	completions := int32(1)
+	if jobObj.Spec.Completions != nil {
+		completions = *jobObj.Spec.Completions
+	}
+	switch {
+	case jobObj.Status.Succeeded > 0 && jobObj.Status.Succeeded >= completions:
+		status = "Complete"
+	case jobObj.Status.Failed > 0:
+		status = "Failed"
+		if len(jobObj.Status.Conditions) > 0 {
+			statusReason = jobObj.Status.Conditions[0].Message
+		}
+	case jobObj.Status.Active > 0:
+		status = "Running"
+	default:
+		status = "Pending"
+	}
 
-	// 成功返回
-	r.Success(detailData)
+	// 成功返回 - 同时返回原始 K8s 对象和格式化数据
+	r.Success(gin.H{
+		"message":       "获取 Job 详情成功",
+		"status":        status,
+		"status_reason": statusReason,
+		"data":          jobObj,
+		"detail":        detailData,
+	})
 }
 
 // Delete godoc
@@ -327,6 +352,51 @@ func (c *KubeJobController) UpdateImage(ctx *gin.Context) {
 		"namespace": jobObj.Namespace,
 		"name":      jobObj.Name,
 		"message":   "更新镜像成功",
+	})
+}
+
+// Events godoc
+// @Summary 获取 Job 相关事件
+// @Tags K8s Job 管理
+// @Produce json
+// @Param namespace query string false "命名空间"
+// @Param name query string false "Job 名称"
+// @Param limit query int false "返回条数限制（默认50）"
+// @Param since_seconds query int false "最近N秒的事件"
+// @Success 200 {object} string "成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "内部错误"
+// @Router /api/v1/k8s/job/events [get]
+func (c *KubeJobController) Events(ctx *gin.Context) {
+	param := requests.NewKubeEventListRequest()
+	r := response.NewResponse(ctx)
+
+	if ok := valid.Validate(ctx, param, nil); !ok {
+		return
+	}
+	// 强制 Kind=Job
+	if param.Kind == "" {
+		param.Kind = "Job"
+	}
+	if param.Limit <= 0 {
+		param.Limit = 50
+	}
+	if param.SinceSeconds <= 0 {
+		param.SinceSeconds = 3600
+	}
+
+	cli := middlewares.MustGetK8sClients(ctx)
+	svc := services.NewServices()
+	events, next, err := svc.KubeEventList(ctx.Request.Context(), cli, param)
+	if err != nil {
+		ctx.Error(err)
+		global.Logger.Error("service.KubeEventList(Job) error", zap.Error(err))
+		return
+	}
+	r.Success(gin.H{
+		"events":  events,
+		"next":    next,
+		"message": "已获取到最新的事件记录",
 	})
 }
 

@@ -115,126 +115,110 @@ func SetupSetting() error {
 			}
 		}
 	}
-
-	// 读取 Security 配置
-	// 对应 config.yaml 中的：
-	// Security:
-	if err = s.ReadSection("Security", &global.SecuritySetting); err != nil {
-		// 安全配置可选，使用默认值
-		log.Println("[Security] 配置块未找到，使用默认安全配置")
-		global.SecuritySetting = &setting.SecuritySettingS{
-			KubeConfigEncryptKey:  "k8s-operation-default-secret-key",
-			PasswordBcryptCost:    10,
-			AutoEncryptLegacyData: false,
-		}
-	}
-
-	// 初始化全局加密服务
-	if global.SecuritySetting != nil && global.SecuritySetting.KubeConfigEncryptKey != "" {
-		utils.InitGlobalCrypto(global.SecuritySetting.KubeConfigEncryptKey)
-	} else {
-		log.Println("[Security] 警告: 加密密钥未配置，数据将不加密存储")
-	}
-
-	// 读取 PlatformSettings 配置（平台系统设置默认值）
-	// 对应 config.yaml 中的：
-	// PlatformSettings:
-	if err = s.ReadSection("PlatformSettings", &global.PlatformSetting); err != nil {
-		// PlatformSettings 可选，使用程序内默认值
-		log.Println("[PlatformSettings] 配置块未找到，使用内置默认值")
-		global.PlatformSetting = &setting.PlatformSettingsS{
-			Basic: setting.PlatformBasicSettings{
-				DefaultPage:    "/clusters",
-				DefaultCluster: "auto",
-				Language:       "zh-CN",
-				Timezone:       "Asia/Shanghai",
-			},
-			Security: setting.PlatformSecuritySettings{
-				SessionTimeout: 120,
-				Enable2FA:      false,
-				PasswordPolicy: "medium",
-				AuditRetention: 30,
-			},
-			Alert: setting.PlatformAlertSettings{
-				CPUThreshold:  80,
-				MemThreshold:  80,
-				DiskThreshold: 85,
-				AlertSilence:  15,
-			},
-			Notification: setting.PlatformNotificationSettings{
-				EnableEmail:    false,
-				EnableDingTalk: false,
-				EnableWebhook:  false,
-			},
-			About: setting.PlatformAboutSettings{
-				Version:    "2.0.0",
-				BuildDate:  "2026-03-04",
-				GoVersion:  "1.21",
-				VueVersion: "3.5.13",
-				DBType:     "MySQL 8.0",
-				K8sSupport: "v1.25+",
-			},
-		}
-	} else {
-		// PlatformSettings 加载成功，静默不打印
-	}
-
-	// 读取 AI 助手配置
-	// 对应 config.yaml 中的：
-	// Monitoring:
-	if err = s.ReadSection("Monitoring", &global.MonitoringSetting); err != nil {
-		log.Println("[Monitoring] 配置块未找到，监控功能将不可用")
-		global.MonitoringSetting = &setting.MonitoringSettingS{Enabled: false}
-	} else if global.MonitoringSetting != nil {
-		if global.MonitoringSetting.PrometheusURL == "" {
-			global.MonitoringSetting.Enabled = false
-			log.Println("[Monitoring] PrometheusURL 未配置，监控功能将不可用")
-		} else {
-			log.Printf("[Monitoring] 配置加载成功: enabled=%v, url=%s, timeout=%ds\n",
-				global.MonitoringSetting.Enabled,
-				global.MonitoringSetting.PrometheusURL,
-				global.MonitoringSetting.QueryTimeout)
-		}
-	}
-
-	// 读取 AI 助手配置
-	// 对应 config.yaml 中的：
-	// AIAssistant:
-	if err = s.ReadSection("AIAssistant", &global.AISetting); err != nil {
-		log.Println("[AIAssistant] 配置块未找到，AI 助手功能将不可用")
-		global.AISetting = &setting.AIAssistantSettingS{Enabled: false}
-	} else if global.AISetting != nil && global.AISetting.Enabled {
-		// 初始化多模型Provider注册中心
-		global.AIRegistry = openai.NewRegistry(global.AISetting)
-		providers := global.AIRegistry.ListProviders()
-		if len(providers) == 0 {
-			log.Println("[AIAssistant] 警告: 无有效的 AI 提供商配置（检查 APIKey），AI 助手功能将不可用")
-			global.AISetting.Enabled = false
-		} else {
-			var modelCount int
-			for _, p := range providers {
-				modelCount += len(p.Models)
+		// 读取 GitOps 配置（ArgoCD + Argo Workflows）
+		// 对应 config.yaml 中的：
+		// GitOps:
+		if err = s.ReadSection("GitOps", &global.GitOpsSetting); err != nil {
+			// GitOps 配置可选，不存在时不报错
+			log.Println("[GitOps] 配置块未找到，GitOps 模式将不可用")
+			global.GitOpsSetting = nil
+		} else if global.GitOpsSetting != nil {
+			if global.GitOpsSetting.ArgoCDURL == "" {
+				log.Println("[GitOps] ArgoCD URL 未配置，GitOps 模式将不可用")
+				global.GitOpsSetting = nil
+			} else {
+				log.Printf("[GitOps] 配置加载成功: argocd=%s, workflows=%s\n",
+					global.GitOpsSetting.ArgoCDURL,
+					global.GitOpsSetting.ArgoWorkflowsURL)
 			}
-			log.Printf("[AIAssistant] AI 助手已启用: %d 个提供商, %d 个模型, 默认: %s/%s\n",
-				len(providers), modelCount,
-				global.AIRegistry.GetDefaultProviderID(),
-				global.AIRegistry.GetDefaultModelID())
+		}
+
+		// 读取 Security 配置
+		// 对应 config.yaml 中的：
+		// Security:
+		if err = s.ReadSection("Security", &global.SecuritySetting); err != nil {
+			// 安全配置可选，使用默认值
+			log.Println("[Security] 配置块未找到，使用默认安全配置")
+			global.SecuritySetting = &setting.SecuritySettingS{
+				KubeConfigEncryptKey:  "k8s-operation-default-secret-key",
+				PasswordBcryptCost:    10,
+				AutoEncryptLegacyData: false,
+			}
+		}
+
+		// 初始化全局加密服务
+		if global.SecuritySetting != nil && global.SecuritySetting.KubeConfigEncryptKey != "" {
+			utils.InitGlobalCrypto(global.SecuritySetting.KubeConfigEncryptKey)
+		} else {
+			log.Println("[Security] 警告: 加密密钥未配置，数据将不加密存储")
+		}
+
+		// 读取 PlatformSettings 配置（平台系统设置默认值）
+		// 对应 config.yaml 中的：
+		// PlatformSettings:
+		if err = s.ReadSection("PlatformSettings", &global.PlatformSetting); err != nil {
+			// PlatformSettings 可选，使用程序内默认值
+			log.Println("[PlatformSettings] 配置块未找到，使用内置默认值")
+		}
+
+		// 读取 Monitoring 配置
+		// 对应 config.yaml 中的：
+		// Monitoring:
+		if err = s.ReadSection("Monitoring", &global.MonitoringSetting); err != nil {
+			// Monitoring 可选
+			log.Println("[Monitoring] 配置块未找到")
+			global.MonitoringSetting = nil
+		}
+
+		// 读取 AI 助手配置
+		// 对应 config.yaml 中的：
+		// AIAssistant:
+		if err = s.ReadSection("AIAssistant", &global.AISetting); err != nil {
+			log.Println("[AIAssistant] 配置块未找到")
+			global.AISetting = nil
+		}
+		if global.AISetting != nil && global.AISetting.Enabled {
+			global.AIRegistry = openai.NewRegistry(global.AISetting)
+			log.Println("[AIAssistant] AI 多模型注册中心初始化完成")
+		}
+
+		// 读取 LDAP 配置
+		// 对应 config.yaml 中的：
+		// LDAP:
+		if err = s.ReadSection("LDAP", &global.LDAPSetting); err != nil {
+			// LDAP 可选
+			log.Println("[LDAP] 配置块未找到")
+			global.LDAPSetting = nil
+	// 读取 LogControl 配置
+	if err = s.ReadSection("LogControl", &global.LogControlSetting); err != nil || global.LogControlSetting == nil {
+		log.Println("[LogControl] 配置块未找到，使用默认值（全部抑制）")
+		global.LogControlSetting = &setting.LogControlS{
+			SuppressPrometheusQueryWarn: true,
+			SuppressK8sClusterInitWarn:  true,
+			SuppressK8sClusterInitError: true,
 		}
 	}
-	// 将 ErrorCode 配置注入 errorcode 包
-	// - AllowOverride=true：开发环境，允许错误码覆盖
-	// - AllowOverride=false：生产环境，发现重复直接 panic
-	if global.ErrorCodeSetting != nil {
-		errorcode.SetAllowOverride(global.ErrorCodeSetting.AllowOverride)
-	} else {
-		log.Println("[ErrorCode] 配置未加载，使用默认值 (AllowOverride=true)")
-		errorcode.SetAllowOverride(true)
+	if global.LogControlSetting != nil {
+		log.Printf("[LogControl] SuppressPrometheusQuery=%v SuppressK8sInitWarn=%v SuppressK8sInitError=%v",
+			global.LogControlSetting.SuppressPrometheusQueryWarn,
+			global.LogControlSetting.SuppressK8sClusterInitWarn,
+			global.LogControlSetting.SuppressK8sClusterInitError)
 	}
 
-	// 注册所有错误码
-	// 一般在这里做启动期校验
-	errorcode.Register()
+	// 读取 Canary 配置
+	if err = s.ReadSection("Canary", &global.CanarySetting); err != nil || global.CanarySetting == nil {
+		log.Println("[Canary] 配置块未找到，使用默认值")
+		global.CanarySetting = &setting.CanarySettingS{
+			Enabled: true, DefaultReplicas: 1, DefaultTrafficRatio: 10,
+			DefaultDurationSec: 300, HealthCheckInterval: 30, MaxTrafficRatio: 50,
+		}
+	}
+		}
 
-	// 初始化成功
-	return nil
-}
+		// 注入错误码配置到 errorcode 包
+		if global.ErrorCodeSetting != nil && global.ErrorCodeSetting.AllowOverride {
+			errorcode.SetAllowOverride(true)
+		}
+
+		return nil
+	}

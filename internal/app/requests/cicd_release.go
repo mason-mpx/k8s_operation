@@ -19,6 +19,9 @@ func NewCicdReleaseCreateRequest() *CicdReleaseCreateRequest {
 }
 
 type CicdReleaseCreateRequest struct {
+	// 模板化发布：传入 pipeline_id 后自动继承流水线的部署配置，以下字段均可省略
+	PipelineID int64 `json:"pipeline_id"` // 可选：关联流水线ID，自动填充部署配置
+
 	AppName       string `json:"app_name" valid:"app_name"`
 	Namespace     string `json:"namespace" valid:"namespace"`
 	WorkloadKind  string `json:"workload_kind" valid:"workload_kind"`
@@ -35,10 +38,30 @@ type CicdReleaseCreateRequest struct {
 
 	ClusterIDs []int64 `json:"cluster_ids" valid:"cluster_ids"`
 
+	Message   string `json:"message"`   // 可选：发布说明/备注
 	RequestID string `json:"request_id"` // 可选，幂等校验用
+
+	// 镜像晋级链追踪（由 promote 服务填充，手动创建可不传）
+	Env         string `json:"env"`           // 目标环境(dev/test/staging/prod)
+	SourceEnv   string `json:"source_env"`   // 晋级来源环境
+	SourceRunID int64  `json:"source_run_id"` // 构建镜像的流水线运行ID
 }
 
 func ValidCicdReleaseCreateRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	req := data.(*CicdReleaseCreateRequest)
+
+	// 如果指定了 pipeline_id，则放宽校验（后端会从流水线继承配置）
+	if req.PipelineID > 0 {
+		// 仅要求 image_tag（最小化输入）
+		rules := govalidator.MapData{
+			"image_tag": []string{"required"},
+		}
+		messages := govalidator.MapData{
+			"image_tag": []string{"required: image_tag不能为空"},
+		}
+		return valid.ValidateOptions(data, rules, messages)
+	}
+
 	rules := govalidator.MapData{
 		"app_name":       []string{"required"},
 		"namespace":      []string{"required"},
@@ -165,6 +188,26 @@ func NewCicdReleaseBatchRollbackRequest() *CicdReleaseBatchRollbackRequest {
 }
 
 func ValidCicdReleaseBatchRollbackRequest(data interface{}, ctx *gin.Context) map[string][]string {
+	rules := govalidator.MapData{
+		"ids": []string{"required"},
+	}
+	messages := govalidator.MapData{
+		"ids": []string{"required: 发布单ID列表不能为空"},
+	}
+	return valid.ValidateOptions(data, rules, messages)
+}
+
+// ========== 批量取消 ==========
+
+type CicdReleaseBatchCancelRequest struct {
+	IDs []int64 `json:"ids" valid:"ids"`
+}
+
+func NewCicdReleaseBatchCancelRequest() *CicdReleaseBatchCancelRequest {
+	return &CicdReleaseBatchCancelRequest{}
+}
+
+func ValidCicdReleaseBatchCancelRequest(data interface{}, ctx *gin.Context) map[string][]string {
 	rules := govalidator.MapData{
 		"ids": []string{"required"},
 	}

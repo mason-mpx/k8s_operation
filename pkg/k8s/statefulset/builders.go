@@ -416,7 +416,7 @@ func BuildStatefulSetListResponse(statefulsets []appv1.StatefulSet) []StatefulSe
 		}
 
 		// 获取状态
-		status, reason := getStatefulSetStatus(&sts)
+		status, reason := GetStatefulSetStatus(&sts)
 
 		item := StatefulSetListItem{
 			Name:            sts.Name,
@@ -433,7 +433,7 @@ func BuildStatefulSetListResponse(statefulsets []appv1.StatefulSet) []StatefulSe
 			Selector:        selector,
 			UpdateStrategy:  string(sts.Spec.UpdateStrategy.Type),
 			ServiceName:     sts.Spec.ServiceName,
-			CreatedAt:       sts.CreationTimestamp.Format("2006-01-02 15:04:05"),
+			CreatedAt:       sts.CreationTimestamp.Time.Local().Format("2006-01-02 15:04:05"),
 			Conditions:      sts.Status.Conditions,
 		}
 
@@ -443,8 +443,8 @@ func BuildStatefulSetListResponse(statefulsets []appv1.StatefulSet) []StatefulSe
 	return result
 }
 
-// getStatefulSetStatus 根据 StatefulSet 的 status 判断状态
-func getStatefulSetStatus(sts *appv1.StatefulSet) (status, reason string) {
+// GetStatefulSetStatus 根据 StatefulSet 的 status 判断状态（实际就绪=期望才是Running）
+func GetStatefulSetStatus(sts *appv1.StatefulSet) (status, reason string) {
 	// 默认状态
 	status = "Unknown"
 	reason = ""
